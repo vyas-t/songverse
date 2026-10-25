@@ -110,6 +110,8 @@ export const DiscoveryView: React.FC = () => {
     });
   };
 
+
+  
   // Execute music API search
   const handleSearch = async (overrideTitle?: string, overrideArtist?: string) => {
     const title = (overrideTitle !== undefined ? overrideTitle : searchTitle).trim();
@@ -117,33 +119,105 @@ export const DiscoveryView: React.FC = () => {
 
     if (!title && !artist) {
       setSearchError('Please enter a song title or artist to search.');
+      setHasSearched(true);
+      setSearchResults([]);
       return;
     }
 
     setSearchLoading(true);
     setSearchError(null);
     setHasSearched(true);
+    setSearchResults([]);
+
+    const term = [title, artist].filter(Boolean).join(' ');
 
     try {
-      const params = new URLSearchParams();
-      if (title) params.set('title', title);
-      if (artist) params.set('artist', artist);
-      params.set('limit', '18');
+      let results: MusicSearchResultItem[] = [];
 
-      const res = await fetch(`/api/music/search?${params.toString()}`);
-      if (!res.ok) {
-        throw new Error(`Search API returned HTTP ${res.status}`);
+      // First try Apple's public search API directly from the browser.
+      try {
+        const appleUrl = new URL('https://itunes.apple.com/search');
+        appleUrl.searchParams.set('term', term);
+        appleUrl.searchParams.set('entity', 'song');
+        appleUrl.searchParams.set('limit', '18');
+
+        const appleResponse = await fetch(appleUrl.toString());
+
+        if (appleResponse.ok) {
+          const appleData = await appleResponse.json();
+
+          results = (Array.isArray(appleData.results) ? appleData.results : [])
+            .filter((item: any) => item.trackId && item.trackName)
+            .map((item: any): MusicSearchResultItem => {
+              const preview = typeof item.previewUrl === 'string'
+                ? item.previewUrl
+                : undefined;
+
+              return {
+                id: `itunes_${item.trackId}`,
+                providerTrackId: String(item.trackId),
+                title: item.trackName || 'Unknown Title',
+                artist: item.artistName || 'Unknown Artist',
+                album: item.collectionName || 'Single',
+                releaseYear: item.releaseDate
+                  ? Number.parseInt(String(item.releaseDate).slice(0, 4), 10) || 2024
+                  : 2024,
+                country: item.country || 'Global',
+                genre: item.primaryGenreName || 'Pop',
+                language: 'English',
+                artworkUrl: item.artworkUrl100,
+                audioUrl: preview,
+                hasAuthorizedAudio: Boolean(preview),
+                playbackStatus: preview ? 'verified_audio' : 'metadata_only',
+                audioAvailability: preview ? 'available' : 'restricted',
+                licenceType: preview
+                  ? 'Apple iTunes Promotional Preview'
+                  : 'Metadata Only',
+                licenceReference: `ITUNES-${item.trackId}`,
+                attributionText: 'Artwork and promotional preview courtesy of Apple iTunes Search API.',
+                source: 'apple-itunes',
+              };
+            });
+        }
+      } catch (browserSearchError) {
+        console.warn('Direct Apple search failed; trying SongVerse API.', browserSearchError);
       }
-      const data = await res.json();
-      setSearchResults(data.results || []);
-    } catch (err: unknown) {
-      console.error('Search error:', err);
-      setSearchError((err as Error).message || 'Failed to search music catalogue API.');
-      setSearchResults([]);
+
+      // Fall back to the existing Cloudflare endpoint if direct search fails or is empty.
+      if (results.length === 0) {
+        const params = new URLSearchParams();
+        params.set('title', title);
+        if (artist) params.set('artist', artist);
+        params.set('limit', '18');
+
+        const response = await fetch(`/api/music/search?${params.toString()}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Search API returned HTTP ${response.status}`);
+        }
+
+        results = Array.isArray(data.results) ? data.results : [];
+      }
+
+      setSearchResults(results);
+
+      if (results.length === 0) {
+        setSearchError('No songs were found. Try another title or artist.');
+      }
+    } catch (error: unknown) {
+      console.error('Search error:', error);
+      setSearchError(
+        error instanceof Error
+          ? error.message
+          : 'Music search failed. Please try again.'
+      );
     } finally {
       setSearchLoading(false);
     }
   };
+
+  
 
   // Add search result to catalogue
   const handleAddResultToCatalogue = (item: MusicSearchResultItem) => {
