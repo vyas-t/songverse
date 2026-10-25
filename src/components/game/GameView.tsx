@@ -60,10 +60,20 @@ export const GameView: React.FC<GameViewProps> = ({
     }
   }, [mode, categoryFilter, selectedLanguages]);
 
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      audioEngine.stop();
+    };
+  }, []);
+
   const targetTrack = currentRound ? gameEngine.getCurrentTargetTrack(currentRound) : undefined;
 
   const handleSubmitGuess = () => {
     if (!selectedTrack || !currentRound || currentRound.status !== 'playing') return;
+
+    // Immediately stop any clip playback so only one audio source is active
+    audioEngine.stop();
 
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -97,6 +107,9 @@ export const GameView: React.FC<GameViewProps> = ({
   const handleSkipLevel = () => {
     if (!currentRound || currentRound.status !== 'playing') return;
 
+    // Stop active audio before advancing to next level
+    audioEngine.stop();
+
     setIsSubmitting(true);
     setErrorMessage(null);
 
@@ -119,6 +132,9 @@ export const GameView: React.FC<GameViewProps> = ({
 
   const handleSkipRound = () => {
     if (!currentRound || currentRound.status !== 'playing') return;
+
+    // Stop active audio before round skip
+    audioEngine.stop();
 
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -247,15 +263,15 @@ export const GameView: React.FC<GameViewProps> = ({
             const isCurrent = lvl === currentRound.currentLevel && !isRoundOver;
             const guessAtThisLevel = currentRound.guesses.find(g => g.level === lvl);
 
-            let badgeBg = 'bg-slate-100 text-slate-400 border-slate-200';
+            let badgeBg = 'bg-slate-100 dark:bg-sv-navy/60 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-sv-burgundy';
             if (isCurrent) {
-              badgeBg = 'bg-indigo-600 text-white border-indigo-600 shadow-sm';
+              badgeBg = 'bg-sv-red text-white border-sv-red shadow-sm';
             } else if (guessAtThisLevel?.isCorrect) {
               badgeBg = 'bg-emerald-500 text-white border-emerald-500';
             } else if (guessAtThisLevel && !guessAtThisLevel.isCorrect) {
-              badgeBg = 'bg-rose-100 text-rose-700 border-rose-200';
+              badgeBg = 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900';
             } else if (isCompleted) {
-              badgeBg = 'bg-slate-200 text-slate-600 border-slate-300';
+              badgeBg = 'bg-slate-200 dark:bg-sv-burgundy text-slate-600 dark:text-slate-300 border-slate-300 dark:border-sv-burgundy';
             }
 
             return (
@@ -273,21 +289,21 @@ export const GameView: React.FC<GameViewProps> = ({
         {/* Score & Potential Points */}
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400">
               Total Score
             </div>
-            <div className="text-lg font-bold text-slate-900 tabular-nums">
+            <div className="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
               {session.totalScore} pts
             </div>
           </div>
 
-          <div className="h-8 w-px bg-slate-200" />
+          <div className="h-8 w-px bg-slate-200 dark:bg-sv-burgundy" />
 
           <div className="text-right">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400">
               Reward
             </div>
-            <div className="text-sm font-bold text-indigo-600 tabular-nums">
+            <div className="text-sm font-bold text-sv-red dark:text-sv-gold tabular-nums">
               +{isRoundOver ? currentRound.pointsAwarded : currentLevelConfig.points} pts
             </div>
           </div>
@@ -299,7 +315,7 @@ export const GameView: React.FC<GameViewProps> = ({
                 audioEngine.stop();
                 onChangeLanguages();
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all cursor-pointer focus:outline-none ml-2"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-sv-red dark:text-sv-warm-orange bg-sv-red/10 dark:bg-sv-burgundy hover:bg-sv-red/20 border border-sv-red/20 dark:border-sv-burgundy rounded-xl transition-all cursor-pointer focus:outline-none ml-2"
               title="Change active languages"
             >
               <span>🌍 Languages</span>
@@ -320,19 +336,19 @@ export const GameView: React.FC<GameViewProps> = ({
 
       {/* Answer Submission or Result Section */}
       {!isRoundOver ? (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-xs">
+        <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 sm:p-8 shadow-xs">
           
           <div className="mb-4">
-            <h2 className="text-base font-bold text-slate-900">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
               Who is playing this track?
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Type the song title or artist to search the authorized music catalogue, then submit your guess.
             </p>
           </div>
 
           {errorMessage && (
-            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+            <div className="mb-4 p-3 bg-rose-50 dark:bg-sv-burgundy/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
@@ -352,10 +368,10 @@ export const GameView: React.FC<GameViewProps> = ({
                   type="button"
                   onClick={handleSkipLevel}
                   disabled={isSubmitting}
-                  className="flex-1 sm:flex-none px-3.5 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 sm:flex-none px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-sv-navy/70 dark:hover:bg-sv-burgundy border border-transparent dark:border-sv-burgundy/50 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                   title="Unlock next level with more audio while reducing available points"
                 >
-                  <FastForward className="w-3.5 h-3.5 text-indigo-600" />
+                  <FastForward className="w-3.5 h-3.5 text-sv-red dark:text-sv-warm-orange" />
                   <span>
                     {currentRound.currentLevel === 1 && 'Skip Level 1 (Deduct: 100 → 70 pts)'}
                     {currentRound.currentLevel === 2 && 'Skip Level 2 (Deduct: 70 → 40 pts)'}
@@ -368,7 +384,7 @@ export const GameView: React.FC<GameViewProps> = ({
                   type="button"
                   onClick={handleSkipRound}
                   disabled={isSubmitting}
-                  className="px-3 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
+                  className="px-3 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-sv-burgundy/40 border border-rose-200 dark:border-rose-900/60 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
                   title="Skip entire round (0 points awarded for this round)"
                 >
                   <span>Skip Round</span>
@@ -381,8 +397,8 @@ export const GameView: React.FC<GameViewProps> = ({
                 disabled={!selectedTrack || isSubmitting}
                 className={`w-full sm:w-auto px-6 py-2.5 text-xs font-semibold text-white rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 ${
                   selectedTrack && !isSubmitting
-                    ? 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 cursor-pointer shadow-indigo-200'
-                    : 'bg-slate-300 cursor-not-allowed'
+                    ? 'bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy cursor-pointer shadow-sv-red/25'
+                    : 'bg-slate-300 dark:bg-sv-burgundy/50 dark:text-slate-500 cursor-not-allowed'
                 }`}
               >
                 <span>Submit Guess</span>

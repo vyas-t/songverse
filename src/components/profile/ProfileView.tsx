@@ -166,12 +166,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
       )}
 
       {/* Profile Card Header */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs">
+      <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-3xl p-6 sm:p-8 shadow-xs">
         
         <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
           
           <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-violet-600 flex items-center justify-center text-white text-2xl font-bold shadow-md shadow-indigo-100">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-sv-red via-sv-red-orange to-sv-gold flex items-center justify-center text-white text-2xl font-bold shadow-md shadow-sv-red/10">
               {profile.displayName.charAt(0)}
             </div>
 
@@ -182,24 +182,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                     type="text"
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
-                    className="px-3 py-1.5 text-sm font-bold text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600"
+                    className="px-3 py-1.5 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-sv-navy border border-slate-300 dark:border-sv-burgundy rounded-lg focus:outline-none focus:border-sv-red"
                     autoFocus
                   />
                   <button
                     type="submit"
-                    className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    className="p-1.5 bg-sv-red text-white rounded-lg hover:bg-sv-crimson"
                   >
                     <Check className="w-4 h-4" />
                   </button>
                 </form>
               ) : (
                 <div className="flex items-center gap-2.5">
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
                     {profile.displayName}
                   </h1>
                   <button
                     onClick={() => setIsEditingName(true)}
-                    className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                    className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 cursor-pointer"
                     title="Edit Name"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -207,22 +207,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                 </div>
               )}
 
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Player ID: <span className="font-mono">{profile.id}</span> ·{' '}
-                <span className={profile.isGuest ? 'text-amber-700 font-medium' : 'text-emerald-700 font-medium'}>
+                <span className={profile.isGuest ? 'text-amber-700 dark:text-sv-gold font-medium' : 'text-emerald-700 dark:text-emerald-400 font-medium'}>
                   {profile.isGuest ? 'Guest Account' : `Verified ${profile.authProvider === 'apple' ? 'Apple' : 'Google'} Account`}
                 </span>
                 {profile.email && ` (${profile.email})`}
               </p>
 
               <div className="flex items-center gap-2 pt-1">
-                <div className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-medium">
+                <div className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded font-medium">
                   {profile.isGuest ? 'Local Sandbox Protected' : 'Server Account Synced'}
                 </div>
                 {!profile.isGuest && (
                   <button
                     onClick={handleSignOut}
-                    className="text-[11px] text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded border border-slate-200 hover:bg-slate-50"
+                    className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded border border-slate-200 dark:border-sv-burgundy hover:bg-slate-50 dark:hover:bg-sv-navy"
                   >
                     <LogOut className="w-3 h-3" />
                     <span>Sign Out</span>
@@ -235,10 +235,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
           {/* Quick Streak Badge */}
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-400">
                 Active Streak
               </div>
-              <div className="text-xl font-bold text-slate-900 font-mono">
+              <div className="text-xl font-bold text-slate-900 dark:text-white font-mono">
                 🔥 {profile.currentStreak}
               </div>
             </div>
@@ -247,40 +247,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
         </div>
 
         {/* 4-Column Metric Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-100">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-100 dark:border-sv-burgundy">
           
-          <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-center">
-            <div className="text-xs font-semibold text-slate-500 mb-1">
+          <div className="bg-slate-50/70 dark:bg-sv-navy/70 p-4 rounded-xl border border-slate-100 dark:border-sv-burgundy text-center">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
               Games Played
             </div>
-            <div className="text-xl font-bold text-slate-900 font-mono tabular-nums">
+            <div className="text-xl font-bold text-slate-900 dark:text-white font-mono tabular-nums">
               {profile.gamesPlayed}
             </div>
           </div>
 
-          <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-center">
-            <div className="text-xs font-semibold text-slate-500 mb-1">
+          <div className="bg-slate-50/70 dark:bg-sv-navy/70 p-4 rounded-xl border border-slate-100 dark:border-sv-burgundy text-center">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
               Accuracy
             </div>
-            <div className="text-xl font-bold text-slate-900 font-mono tabular-nums">
+            <div className="text-xl font-bold text-slate-900 dark:text-white font-mono tabular-nums">
               {profile.accuracy}%
             </div>
           </div>
 
-          <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-center">
-            <div className="text-xs font-semibold text-slate-500 mb-1">
+          <div className="bg-slate-50/70 dark:bg-sv-navy/70 p-4 rounded-xl border border-slate-100 dark:border-sv-burgundy text-center">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
               Best Score
             </div>
-            <div className="text-xl font-bold text-indigo-600 font-mono tabular-nums">
+            <div className="text-xl font-bold text-sv-red dark:text-sv-gold font-mono tabular-nums">
               {profile.bestScore}
             </div>
           </div>
 
-          <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-center">
-            <div className="text-xs font-semibold text-slate-500 mb-1">
+          <div className="bg-slate-50/70 dark:bg-sv-navy/70 p-4 rounded-xl border border-slate-100 dark:border-sv-burgundy text-center">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
               Best Streak
             </div>
-            <div className="text-xl font-bold text-amber-700 font-mono tabular-nums">
+            <div className="text-xl font-bold text-sv-warm-orange dark:text-sv-amber font-mono tabular-nums">
               {profile.bestStreak}
             </div>
           </div>
@@ -290,14 +290,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
       </div>
 
       {/* Language Preferences Section */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-3">
+      <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Globe className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Globe className="w-4 h-4 text-sv-red dark:text-sv-gold" />
               <span>Preferred Song Languages</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Select languages you enjoy. We tailor category rounds and discovery suggestions to match.
             </p>
           </div>
@@ -312,8 +312,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                 onClick={() => handleToggleLanguage(lang)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   isSelected
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-sv-red text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-sv-navy text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-sv-burgundy'
                 }`}
               >
                 {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -329,28 +329,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
       {/* Recent Matches Log */}
       {completedGames.length > 0 && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-          <h3 className="text-base font-bold text-slate-900">
+        <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 shadow-xs space-y-4">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">
             Recent Match History
           </h3>
 
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-sv-burgundy/40">
             {completedGames.slice(0, 5).map((game) => (
               <div key={game.sessionId} className="py-3 flex items-center justify-between text-xs">
                 <div>
-                  <div className="font-semibold text-slate-900 capitalize">
+                  <div className="font-semibold text-slate-900 dark:text-white capitalize">
                     {game.mode} Mode
                   </div>
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] text-slate-400 dark:text-slate-400">
                     {new Date(game.startedAt).toLocaleDateString()} · {game.rounds.length} rounds
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <div className="font-bold text-indigo-600 font-mono text-sm tabular-nums">
+                  <div className="font-bold text-sv-red dark:text-sv-gold font-mono text-sm tabular-nums">
                     {game.totalScore} pts
                   </div>
-                  <div className="text-[11px] text-slate-500">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     {game.rounds.filter(r => r.status === 'won').length} / {game.rounds.length} won
                   </div>
                 </div>

@@ -24,6 +24,7 @@ import { Track } from '../../types';
 import { musicCatalogue } from '../../services/musicCatalogue';
 import { audioEngine, AUDIO_PROVIDER_ADAPTERS } from '../../services/audioEngine';
 import { GlobalCataloguePipeline } from './GlobalCataloguePipeline';
+import { LiveMusicAutocomplete, AutocompleteTrackResult } from '../common/LiveMusicAutocomplete';
 
 interface MusicSearchResultItem {
   id: string;
@@ -83,15 +84,28 @@ export const DiscoveryView: React.FC = () => {
   const playableSavedTracks = musicCatalogue.getPlayableTracks();
   const metadataOnlySavedTracks = musicCatalogue.getMetadataOnlyTracks();
 
+  const normalizeSafe = (str: string) => {
+    try {
+      return (str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s]/g, '');
+    } catch {
+      return (str || '').toLowerCase().trim();
+    }
+  };
+
   // Helper to check if a search result is already in the catalogue
   const isTrackInCatalogue = (item: MusicSearchResultItem): boolean => {
     if (addedTrackIds.has(item.id)) return true;
-    const normTitle = (item.title || '').toLowerCase().trim().replace(/[^\w\s]/g, '');
-    const normArtist = (item.artist || '').toLowerCase().trim().replace(/[^\w\s]/g, '');
+    const normTitle = normalizeSafe(item.title);
+    const normArtist = normalizeSafe(item.artist);
     return allSavedTracks.some(t => {
       if (t.id === item.id || t.providerTrackId === item.providerTrackId) return true;
-      const tTitle = (t.title || '').toLowerCase().trim().replace(/[^\w\s]/g, '');
-      const tArtist = (t.artist || '').toLowerCase().trim().replace(/[^\w\s]/g, '');
+      const tTitle = normalizeSafe(t.title);
+      const tArtist = normalizeSafe(t.artist);
       return tTitle === normTitle && tArtist === normArtist;
     });
   };
@@ -112,9 +126,9 @@ export const DiscoveryView: React.FC = () => {
 
     try {
       const params = new URLSearchParams();
-      if (title) params.append('title', title);
-      if (artist) params.append('artist', artist);
-      params.append('limit', '18');
+      if (title) params.set('title', title);
+      if (artist) params.set('artist', artist);
+      params.set('limit', '18');
 
       const res = await fetch(`/api/music/search?${params.toString()}`);
       if (!res.ok) {
@@ -262,39 +276,39 @@ export const DiscoveryView: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-in fade-in">
       
       {/* Top Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-sv-burgundy pb-6">
         <div className="max-w-3xl space-y-2">
-          <div className="text-xs font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
+          <div className="text-xs font-bold text-sv-red dark:text-sv-warm-orange uppercase tracking-wider flex items-center gap-2">
             <span>Catalogue Manager & Music Search</span>
             <span aria-hidden="true">·</span>
             <span>Live APIs Connected</span>
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
             Song Search & Catalogue Management
           </h1>
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             Search songs across global music catalogues, inspect album artwork and verified playback availability, and add tracks to your SongVerse game playlist with one click.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-xs text-xs flex items-center gap-3">
+          <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-xl px-4 py-2 shadow-xs text-xs flex items-center gap-3">
             <div>
-              <span className="text-slate-500">Playable Songs: </span>
-              <strong className="text-emerald-700 font-mono text-sm">{playableSavedTracks.length}</strong>
+              <span className="text-slate-500 dark:text-slate-400">Playable Songs: </span>
+              <strong className="text-emerald-700 dark:text-emerald-400 font-mono text-sm">{playableSavedTracks.length}</strong>
             </div>
-            <div className="w-px h-4 bg-slate-200" />
+            <div className="w-px h-4 bg-slate-200 dark:bg-sv-burgundy" />
             <div>
-              <span className="text-slate-500">Total in Catalogue: </span>
-              <strong className="text-indigo-700 font-mono text-sm">{allSavedTracks.length}</strong>
+              <span className="text-slate-500 dark:text-slate-400">Total in Catalogue: </span>
+              <strong className="text-sv-red dark:text-sv-gold font-mono text-sm">{allSavedTracks.length}</strong>
             </div>
           </div>
 
           <button
             onClick={() => setShowGlobalPipeline(!showGlobalPipeline)}
-            className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+            className="px-3.5 py-2 bg-white dark:bg-sv-burgundy-deep hover:bg-slate-50 dark:hover:bg-sv-burgundy border border-slate-200 dark:border-sv-burgundy text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
           >
-            <Globe className="w-3.5 h-3.5 text-indigo-600" />
+            <Globe className="w-3.5 h-3.5 text-sv-red dark:text-sv-warm-orange" />
             <span>{showGlobalPipeline ? 'Hide Custom Audio' : 'Custom Audio URL'}</span>
           </button>
         </div>
@@ -306,13 +320,13 @@ export const DiscoveryView: React.FC = () => {
       )}
 
       {/* Primary Tab Switcher */}
-      <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
+      <div className="flex border-b border-slate-200 dark:border-sv-burgundy overflow-x-auto gap-2">
         <button
           onClick={() => setActiveTab('search')}
           className={`pb-3.5 px-4 text-sm font-bold flex items-center gap-2 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
             activeTab === 'search'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-sv-red text-sv-red dark:border-sv-warm-orange dark:text-sv-warm-orange'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <Search className="w-4 h-4" />
@@ -323,14 +337,14 @@ export const DiscoveryView: React.FC = () => {
           onClick={() => setActiveTab('catalogue')}
           className={`pb-3.5 px-4 text-sm font-bold flex items-center gap-2 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
             activeTab === 'catalogue'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-sv-red text-sv-red dark:border-sv-warm-orange dark:text-sv-warm-orange'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <Disc3 className="w-4 h-4" />
           <span>My Catalogue ({allSavedTracks.length})</span>
           {playableSavedTracks.length > 0 && (
-            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-mono font-semibold">
+            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full font-mono font-semibold border border-emerald-200 dark:border-emerald-800">
               {playableSavedTracks.length} Playable
             </span>
           )}
@@ -340,11 +354,11 @@ export const DiscoveryView: React.FC = () => {
           onClick={() => setActiveTab('compliance')}
           className={`pb-3.5 px-4 text-sm font-bold flex items-center gap-2 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
             activeTab === 'compliance'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-sv-red text-sv-red dark:border-sv-warm-orange dark:text-sv-warm-orange'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
-          <ShieldCheck className="w-4 h-4 text-purple-600" />
+          <ShieldCheck className="w-4 h-4 text-sv-warm-orange" />
           <span>Playback Providers & Licensing Audit</span>
         </button>
       </div>
@@ -355,15 +369,29 @@ export const DiscoveryView: React.FC = () => {
       {activeTab === 'search' && (
         <div className="space-y-6">
           {/* Search Inputs Card */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 shadow-xs space-y-5">
             <div className="space-y-1">
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Search className="w-4 h-4 text-indigo-600" />
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Search className="w-4 h-4 text-sv-red dark:text-sv-warm-orange" />
                 <span>Search Music API for Songs & Artists</span>
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Enter a song title, artist, or both. Searches authorized music APIs for matching tracks with real album artwork and preview playback.
               </p>
+            </div>
+
+            {/* Instant Live Autocomplete Suggestions Bar */}
+            <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-sv-burgundy">
+              <label className="block text-xs font-bold text-slate-900 dark:text-sv-gold tracking-wide">
+                Instant Live Autocomplete
+              </label>
+              <LiveMusicAutocomplete
+                onSelectTrack={(track: AutocompleteTrackResult) => {
+                  setSearchResults([track as any]);
+                  setHasSearched(true);
+                }}
+                placeholder="Type to see live suggestions (e.g. The Weeknd, Blinding Lights, Shape of You)..."
+              />
             </div>
 
             <form
@@ -375,7 +403,7 @@ export const DiscoveryView: React.FC = () => {
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                     Song Title
                   </label>
                   <input
@@ -383,12 +411,12 @@ export const DiscoveryView: React.FC = () => {
                     value={searchTitle}
                     onChange={(e) => setSearchTitle(e.target.value)}
                     placeholder="e.g. Blinding Lights, Flowers, Shape of You..."
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white text-slate-900 transition-all"
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-sv-navy/70 border border-slate-200 dark:border-sv-burgundy rounded-xl focus:outline-none focus:ring-2 focus:ring-sv-red/20 focus:border-sv-red dark:focus:border-[#F48C06] text-slate-900 dark:text-sv-gold placeholder:text-slate-400 dark:placeholder:text-[#F48C06]/60 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                     Artist Name
                   </label>
                   <input
@@ -396,14 +424,14 @@ export const DiscoveryView: React.FC = () => {
                     value={searchArtist}
                     onChange={(e) => setSearchArtist(e.target.value)}
                     placeholder="e.g. The Weeknd, Miley Cyrus, Ed Sheeran..."
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white text-slate-900 transition-all"
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-sv-navy/70 border border-slate-200 dark:border-sv-burgundy rounded-xl focus:outline-none focus:ring-2 focus:ring-sv-red/20 focus:border-sv-red dark:focus:border-[#F48C06] text-slate-900 dark:text-sv-gold placeholder:text-slate-400 dark:placeholder:text-[#F48C06]/60 transition-all"
                   />
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-slate-400">Popular queries:</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-400">Popular queries:</span>
                   {[
                     { title: 'Blinding Lights', artist: 'The Weeknd' },
                     { title: 'Flowers', artist: 'Miley Cyrus' },
@@ -420,7 +448,7 @@ export const DiscoveryView: React.FC = () => {
                         setSearchArtist(s.artist);
                         handleSearch(s.title, s.artist);
                       }}
-                      className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer transition-colors"
+                      className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 dark:bg-sv-navy/60 dark:hover:bg-sv-burgundy/60 text-slate-700 dark:text-slate-200 border border-transparent dark:border-sv-burgundy/40 rounded-lg cursor-pointer transition-colors"
                     >
                       {s.title}
                     </button>
@@ -430,7 +458,7 @@ export const DiscoveryView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={searchLoading}
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-all shrink-0"
+                  className="px-6 py-2.5 bg-sv-red hover:bg-sv-crimson disabled:bg-slate-300 dark:disabled:bg-sv-burgundy/40 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-all shrink-0"
                 >
                   {searchLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                   <span>{searchLoading ? 'Searching API...' : 'Search Catalogue'}</span>
@@ -441,41 +469,41 @@ export const DiscoveryView: React.FC = () => {
 
           {/* Loading State */}
           {searchLoading && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
-              <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-sm font-semibold text-slate-800">Searching music catalogue API...</p>
-              <p className="text-xs text-slate-400">Connecting to real music catalogue endpoints for recordings and artwork</p>
+            <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-2xl p-12 text-center space-y-3">
+              <div className="w-10 h-10 border-3 border-sv-red border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Searching music catalogue API...</p>
+              <p className="text-xs text-slate-400 dark:text-slate-400">Connecting to real music catalogue endpoints for recordings and artwork</p>
             </div>
           )}
 
           {/* Error Notice */}
           {searchError && !searchLoading && (
-            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center space-y-3">
-              <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
+            <div className="bg-rose-50 dark:bg-sv-burgundy/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl p-6 text-center space-y-3">
+              <AlertCircle className="w-8 h-8 text-rose-600 dark:text-rose-400 mx-auto" />
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-rose-900">Search Notice</h3>
-                <p className="text-xs text-rose-700">{searchError}</p>
+                <h3 className="text-sm font-bold text-rose-900 dark:text-rose-200">Search Notice</h3>
+                <p className="text-xs text-rose-700 dark:text-rose-300">{searchError}</p>
               </div>
             </div>
           )}
 
           {/* Empty Results Notice */}
           {!searchLoading && !searchError && hasSearched && searchResults.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-500 space-y-2">
-              <Disc3 className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-semibold text-slate-700">No tracks found matching your query</p>
-              <p className="text-xs text-slate-400">Check spelling or try a different song title or artist.</p>
+            <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-2xl p-12 text-center text-slate-500 dark:text-slate-400 space-y-2">
+              <Disc3 className="w-10 h-10 text-slate-300 dark:text-slate-500 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No tracks found matching your query</p>
+              <p className="text-xs text-slate-400 dark:text-slate-400">Check spelling or try a different song title or artist.</p>
             </div>
           )}
 
           {/* Search Results Grid */}
           {!searchLoading && searchResults.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
                 <div>
-                  Found <strong className="text-slate-800 font-mono">{searchResults.length}</strong> matching songs from music provider
+                  Found <strong className="text-slate-800 dark:text-slate-200 font-mono">{searchResults.length}</strong> matching songs from music provider
                 </div>
-                <div className="text-[11px] text-slate-400">
+                <div className="text-[11px] text-slate-400 dark:text-slate-400">
                   Click &quot;Add to Catalogue&quot; to include in your game playlist
                 </div>
               </div>
@@ -489,7 +517,7 @@ export const DiscoveryView: React.FC = () => {
                   return (
                     <div
                       key={item.id}
-                      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:border-indigo-300 transition-all flex flex-col justify-between space-y-4"
+                      className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-2xl p-5 shadow-xs hover:border-sv-red transition-all flex flex-col justify-between space-y-4"
                     >
                       <div className="space-y-3">
                         <div className="flex items-start justify-between gap-3">
@@ -509,13 +537,13 @@ export const DiscoveryView: React.FC = () => {
                             )}
 
                             <div className="truncate text-left">
-                              <h3 className="text-sm font-bold text-slate-900 truncate" title={item.title}>
+                              <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate" title={item.title}>
                                 {item.title}
                               </h3>
-                              <p className="text-xs font-semibold text-indigo-700 truncate" title={item.artist}>
+                              <p className="text-xs font-semibold text-sv-red dark:text-sv-warm-orange truncate" title={item.artist}>
                                 {item.artist}
                               </p>
-                              <p className="text-[11px] text-slate-500 truncate">
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                                 {item.album} ({item.releaseYear})
                               </p>
                             </div>
@@ -527,8 +555,8 @@ export const DiscoveryView: React.FC = () => {
                               onClick={() => handleAudition(item)}
                               className={`p-2 rounded-xl transition-all cursor-pointer shrink-0 shadow-xs ${
                                 isAuditioning
-                                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                                  : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                                  ? 'bg-sv-orange hover:bg-sv-red-orange text-white'
+                                  : 'bg-sv-red/10 hover:bg-sv-red/20 text-sv-red dark:bg-sv-burgundy dark:text-sv-warm-orange'
                               }`}
                               title={isAuditioning ? 'Stop' : 'Audition Audio Clip'}
                             >
@@ -540,7 +568,7 @@ export const DiscoveryView: React.FC = () => {
                             </button>
                           ) : (
                             <div
-                              className="p-2 rounded-xl bg-slate-100 text-slate-400 shrink-0 cursor-not-allowed"
+                              className="p-2 rounded-xl bg-slate-100 dark:bg-sv-navy/60 text-slate-400 dark:text-slate-500 shrink-0 cursor-not-allowed"
                               title="Metadata only — no audio attached"
                             >
                               <VolumeX className="w-4 h-4" />
@@ -550,32 +578,32 @@ export const DiscoveryView: React.FC = () => {
 
                         {/* Metadata Tags & Provider Badges */}
                         <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
-                          <span className="font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md">
+                          <span className="font-semibold text-sv-red dark:text-sv-warm-orange bg-sv-red/10 dark:bg-sv-burgundy/60 border border-sv-red/20 dark:border-sv-burgundy px-2 py-0.5 rounded-md">
                             {item.language}
                           </span>
-                          <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md font-medium">
+                          <span className="text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-sv-navy/60 px-2 py-0.5 rounded-md font-medium">
                             {item.genre}
                           </span>
-                          <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                          <span className="text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-sv-navy/60 px-2 py-0.5 rounded-md">
                             {item.country || 'Global'}
                           </span>
                         </div>
 
                         {/* Provider & Playback Status Distinction */}
-                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-[10px] space-y-1">
-                          <div className="flex items-center justify-between text-slate-600">
+                        <div className="bg-slate-50 dark:bg-sv-navy/60 border border-slate-100 dark:border-sv-burgundy/40 rounded-xl p-2.5 text-[10px] space-y-1">
+                          <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                             <span className="font-semibold">Provider: Apple iTunes API</span>
                             <span className="font-mono truncate max-w-[120px]">ID: {item.providerTrackId}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-500">Audio Playback:</span>
+                            <span className="text-slate-500 dark:text-slate-400">Audio Playback:</span>
                             {hasAudio ? (
-                              <span className="text-emerald-700 font-bold flex items-center gap-1">
-                                <Volume2 className="w-3 h-3 text-emerald-600" />
+                              <span className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                <Volume2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                 <span>Verified Audio (30s)</span>
                               </span>
                             ) : (
-                              <span className="text-slate-500 flex items-center gap-1">
+                              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
                                 <VolumeX className="w-3 h-3" />
                                 <span>Metadata Only</span>
                               </span>
@@ -585,14 +613,14 @@ export const DiscoveryView: React.FC = () => {
                       </div>
 
                       {/* 1-Click Add Button */}
-                      <div className="pt-2 border-t border-slate-100">
+                      <div className="pt-2 border-t border-slate-100 dark:border-sv-burgundy/50">
                         <button
                           onClick={() => handleAddResultToCatalogue(item)}
                           disabled={alreadySaved}
                           className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                             alreadySaved
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-                              : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white cursor-pointer shadow-xs'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 cursor-default'
+                              : 'bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy text-white cursor-pointer shadow-xs'
                           }`}
                         >
                           {alreadySaved ? (
@@ -623,26 +651,26 @@ export const DiscoveryView: React.FC = () => {
       {activeTab === 'catalogue' && (
         <div className="space-y-6">
           {/* Filter Bar */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4">
+          <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-5 shadow-xs space-y-4">
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-slate-400 dark:text-[#F48C06] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={catalogueSearch}
                 onChange={(e) => setCatalogueSearch(e.target.value)}
                 placeholder="Search saved songs by title, artist, or album..."
-                className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white text-slate-900"
+                className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-sv-navy/70 border border-slate-200 dark:border-sv-burgundy rounded-xl focus:outline-none focus:ring-2 focus:ring-sv-red/20 focus:border-sv-red dark:focus:border-[#F48C06] text-slate-900 dark:text-sv-gold placeholder:text-slate-400 dark:placeholder:text-[#F48C06]/60"
               />
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4 text-xs pt-1">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-700">Language:</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">Language:</span>
                   <select
                     value={selectedLanguage}
                     onChange={(e) => setSelectedLanguage(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 font-medium focus:outline-none focus:border-indigo-600"
+                    className="bg-slate-50 dark:bg-sv-navy/80 border border-slate-200 dark:border-sv-burgundy rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-sv-red dark:focus:border-[#F48C06]"
                   >
                     {languageOptions.map(l => (
                       <option key={l} value={l}>{l}</option>
@@ -651,11 +679,11 @@ export const DiscoveryView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-700">Audio Status:</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">Audio Status:</span>
                   <select
                     value={selectedPlaybackFilter}
                     onChange={(e) => setSelectedPlaybackFilter(e.target.value as any)}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 font-medium focus:outline-none focus:border-indigo-600"
+                    className="bg-slate-50 dark:bg-sv-navy/80 border border-slate-200 dark:border-sv-burgundy rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:border-sv-red dark:focus:border-[#F48C06]"
                   >
                     <option value="all">All Saved Tracks ({allSavedTracks.length})</option>
                     <option value="verified_audio">Playable in Trivia ({playableSavedTracks.length})</option>
@@ -671,7 +699,7 @@ export const DiscoveryView: React.FC = () => {
                       musicCatalogue.clearCatalogue();
                     }
                   }}
-                  className="text-xs text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1 cursor-pointer ml-auto"
+                  className="text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 font-medium flex items-center gap-1 cursor-pointer ml-auto"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Clear Entire Catalogue</span>
@@ -682,21 +710,21 @@ export const DiscoveryView: React.FC = () => {
 
           {/* Empty Catalogue State */}
           {allSavedTracks.length === 0 && (
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-12 text-center max-w-lg mx-auto space-y-4 shadow-xs">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-xs">
+            <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-12 text-center max-w-lg mx-auto space-y-4 shadow-xs">
+              <div className="w-16 h-16 rounded-2xl bg-sv-red/10 dark:bg-sv-burgundy border border-sv-red/20 dark:border-sv-burgundy text-sv-red dark:text-sv-warm-orange flex items-center justify-center mx-auto shadow-xs">
                 <Music className="w-8 h-8" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-xl font-extrabold text-slate-900">
+                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
                   Your playlist is waiting 🎵
                 </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                   Your SongVerse catalogue is currently empty. Use the Automatic Song Search tab to discover tracks from supported music providers and add them to your game playlist with one click.
                 </p>
               </div>
               <button
                 onClick={() => setActiveTab('search')}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+                className="px-5 py-2.5 bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
               >
                 <Search className="w-4 h-4" />
                 <span>Search & Add Songs</span>
@@ -706,17 +734,17 @@ export const DiscoveryView: React.FC = () => {
 
           {/* Filter Returned Zero State */}
           {allSavedTracks.length > 0 && filteredCatalogueTracks.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500 max-w-md mx-auto space-y-3">
-              <Disc3 className="w-8 h-8 text-slate-400 mx-auto" />
-              <p className="text-sm font-semibold text-slate-700">No tracks match your current filter</p>
-              <p className="text-xs text-slate-400">Try changing language or audio status filters.</p>
+            <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-2xl p-10 text-center text-slate-500 dark:text-slate-400 max-w-md mx-auto space-y-3">
+              <Disc3 className="w-8 h-8 text-slate-400 dark:text-slate-500 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No tracks match your current filter</p>
+              <p className="text-xs text-slate-400 dark:text-slate-400">Try changing language or audio status filters.</p>
               <button
                 onClick={() => {
                   setCatalogueSearch('');
                   setSelectedLanguage('All');
                   setSelectedPlaybackFilter('all');
                 }}
-                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium cursor-pointer"
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-sv-navy/70 dark:hover:bg-sv-burgundy text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium cursor-pointer"
               >
                 Reset Filters
               </button>
@@ -733,7 +761,7 @@ export const DiscoveryView: React.FC = () => {
                 return (
                   <div
                     key={track.id}
-                    className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-4"
+                    className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-5 shadow-xs hover:border-slate-300 dark:hover:border-sv-burgundy/80 transition-all flex flex-col justify-between space-y-4"
                   >
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-3">
@@ -742,7 +770,7 @@ export const DiscoveryView: React.FC = () => {
                             <img
                               src={track.artworkUrl}
                               alt={track.album}
-                              className="w-14 h-14 rounded-xl object-cover shadow-xs shrink-0 border border-slate-100"
+                              className="w-14 h-14 rounded-xl object-cover shadow-xs shrink-0 border border-slate-100 dark:border-sv-burgundy"
                               loading="lazy"
                             />
                           ) : (
@@ -754,10 +782,10 @@ export const DiscoveryView: React.FC = () => {
                           )}
 
                           <div className="truncate text-left">
-                            <h3 className="text-sm font-bold text-slate-900 truncate" title={track.title}>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate" title={track.title}>
                               {track.title}
                             </h3>
-                            <p className="text-xs font-semibold text-slate-700 truncate" title={track.artist}>
+                            <p className="text-xs font-semibold text-sv-red dark:text-sv-warm-orange truncate" title={track.artist}>
                               {track.artist}
                             </p>
                             <p className="text-[11px] text-slate-400 truncate">
@@ -772,8 +800,8 @@ export const DiscoveryView: React.FC = () => {
                             onClick={() => handleAudition(track)}
                             className={`p-2.5 rounded-xl transition-all cursor-pointer shadow-xs ${
                               isAuditioning
-                                ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                                : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                                ? 'bg-sv-orange hover:bg-sv-red-orange text-white'
+                                : 'bg-sv-red/10 hover:bg-sv-red/20 text-sv-red dark:bg-sv-burgundy dark:text-sv-warm-orange'
                             }`}
                             title={isAuditioning ? 'Stop Audition' : 'Audition 5s Audio Clip'}
                           >
@@ -785,7 +813,7 @@ export const DiscoveryView: React.FC = () => {
                           </button>
                         ) : (
                           <div
-                            className="p-2.5 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed"
+                            className="p-2.5 rounded-xl bg-slate-100 dark:bg-sv-navy/60 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                             title="Metadata only — audio excluded from trivia"
                           >
                             <VolumeX className="w-4 h-4" />
@@ -795,38 +823,38 @@ export const DiscoveryView: React.FC = () => {
 
                       {/* Language & Genre Tags */}
                       <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                        <span className="font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md text-[11px]">
+                        <span className="font-semibold text-sv-red dark:text-sv-warm-orange bg-sv-red/10 dark:bg-sv-burgundy/60 border border-sv-red/20 dark:border-sv-burgundy px-2 py-0.5 rounded-md text-[11px]">
                           {track.language}
                         </span>
-                        <span className="bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                        <span className="bg-slate-100 dark:bg-sv-navy/60 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md text-[11px]">
                           {track.genre}
                         </span>
-                        <span className="bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                        <span className="bg-slate-100 dark:bg-sv-navy/60 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md text-[11px]">
                           {track.decade}
                         </span>
                       </div>
 
                       {/* Decoupled Fields: Metadata vs Playback Status */}
-                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] space-y-1.5">
-                        <div className="flex items-center justify-between text-slate-700 font-medium">
+                      <div className="bg-slate-50 dark:bg-sv-navy/60 border border-slate-100 dark:border-sv-burgundy/40 rounded-xl p-3 text-[11px] space-y-1.5">
+                        <div className="flex items-center justify-between text-slate-700 dark:text-slate-300 font-medium">
                           <span>Metadata Status:</span>
-                          <span className="text-slate-900 font-semibold">Indexed</span>
+                          <span className="text-slate-900 dark:text-white font-semibold">Indexed</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Playback Status:</span>
+                          <span className="text-slate-500 dark:text-slate-400">Playback Status:</span>
                           {isPlayable ? (
-                            <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
-                              <Volume2 className="w-3 h-3 text-emerald-600" />
+                            <span className="text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded text-[10px] flex items-center gap-1 border border-emerald-200 dark:border-emerald-800">
+                              <Volume2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                               <span>Playable in Trivia</span>
                             </span>
                           ) : (
-                            <span className="text-slate-600 font-medium bg-slate-200/80 px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
+                            <span className="text-slate-600 dark:text-slate-400 font-medium bg-slate-200/80 dark:bg-sv-burgundy/40 px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
                               <VolumeX className="w-3 h-3" />
                               <span>Metadata Only</span>
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5 text-slate-500 text-[10px] pt-1 border-t border-slate-200/60">
+                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[10px] pt-1 border-t border-slate-200/60 dark:border-sv-burgundy/40">
                           <ShieldCheck className="w-3 h-3 text-slate-400 shrink-0" />
                           <span className="truncate">{track.licenceType}</span>
                         </div>
@@ -834,7 +862,7 @@ export const DiscoveryView: React.FC = () => {
                     </div>
 
                     {/* Bottom Actions: ID and Remove Button */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <div className="pt-3 border-t border-slate-100 dark:border-sv-burgundy/50 flex items-center justify-between text-xs">
                       <span className="font-mono text-[10px] text-slate-400 truncate max-w-[130px]">
                         {track.providerTrackId}
                       </span>
@@ -849,7 +877,7 @@ export const DiscoveryView: React.FC = () => {
                           </button>
                           <button
                             onClick={() => setConfirmDeleteId(null)}
-                            className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-[11px] cursor-pointer"
+                            className="px-2 py-1 bg-slate-200 dark:bg-sv-navy hover:bg-slate-300 text-slate-700 dark:text-slate-200 rounded text-[11px] cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -857,7 +885,7 @@ export const DiscoveryView: React.FC = () => {
                       ) : (
                         <button
                           onClick={() => setConfirmDeleteId(track.id)}
-                          className="text-slate-400 hover:text-rose-600 flex items-center gap-1 text-[11px] font-medium p-1 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="text-slate-400 hover:text-rose-600 flex items-center gap-1 text-[11px] font-medium p-1 rounded hover:bg-rose-50 dark:hover:bg-sv-burgundy/40 transition-colors cursor-pointer"
                           title="Remove from catalogue"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -878,12 +906,12 @@ export const DiscoveryView: React.FC = () => {
       {/* ============================================================ */}
       {activeTab === 'compliance' && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-3">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-indigo-600" />
+          <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 shadow-xs space-y-3">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-sv-red dark:text-sv-warm-orange" />
               <span>Decoupled Audio Provider Adapter Architecture</span>
             </h2>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               SongVerse operates an adapter pattern separating audio playback from game mechanics. This allows the game engine to switch audio sources or enforce copyright terms without modifying gameplay rules or scoring logic.
             </p>
           </div>
@@ -900,58 +928,58 @@ export const DiscoveryView: React.FC = () => {
                   key={adapter.id}
                   className={`border rounded-2xl p-6 shadow-xs flex flex-col justify-between space-y-4 ${
                     isReady
-                      ? 'bg-white border-emerald-200'
+                      ? 'bg-white dark:bg-sv-burgundy-deep border-emerald-200 dark:border-emerald-800'
                       : isProhibited
-                      ? 'bg-rose-50/40 border-rose-200'
-                      : 'bg-amber-50/40 border-amber-200'
+                      ? 'bg-rose-50/40 dark:bg-sv-burgundy/40 border-rose-200 dark:border-rose-900/60'
+                      : 'bg-amber-50/40 dark:bg-sv-burgundy/40 border-amber-200 dark:border-amber-900/60'
                   }`}
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                           {adapter.name}
                         </h3>
-                        <p className="text-xs font-mono text-slate-400">
+                        <p className="text-xs font-mono text-slate-400 dark:text-slate-400">
                           Adapter ID: {adapter.id}
                         </p>
                       </div>
 
                       {isReady && (
-                        <span className="text-emerald-700 bg-emerald-100 border border-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
                           <Check className="w-3 h-3" />
                           <span>Active / Ready</span>
                         </span>
                       )}
                       {isProhibited && (
-                        <span className="text-rose-700 bg-rose-100 border border-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        <span className="text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                           Prohibited by Policy
                         </span>
                       )}
                       {isMissingCreds && (
-                        <span className="text-amber-800 bg-amber-100 border border-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        <span className="text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                           Credentials Required
                         </span>
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-600 leading-relaxed">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                       {adapter.description}
                     </p>
 
                     {adapter.policyNotice && (
-                      <div className="bg-white/80 border border-slate-200 rounded-xl p-3 text-[11px] space-y-1">
-                        <span className="font-bold text-slate-800 block">Terms & Policy Notice:</span>
-                        <p className="text-slate-600 leading-relaxed">{adapter.policyNotice}</p>
+                      <div className="bg-white/80 dark:bg-sv-navy/70 border border-slate-200 dark:border-sv-burgundy/40 rounded-xl p-3 text-[11px] space-y-1">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 block">Terms & Policy Notice:</span>
+                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">{adapter.policyNotice}</p>
                       </div>
                     )}
 
                     {adapter.supportedLicenceTypes.length > 0 && (
-                      <div className="text-[11px] text-slate-600 space-y-1">
-                        <span className="font-semibold text-slate-700">Supported Rights Tiers:</span>
+                      <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">Supported Rights Tiers:</span>
                         <div className="flex flex-wrap gap-1 pt-1">
                           {adapter.supportedLicenceTypes.map(lic => (
-                            <span key={lic} className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]">
+                            <span key={lic} className="bg-slate-100 dark:bg-sv-navy/80 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-[10px] border border-slate-200 dark:border-sv-burgundy/40">
                               {lic}
                             </span>
                           ))}
@@ -960,9 +988,9 @@ export const DiscoveryView: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Authorized for Trivia Gameplay:</span>
-                    <strong className={adapter.isAuthorizedForTriviaGames ? 'text-emerald-700' : 'text-rose-600'}>
+                  <div className="pt-3 border-t border-slate-200/80 dark:border-sv-burgundy/50 flex items-center justify-between text-xs">
+                    <span className="text-slate-500 dark:text-slate-400">Authorized for Trivia Gameplay:</span>
+                    <strong className={adapter.isAuthorizedForTriviaGames ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
                       {adapter.isAuthorizedForTriviaGames ? 'Yes (Authorized)' : 'No (Restricted)'}
                     </strong>
                   </div>
@@ -972,36 +1000,36 @@ export const DiscoveryView: React.FC = () => {
           </div>
 
           {/* Legal FAQ Section */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Info className="w-4 h-4 text-indigo-600" />
+          <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-2xl p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Info className="w-4 h-4 text-sv-red dark:text-sv-warm-orange" />
               <span>Legal Assessment & Playback Compliance</span>
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600 leading-relaxed">
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                <h4 className="font-bold text-slate-900">Can Spotify be used for game playback?</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-sv-navy/60 border border-slate-100 dark:border-sv-burgundy/40 space-y-1.5">
+                <h4 className="font-bold text-slate-900 dark:text-white">Can Spotify be used for game playback?</h4>
                 <p>
                   <strong>No.</strong> Section II.3 of the Spotify Developer Policy explicitly forbids using the Spotify Web Playback SDK for games, quizzes, and trivia contests without custom commercial licensing. Consumer Spotify Premium accounts do not authorize interactive game synchronization.
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                <h4 className="font-bold text-slate-900">What about Apple MusicKit?</h4>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-sv-navy/60 border border-slate-100 dark:border-sv-burgundy/40 space-y-1.5">
+                <h4 className="font-bold text-slate-900 dark:text-white">What about Apple MusicKit?</h4>
                 <p>
                   Apple MusicKit requires an Apple Developer Program subscription, a private key (.p8), and end-user subscriptions. Standard streaming terms do not clear interactive guessing games where music is obscured for competitive trivia.
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                <h4 className="font-bold text-slate-900">What recordings can legally play in SongVerse?</h4>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-sv-navy/60 border border-slate-100 dark:border-sv-burgundy/40 space-y-1.5">
+                <h4 className="font-bold text-slate-900 dark:text-white">What recordings can legally play in SongVerse?</h4>
                 <p>
                   Pre-cleared 30-second promotional audition streams (Apple iTunes Search API), Creative Commons recordings (CC-BY, CC0), Open Audio Project assets, public domain works, and user-hosted custom audio URLs.
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                <h4 className="font-bold text-slate-900">How does SongVerse enforce duration limits?</h4>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-sv-navy/60 border border-slate-100 dark:border-sv-burgundy/40 space-y-1.5">
+                <h4 className="font-bold text-slate-900 dark:text-white">How does SongVerse enforce duration limits?</h4>
                 <p>
                   Audio playback is hardware-timed in milliseconds by AudioContext and HTMLAudioElement boundaries, strictly stopping at 1.0s (Level 1), 3.0s (Level 2), 5.0s (Level 3), and 10.0s (Level 4).
                 </p>

@@ -518,7 +518,7 @@ export async function runAutomatedTestSuite(): Promise<AutomatedTestResult[]> {
       const start = performance.now();
       try {
         const user = gameEngine.getUserProfile();
-        const room = multiplayerEngine.createRoom(user.displayName, user.id);
+        const room = await multiplayerEngine.createRoom(user.displayName, user.id);
         const passed = room && typeof room.roomCode === 'string' && room.hostId === user.id;
 
         record(

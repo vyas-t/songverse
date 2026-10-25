@@ -21,6 +21,7 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { AuthModal } from './components/auth/AuthModal';
 import { gameEngine } from './services/gameEngine';
 import { privacyConsent } from './services/privacyConsent';
+import { audioEngine } from './services/audioEngine';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<string>('landing');
@@ -61,6 +62,7 @@ export default function App() {
   });
 
   const handleNavigate = (view: string, mode?: GameMode) => {
+    audioEngine.stop();
     if (mode) setGameMode(mode);
     setCurrentView(view);
     refreshProfile();
@@ -68,6 +70,7 @@ export default function App() {
   };
 
   const handleStartPlay = (mode: GameMode = 'classic') => {
+    audioEngine.stop();
     setGameMode(mode);
     setCurrentView('language_select');
     refreshProfile();
@@ -75,6 +78,7 @@ export default function App() {
   };
 
   const handleStartGameWithLanguages = (languages: string[]) => {
+    audioEngine.stop();
     setSelectedLanguages(languages);
     setCurrentView('game');
     refreshProfile();
@@ -87,7 +91,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen flex flex-col bg-[#FAF9F6] dark:bg-sv-navy text-slate-900 dark:text-slate-100 font-sans selection:bg-sv-red/20 selection:text-sv-red transition-colors">
       
       {/* Top 3-Zone Navigation */}
       <Navbar

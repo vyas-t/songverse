@@ -1,5 +1,5 @@
 import React from 'react';
-import { Music, ShieldCheck, Cookie, Cpu } from 'lucide-react';
+import { Music, ShieldCheck, Cookie, Cpu, Lock } from 'lucide-react';
 
 interface FooterProps {
   onOpenLegal: (tab?: string) => void;
@@ -135,8 +135,8 @@ export const Footer: React.FC<FooterProps> = ({
                 onClick={onOpenAdmin}
                 className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-slate-300"
               >
-                <Cpu className="w-3.5 h-3.5 text-purple-400" />
-                Admin & 18-Test Runner
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+                Admin & 18-Test Runner (Private)
               </button>
             </div>
             <p className="mt-4 text-[11px] text-slate-400 leading-normal">

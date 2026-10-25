@@ -1,17 +1,149 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
+@theme {
+  /* Sunset Club palette — retained token names for compatibility */
+  --color-sv-navy: #190E24;
+  --color-sv-burgundy-deep: #2B172F;
+  --color-sv-burgundy: #4B2142;
+  --color-sv-crimson: #F05D5E;
+  --color-sv-red: #F05D5E;
+  --color-sv-red-orange: #F47762;
+  --color-sv-orange: #FF855E;
+  --color-sv-warm-orange: #FF9B71;
+  --color-sv-amber: #FFD166;
+  --color-sv-gold: #FFE0A0;
+}
+
 @layer base {
   :root {
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
     --font-mono: 'Space Grotesk', monospace;
+
+    /* Light theme */
+    --app-bg: #FFF7F1;
+    --app-card: #FFFFFF;
+    --app-text: #291729;
+    --app-text-muted: #745D70;
+    --app-border: #F0DCD7;
+
+    /* Shared Sunset Club tokens */
+    --sv-plum: #190E24;
+    --sv-wine: #4B2142;
+    --sv-coral: #F05D5E;
+    --sv-peach: #FF9B71;
+    --sv-amber: #FFD166;
+    --sv-cream: #FFF2E8;
+    --sv-gradient-sunset: linear-gradient(125deg, #190E24 0%, #4B2142 34%, #F05D5E 64%, #FF9B71 82%, #FFD166 100%);
+    --sv-gradient-warm: linear-gradient(135deg, #F05D5E 0%, #FF9B71 58%, #FFD166 100%);
+    --sv-shadow-warm: 0 12px 36px rgba(75, 33, 66, 0.14);
+    --sv-glow-coral: 0 0 24px rgba(240, 93, 94, 0.22);
+  }
+
+  [data-theme="dark"], html.dark, .dark {
+    --app-bg: #190E24;
+    --app-card: #2B172F;
+    --app-text: #FFF2E8;
+    --app-text-muted: #E5BEBB;
+    --app-border: #56304F;
+    color-scheme: dark;
+  }
+
+  html {
+    background: var(--app-bg);
+    color-scheme: light;
+  }
+
+  html[data-theme="dark"], html.dark {
+    color-scheme: dark;
   }
 
   body {
+    min-height: 100vh;
     font-family: var(--font-sans);
-    background-color: #FAF9F6;
-    color: #0F172A;
+    background-color: var(--app-bg);
+    background-image:
+      radial-gradient(ellipse at 0% 0%, rgba(240, 93, 94, 0.08), transparent 36%),
+      radial-gradient(ellipse at 100% 10%, rgba(255, 155, 113, 0.09), transparent 32%);
+    color: var(--app-text);
     overflow-x: hidden;
+    transition: background-color 0.28s ease, color 0.28s ease;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgba(240, 93, 94, 0.30);
+    color: var(--app-text);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--sv-peach);
+    outline-offset: 3px;
+  }
+
+  button, input, textarea, select {
+    font: inherit;
+  }
+
+  button {
+    transition:
+      background-color 180ms ease,
+      color 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      transform 180ms ease;
+  }
+
+  button:active {
+    transform: translateY(1px);
+  }
+
+  input, textarea, select {
+    border-color: var(--app-border);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--app-text-muted);
+    opacity: 0.82;
+  }
+}
+
+/* Shared opt-in utility classes for existing components */
+.sv-sunset-gradient {
+  background: var(--sv-gradient-sunset);
+}
+
+.sv-warm-gradient {
+  background: var(--sv-gradient-warm);
+}
+
+.sv-glass-panel {
+  background: color-mix(in srgb, var(--app-card) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-peach) 24%, var(--app-border));
+  box-shadow: var(--sv-shadow-warm);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.sv-warm-glow {
+  box-shadow: var(--sv-glow-coral);
+}
+
+.sv-interactive-card {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.sv-interactive-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sv-shadow-warm);
+  border-color: color-mix(in srgb, var(--sv-peach) 48%, var(--app-border));
+}
+
+@media (hover: none) {
+  .sv-interactive-card:hover {
+    transform: none;
   }
 }
 
@@ -22,16 +154,57 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
-  border-radius: 4px;
+  background: linear-gradient(180deg, #F05D5E, #FF9B71);
+  border: 2px solid var(--app-bg);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #FFD166;
+}
+
+/* Floating animation keyframes for landing screen cards */
+@keyframes sv-float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(1.2deg);
+  }
+}
+
+@keyframes sv-float-medium {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-18px) rotate(-1.5deg);
+  }
+}
+
+@keyframes sv-float-reverse {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(12px) rotate(1deg);
+  }
+}
+
+.animate-float-slow {
+  animation: sv-float-slow 6s ease-in-out infinite;
+}
+
+.animate-float-medium {
+  animation: sv-float-medium 4.8s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: sv-float-reverse 5.5s ease-in-out infinite;
 }
 
 /* Waveform pulse animation */
@@ -50,10 +223,34 @@
 
 /* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *, ::before, ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+
+/* Ambient sunset motion; apply only to decorative hero/background elements. */
+@keyframes sv-sunset-drift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.sv-animated-sunset {
+  background: linear-gradient(125deg, #190E24, #4B2142, #F05D5E, #FF9B71, #FFD166);
+  background-size: 220% 220%;
+  animation: sv-sunset-drift 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sv-animated-sunset {
+    animation: none;
+    background-position: 50% 50%;
+  }
+
+  .sv-interactive-card:hover {
+    transform: none;
   }
 }

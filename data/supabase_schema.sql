@@ -1,6 +1,7 @@
 -- =========================================================================
 -- SongVerse Supabase Database Schema & Row Level Security (RLS) Policies
--- Version: 1.0.0
+-- Tables: profiles, game_sessions, game_events, app_error_events
+-- Version: 2.0.0
 -- Compatible with Supabase PostgreSQL 15+
 -- =========================================================================
 
@@ -9,11 +10,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =========================================================================
--- 2. TABLES DEFINITIONS
+-- 2. PRIMARY TABLES DEFINITIONS
 -- =========================================================================
 
--- Table 1: User Profiles (Synchronized with auth.users or guest sessions)
-CREATE TABLE IF NOT EXISTS public.user_profiles (
+-- Table 1: Profiles (auth.users and guest session profiles)
+CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT,
     display_name TEXT NOT NULL DEFAULT 'GrooveExplorer',
@@ -28,8 +29,13 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
     favorite_genres JSONB NOT NULL DEFAULT '{}'::JSONB,
     unlocked_achievements TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-    last_played_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+    last_played_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+-- Backward compatibility view/alias for user_profiles
+CREATE OR REPLACE VIEW public.user_profiles AS
+SELECT * FROM public.profiles;
 
 -- Table 2: Game Sessions
 CREATE TABLE IF NOT EXISTS public.game_sessions (
@@ -45,7 +51,37 @@ CREATE TABLE IF NOT EXISTS public.game_sessions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- Table 3: Game Rounds
+-- Table 3: Game Events (Immutable stream of validated gameplay actions)
+-- Event types: 'game_start', 'guess', 'skip', 'round_complete', 'session_complete'
+CREATE TABLE IF NOT EXISTS public.game_events (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+    session_id TEXT NOT NULL REFERENCES public.game_sessions(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    event_type TEXT NOT NULL CHECK (event_type IN ('game_start', 'guess', 'skip', 'round_complete', 'session_complete')),
+    level INTEGER CHECK (level BETWEEN 1 AND 4),
+    track_id TEXT,
+    is_correct BOOLEAN,
+    points_awarded INTEGER NOT NULL DEFAULT 0 CHECK (points_awarded IN (0, 20, 40, 70, 100)),
+    payload JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- Table 4: Application Error Events (Sanitized Telemetry — Zero Secrets)
+CREATE TABLE IF NOT EXISTS public.app_error_events (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    error_code TEXT NOT NULL,
+    error_message TEXT NOT NULL,
+    component_stack TEXT,
+    context JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- Backward compatibility view/alias for application_errors
+CREATE OR REPLACE VIEW public.application_errors AS
+SELECT * FROM public.app_error_events;
+
+-- Legacy tables for backward compatibility (if already referenced in tests)
 CREATE TABLE IF NOT EXISTS public.game_rounds (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES public.game_sessions(id) ON DELETE CASCADE,
@@ -60,133 +96,75 @@ CREATE TABLE IF NOT EXISTS public.game_rounds (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- Table 4: Game Answers (Guesses) with Strict Level Deduplication
 CREATE TABLE IF NOT EXISTS public.game_answers (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     session_id TEXT NOT NULL REFERENCES public.game_sessions(id) ON DELETE CASCADE,
-    round_id TEXT NOT NULL REFERENCES public.game_rounds(id) ON DELETE CASCADE,
+    round_id TEXT NOT NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     level INTEGER NOT NULL CHECK (level BETWEEN 1 AND 4),
     guess_track_id TEXT NOT NULL,
     is_correct BOOLEAN NOT NULL,
     points_awarded INTEGER NOT NULL DEFAULT 0 CHECK (points_awarded IN (0, 20, 40, 70, 100)),
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-    -- Ensures user cannot submit multiple guesses for the same round level
     CONSTRAINT unique_round_level_guess UNIQUE (round_id, level)
 );
 
--- Table 5: Game Skips
 CREATE TABLE IF NOT EXISTS public.game_skips (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     session_id TEXT NOT NULL REFERENCES public.game_sessions(id) ON DELETE CASCADE,
-    round_id TEXT NOT NULL REFERENCES public.game_rounds(id) ON DELETE CASCADE,
+    round_id TEXT NOT NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     level INTEGER NOT NULL CHECK (level BETWEEN 1 AND 4),
     skip_type TEXT NOT NULL CHECK (skip_type IN ('level', 'round')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- Table 6: Application Error Events (Sanitized Telemetry)
-CREATE TABLE IF NOT EXISTS public.application_errors (
-    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    error_code TEXT NOT NULL,
-    error_message TEXT NOT NULL,
-    component_stack TEXT,
-    context JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
 -- =========================================================================
 -- 3. INDEXES FOR PERFORMANCE
 -- =========================================================================
-CREATE INDEX IF NOT EXISTS idx_user_profiles_score ON public.user_profiles (total_score DESC);
+CREATE INDEX IF NOT EXISTS idx_profiles_score ON public.profiles (total_score DESC);
 CREATE INDEX IF NOT EXISTS idx_game_sessions_user ON public.game_sessions (user_id);
-CREATE INDEX IF NOT EXISTS idx_game_rounds_session ON public.game_rounds (session_id);
-CREATE INDEX IF NOT EXISTS idx_game_answers_round ON public.game_answers (round_id);
-CREATE INDEX IF NOT EXISTS idx_game_skips_round ON public.game_skips (round_id);
-CREATE INDEX IF NOT EXISTS idx_application_errors_created ON public.application_errors (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_game_sessions_created ON public.game_sessions (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_game_events_session ON public.game_events (session_id);
+CREATE INDEX IF NOT EXISTS idx_game_events_user ON public.game_events (user_id);
+CREATE INDEX IF NOT EXISTS idx_game_events_type ON public.game_events (event_type);
+CREATE INDEX IF NOT EXISTS idx_app_error_events_created ON public.app_error_events (created_at DESC);
 
 -- =========================================================================
 -- 4. ROW LEVEL SECURITY (RLS) POLICIES
 -- =========================================================================
-
--- Enable RLS on all tables
-ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.game_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_error_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.game_rounds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.game_answers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.game_skips ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.application_errors ENABLE ROW LEVEL SECURITY;
 
--- 4.1. User Profiles RLS
--- Users can view their own private profile
-CREATE POLICY "Users can view own profile"
-    ON public.user_profiles FOR SELECT
-    USING (auth.uid() = id);
+-- 4.1 Profiles RLS
+CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Public leaderboard view for profiles" ON public.profiles FOR SELECT USING (true);
 
--- Users can update their own profile
-CREATE POLICY "Users can update own profile"
-    ON public.user_profiles FOR UPDATE
-    USING (auth.uid() = id);
+-- 4.2 Game Sessions RLS
+CREATE POLICY "Users can view own sessions" ON public.game_sessions FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
+CREATE POLICY "Users can insert own sessions" ON public.game_sessions FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+CREATE POLICY "Users can update own sessions" ON public.game_sessions FOR UPDATE USING (auth.uid() = user_id);
 
--- Public can view high-level leaderboard fields (display_name, avatar_seed, score, streak)
-CREATE POLICY "Public leaderboard view for profiles"
-    ON public.user_profiles FOR SELECT
-    USING (true);
+-- 4.3 Game Events RLS
+CREATE POLICY "Users can view own game events" ON public.game_events FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
+CREATE POLICY "Users can insert own game events" ON public.game_events FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
--- 4.2. Game Sessions RLS
--- Users can only view and manage their own sessions; service role can manage all
-CREATE POLICY "Users can view own sessions"
-    ON public.game_sessions FOR SELECT
-    USING (auth.uid() = user_id OR user_id IS NULL);
+-- 4.4 App Error Events RLS
+CREATE POLICY "Clients can insert app error events" ON public.app_error_events FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Users can insert own sessions"
-    ON public.game_sessions FOR INSERT
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "Users can update own sessions"
-    ON public.game_sessions FOR UPDATE
-    USING (auth.uid() = user_id);
-
--- 4.3. Game Rounds RLS
-CREATE POLICY "Users can view own rounds"
-    ON public.game_rounds FOR SELECT
-    USING (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "Users can insert own rounds"
-    ON public.game_rounds FOR INSERT
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "Users can update own rounds"
-    ON public.game_rounds FOR UPDATE
-    USING (auth.uid() = user_id);
-
--- 4.4. Game Answers RLS
-CREATE POLICY "Users can view own answers"
-    ON public.game_answers FOR SELECT
-    USING (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "Users can insert own answers"
-    ON public.game_answers FOR INSERT
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
-
--- 4.5. Game Skips RLS
-CREATE POLICY "Users can view own skips"
-    ON public.game_skips FOR SELECT
-    USING (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "Users can insert own skips"
-    ON public.game_skips FOR INSERT
-    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
-
--- 4.6. Application Errors RLS
--- Any client can log error events
-CREATE POLICY "Clients can insert application errors"
-    ON public.application_errors FOR INSERT
-    WITH CHECK (true);
-
--- Only service role can read error logs (no public read policy)
+-- 4.5 Legacy Tables RLS
+CREATE POLICY "Users can view own rounds" ON public.game_rounds FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
+CREATE POLICY "Users can insert own rounds" ON public.game_rounds FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+CREATE POLICY "Users can view own answers" ON public.game_answers FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
+CREATE POLICY "Users can insert own answers" ON public.game_answers FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+CREATE POLICY "Users can view own skips" ON public.game_skips FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
+CREATE POLICY "Users can insert own skips" ON public.game_skips FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
 -- =========================================================================
 -- 5. SECURE LEADERBOARD VIEW
@@ -206,12 +184,11 @@ SELECT
         ELSE 0 
     END AS accuracy_percentage,
     last_played_at
-FROM public.user_profiles
+FROM public.profiles
 WHERE games_played > 0
 ORDER BY total_score DESC, current_streak DESC
 LIMIT 100;
 
--- Grant public read access to the sanitized view
 GRANT SELECT ON public.leaderboard_public TO anon, authenticated;
 
 -- =========================================================================
@@ -220,7 +197,7 @@ GRANT SELECT ON public.leaderboard_public TO anon, authenticated;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.user_profiles (id, email, display_name, avatar_seed)
+    INSERT INTO public.profiles (id, email, display_name, avatar_seed)
     VALUES (
         NEW.id,
         NEW.email,
@@ -232,7 +209,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger execution on auth.users insert
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users

@@ -83,6 +83,7 @@ class AudioEngineService {
 
   private activeAudioElement: HTMLAudioElement | null = null;
   private audioAnalyzer: AnalyserNode | null = null;
+  private playbackSessionId: number = 0;
 
   public getProviderAdapters(): AudioProviderAdapter[] {
     return [...AUDIO_PROVIDER_ADAPTERS];
@@ -129,7 +130,16 @@ class AudioEngineService {
     return this.isPlaying;
   }
 
+  /**
+   * Completely and immediately halts all active music sources.
+   * Cancels timeouts, progress intervals, unhooks event listeners,
+   * silences Web Audio oscillators, and resets HTMLAudioElement.
+   */
   public stop() {
+    // Increment session ID to immediately invalidate all pending callbacks,
+    // timers, intervals, and promise reactions from previous playback.
+    this.playbackSessionId++;
+
     if (this.playbackTimer) {
       window.clearTimeout(this.playbackTimer);
       this.playbackTimer = null;
@@ -140,10 +150,26 @@ class AudioEngineService {
     }
 
     if (this.activeAudioElement) {
+      const audio = this.activeAudioElement;
+      // CRITICAL: Strip all event listeners BEFORE pausing or changing src.
+      // Setting src='' on an HTMLMediaElement with an onerror listener fires an error event,
+      // which previously triggered unintentional procedural synth demo playback!
+      audio.onerror = null;
+      audio.onended = null;
+      audio.oncanplay = null;
+      audio.onplaying = null;
+      audio.onpause = null;
+      audio.ontimeupdate = null;
+      audio.onstalled = null;
+      audio.onsuspend = null;
+
       try {
-        this.activeAudioElement.pause();
-        this.activeAudioElement.currentTime = 0;
-        this.activeAudioElement.src = '';
+        audio.pause();
+        audio.volume = 0;
+        audio.currentTime = 0;
+        audio.removeAttribute('src');
+        // Cleanly reset media element state
+        audio.load();
       } catch {
         // Ignored
       }
@@ -152,6 +178,10 @@ class AudioEngineService {
 
     this.currentSourceNodes.forEach(node => {
       try {
+        if ('gain' in node && (node as GainNode).gain) {
+          (node as GainNode).gain.cancelScheduledValues(0);
+          (node as GainNode).gain.setValueAtTime(0, this.audioCtx ? this.audioCtx.currentTime : 0);
+        }
         if ('stop' in node && typeof (node as AudioScheduledSourceNode).stop === 'function') {
           (node as AudioScheduledSourceNode).stop();
         }
@@ -170,68 +200,152 @@ class AudioEngineService {
    * Play the authorized clip for the current unlocked level.
    * STRICT ENFORCEMENT: Duration is exactly GAME_LEVELS[level].durationSeconds (1s, 3s, 5s, 10s).
    * Cumulative start at clipStartSeconds (or 0s).
+   * Only one music source can be active at any given moment.
    * Rejects if track is metadata_only.
    */
   public playClip(track: Track, level: GameLevelNumber): Promise<void> {
     return new Promise((resolve, reject) => {
       if (track.playbackStatus === 'metadata_only') {
+        this.stop();
         const err = new Error('AUDIO_UNAVAILABLE: This track contains open metadata only. Audio rounds are restricted to authorized recordings.');
         reject(err);
         return;
       }
 
+      // Stop previous audio and invalidate prior session tokens
       this.stop();
+
+      const sessionId = ++this.playbackSessionId;
       this.currentLevel = level;
       this.maxDurationSeconds = GAME_LEVELS[level].durationSeconds;
 
       const audioSourceUrl = track.audioAssetUrl || track.audioUrl;
+      let hasEndedOrFailed = false;
+
+      const finishClip = () => {
+        if (this.playbackSessionId !== sessionId || hasEndedOrFailed) return;
+        hasEndedOrFailed = true;
+        this.stop();
+        resolve();
+      };
+
+      const handlePlaybackError = (err?: unknown) => {
+        if (this.playbackSessionId !== sessionId || hasEndedOrFailed) return;
+        hasEndedOrFailed = true;
+
+        if (this.activeAudioElement) {
+          this.activeAudioElement.onerror = null;
+          this.activeAudioElement.onended = null;
+        }
+
+        // Only fall back to procedural synth if track is explicitly synthetic or in fallback mode
+        if (track.audioSynthesizerPreset && track.availabilityStatus !== 'available') {
+          this.fallbackToProceduralSynth(track, resolve, sessionId);
+        } else {
+          this.stop();
+          const errorMsg = (err as Error)?.message || 'Audio preview could not be loaded. Please tap to retry.';
+          reject(new Error(errorMsg));
+        }
+      };
 
       if (audioSourceUrl && typeof window !== 'undefined' && typeof window.Audio !== 'undefined') {
-        // Play real authorized audio stream with precise duration cutoff
         try {
           const audio = new Audio();
           audio.crossOrigin = 'anonymous';
-          audio.src = audioSourceUrl;
+          audio.preload = 'auto';
           this.activeAudioElement = audio;
+
+          audio.onerror = (e) => {
+            if (this.playbackSessionId !== sessionId) return;
+            handlePlaybackError(e);
+          };
+
+          audio.onended = () => {
+            if (this.playbackSessionId !== sessionId) return;
+            finishClip();
+          };
 
           const startOffset = track.clipStartSeconds || 0;
           audio.currentTime = startOffset;
+          audio.src = audioSourceUrl;
           this.isPlaying = true;
 
-          const startWallClock = performance.now();
-          audio.play().then(() => {
-            this.progressInterval = window.setInterval(() => {
-              const elapsed = (performance.now() - startWallClock) / 1000;
-              const currentSeconds = Math.min(elapsed, this.maxDurationSeconds);
-              this.notifyPlayback(true, currentSeconds, this.maxDurationSeconds);
-
-              if (this.isPlaying) {
-                const amps = this.generateWaveformBars(elapsed, track.audioSynthesizerPreset || 'synthpop');
-                this.notifyWaveform(amps);
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              if (this.playbackSessionId !== sessionId) {
+                try {
+                  audio.pause();
+                  audio.removeAttribute('src');
+                } catch {
+                  // Ignored
+                }
+                return;
               }
-            }, 50);
 
-            this.playbackTimer = window.setTimeout(() => {
-              this.stop();
-              resolve();
-            }, this.maxDurationSeconds * 1000);
-          }).catch((_err) => {
-            // If external stream blocked by browser sandbox/CORS, fallback gracefully to procedural synth
-            this.fallbackToProceduralSynth(track, resolve);
-          });
+              const startWallClock = performance.now();
+              this.progressInterval = window.setInterval(() => {
+                if (this.playbackSessionId !== sessionId) {
+                  if (this.progressInterval) {
+                    window.clearInterval(this.progressInterval);
+                    this.progressInterval = null;
+                  }
+                  return;
+                }
+                const elapsed = (performance.now() - startWallClock) / 1000;
+                const currentSeconds = Math.min(elapsed, this.maxDurationSeconds);
+                this.notifyPlayback(true, currentSeconds, this.maxDurationSeconds);
+
+                if (this.isPlaying) {
+                  const amps = this.generateWaveformBars(elapsed, track.audioSynthesizerPreset || 'synthpop');
+                  this.notifyWaveform(amps);
+                }
+              }, 50);
+
+              // Hard stop precisely at maxDurationSeconds (1s, 3s, 5s, 10s)
+              this.playbackTimer = window.setTimeout(() => {
+                finishClip();
+              }, this.maxDurationSeconds * 1000);
+            }).catch((err: any) => {
+              if (this.playbackSessionId !== sessionId || err?.name === 'AbortError') {
+                return;
+              }
+              handlePlaybackError(err);
+            });
+          }
 
           return;
-        } catch {
-          // Fallback to procedural synth below
+        } catch (err) {
+          if (this.playbackSessionId !== sessionId) return;
+          handlePlaybackError(err);
+          return;
         }
       }
 
-      // Procedural authorized audio synthesis
-      this.fallbackToProceduralSynth(track, resolve);
+      // Procedural authorized audio synthesis if track has preset
+      if (track.audioSynthesizerPreset) {
+        this.fallbackToProceduralSynth(track, resolve, sessionId);
+      } else {
+        this.stop();
+        reject(new Error('AUDIO_UNAVAILABLE: No audio stream found for this track.'));
+      }
     });
   }
 
-  private fallbackToProceduralSynth(track: Track, resolve: () => void) {
+  private fallbackToProceduralSynth(track: Track, resolve: () => void, sessionId?: number) {
+    const token = sessionId ?? ++this.playbackSessionId;
+    if (this.playbackSessionId !== token) return;
+
+    if (this.activeAudioElement) {
+      try {
+        this.activeAudioElement.pause();
+        this.activeAudioElement.removeAttribute('src');
+      } catch {
+        // Ignored
+      }
+      this.activeAudioElement = null;
+    }
+
     const ctx = this.initAudioContext();
     this.isPlaying = true;
     this.startTime = ctx.currentTime;
@@ -242,6 +356,13 @@ class AudioEngineService {
     // Start progress tracking
     const startWallClock = performance.now();
     this.progressInterval = window.setInterval(() => {
+      if (this.playbackSessionId !== token) {
+        if (this.progressInterval) {
+          window.clearInterval(this.progressInterval);
+          this.progressInterval = null;
+        }
+        return;
+      }
       const elapsed = (performance.now() - startWallClock) / 1000;
       const currentSeconds = Math.min(elapsed, this.maxDurationSeconds);
       this.notifyPlayback(true, currentSeconds, this.maxDurationSeconds);
@@ -255,6 +376,7 @@ class AudioEngineService {
 
     // Stop exactly at maxDurationSeconds
     this.playbackTimer = window.setTimeout(() => {
+      if (this.playbackSessionId !== token) return;
       this.stop();
       resolve();
     }, this.maxDurationSeconds * 1000);

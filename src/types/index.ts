@@ -208,12 +208,13 @@ export interface MultiplayerPlayer {
 export interface MultiplayerRoom {
   roomCode: string;
   hostId: string;
-  status: 'lobby' | 'playing' | 'round-summary' | 'finished';
+  status: 'lobby' | 'playing' | 'round-summary' | 'finished' | 'completed';
   trackIds: string[];
   currentRoundIndex: number;
   players: MultiplayerPlayer[];
   roundStartedAt: number;
   createdAt: number;
+  currentTrack?: Track;
 }
 
 export interface CookiePreferences {

@@ -457,6 +457,10 @@ export class CatalogueStore {
     };
   }
 
+  public getPlayableTracks(): ServerTrack[] {
+    return this.tracks.filter(t => t.isAuthorizedForGameplay && t.playbackStatus === 'verified_audio');
+  }
+
   public backupCatalogue(): { success: boolean; filePath: string; count: number; timestamp: string } {
     this.ensureDirectoryExists();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

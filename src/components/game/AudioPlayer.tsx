@@ -75,24 +75,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const progressPercent = Math.min(100, (currentTime / maxDuration) * 100);
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-sm relative overflow-hidden transition-all">
+    <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 sm:p-8 shadow-sm relative overflow-hidden transition-all">
       {/* Subtle background glow based on track artwork gradient */}
       <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl ${track.artworkGradient} opacity-5 blur-3xl pointer-events-none rounded-full`} />
 
       {/* Header row: Clip duration & level */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-100/80 px-2.5 py-1 rounded-md tabular-nums">
+          <span className="text-xs font-bold uppercase tracking-wider text-sv-red dark:text-sv-gold bg-sv-red/10 dark:bg-sv-navy/80 border border-sv-red/20 dark:border-sv-burgundy px-2.5 py-1 rounded-md tabular-nums">
             Level {level} · {levelConfig.label}
           </span>
-          <span className="text-xs text-slate-500 font-medium">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
             Window: 0.0s – {maxDuration.toFixed(1)}s
           </span>
         </div>
 
         <button
           onClick={() => setIsMuted(!isMuted)}
-          className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-lg focus:outline-none"
+          className="text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg focus:outline-none"
           title={isMuted ? 'Unmute' : 'Mute'}
           aria-label={isMuted ? 'Unmute' : 'Mute'}
         >
@@ -102,22 +102,22 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
       {/* Metadata-Only Audio Warning if applicable */}
       {track.playbackStatus === 'metadata_only' ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 flex items-center justify-center shrink-0 mt-0.5">
             <VolumeX className="w-4 h-4" />
           </div>
           <div className="space-y-1">
-            <div className="text-xs font-bold text-amber-900">
+            <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
               Audio Excerpt Unavailable (Metadata-Only Entry)
             </div>
-            <p className="text-[11px] text-amber-700 leading-relaxed">
+            <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
               This track is currently indexed for metadata discovery only. No authorized commercial recording is cleared for trivia gameplay. SongVerse never scrapes streaming sites or plays unauthorized audio.
             </p>
           </div>
         </div>
       ) : (
         /* Waveform Visualizer Display */
-        <div className="h-28 sm:h-32 bg-slate-50/80 border border-slate-100 rounded-xl px-4 py-3 flex items-center justify-center gap-1.5 sm:gap-2 mb-6">
+        <div className="h-28 sm:h-32 bg-slate-50/80 dark:bg-sv-navy/70 border border-slate-100 dark:border-sv-burgundy rounded-xl px-4 py-3 flex items-center justify-center gap-1.5 sm:gap-2 mb-6">
           {waveformBars.map((amp, idx) => {
             const barHeight = Math.max(12, Math.round(amp * 100));
             const isActive = isPlaying;
@@ -130,8 +130,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   style={{ height: `${barHeight}%` }}
                   className={`w-full rounded-full transition-all duration-75 ${
                     isActive
-                      ? 'bg-gradient-to-t from-indigo-600 to-violet-400 shadow-xs'
-                      : 'bg-slate-300'
+                      ? 'bg-gradient-to-t from-sv-red to-sv-gold shadow-xs'
+                      : 'bg-slate-300 dark:bg-sv-burgundy/80'
                   }`}
                 />
               </div>
@@ -143,13 +143,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       {/* Progress Track */}
       {track.playbackStatus === 'verified_audio' && (
         <div className="space-y-1.5 mb-6">
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+          <div className="w-full bg-slate-100 dark:bg-sv-navy h-2 rounded-full overflow-hidden border border-transparent dark:border-sv-burgundy/40">
             <div
-              className="bg-indigo-600 h-full rounded-full transition-all duration-75"
+              className="bg-sv-red dark:bg-sv-warm-orange h-full rounded-full transition-all duration-75"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <div className="flex justify-between text-[11px] font-mono text-slate-400">
+          <div className="flex justify-between text-[11px] font-mono text-slate-400 dark:text-slate-400">
             <span>{currentTime.toFixed(1)}s</span>
             <span>{maxDuration.toFixed(1)}s max</span>
           </div>
@@ -174,18 +174,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
       {/* Action Controls */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-xs text-slate-500 max-w-sm">
+        <div className="text-xs text-slate-500 dark:text-slate-300 max-w-sm">
           {track.playbackStatus === 'metadata_only' ? (
-            <span className="text-slate-500">
+            <span className="text-slate-500 dark:text-slate-400">
               Audio excerpt unavailable. You may search for this track in Level 4 or skip this round.
             </span>
           ) : isLoading ? (
-            <span className="text-indigo-600 font-medium flex items-center gap-1.5 animate-pulse">
+            <span className="text-sv-red dark:text-sv-gold font-medium flex items-center gap-1.5 animate-pulse">
               <RotateCcw className="w-3.5 h-3.5 animate-spin" />
               Loading verified audio recording...
             </span>
           ) : isPlaying ? (
-            <span className="text-indigo-600 font-medium flex items-center gap-1.5 animate-pulse">
+            <span className="text-sv-warm-orange dark:text-sv-gold font-medium flex items-center gap-1.5 animate-pulse">
               <Sparkles className="w-3.5 h-3.5" />
               Listening to {maxDuration.toFixed(1)}s audio clip...
             </span>
@@ -201,10 +201,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           disabled={roundStatus !== 'playing' || track.playbackStatus === 'metadata_only' || isLoading}
           className={`px-6 py-3 rounded-xl font-semibold text-sm flex items-center gap-2.5 shadow-sm transition-all cursor-pointer ${
             track.playbackStatus === 'metadata_only'
-              ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+              ? 'bg-slate-200 dark:bg-sv-burgundy text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
               : isPlaying
-              ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
-              : 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-indigo-200'
+              ? 'bg-sv-warm-orange hover:bg-sv-amber text-sv-navy font-bold shadow-sv-warm-orange/20'
+              : 'bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy text-white shadow-sv-red/20'
           } ${roundStatus !== 'playing' ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {track.playbackStatus === 'metadata_only' ? (

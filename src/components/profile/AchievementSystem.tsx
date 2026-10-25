@@ -193,16 +193,16 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
       </div>
 
       {/* Interactive Filter Strip */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
         
         {/* Status Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-sv-navy rounded-xl text-xs font-semibold">
           <button
             onClick={() => setFilterStatus('all')}
             className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
               filterStatus === 'all'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-sv-burgundy text-sv-red dark:text-sv-gold shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             All ({ACHIEVEMENTS_LIST.length})
@@ -211,8 +211,8 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
             onClick={() => setFilterStatus('unlocked')}
             className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
               filterStatus === 'unlocked'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-sv-burgundy text-sv-red dark:text-sv-gold shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Unlocked ({totalUnlockedCount})
@@ -221,8 +221,8 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
             onClick={() => setFilterStatus('in-progress')}
             className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
               filterStatus === 'in-progress'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-sv-burgundy text-sv-red dark:text-sv-gold shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             In Progress ({enrichedAchievements.filter(a => !a.isUnlocked && a.percent > 0).length})
@@ -231,8 +231,8 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
             onClick={() => setFilterStatus('locked')}
             className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
               filterStatus === 'locked'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-sv-burgundy text-sv-red dark:text-sv-gold shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Locked ({enrichedAchievements.filter(a => !a.isUnlocked && a.percent === 0).length})
@@ -241,11 +241,11 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
 
         {/* Category Filter */}
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-slate-500 font-medium">Category:</span>
+          <span className="text-slate-500 dark:text-slate-400 font-medium">Category:</span>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 font-semibold focus:outline-none focus:border-indigo-600 cursor-pointer"
+            className="bg-slate-50 dark:bg-sv-navy border border-slate-200 dark:border-sv-burgundy rounded-lg px-2.5 py-1 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none focus:border-sv-red cursor-pointer"
           >
             <option value="all">All Categories</option>
             <option value="milestone">Core Milestones</option>
@@ -267,9 +267,9 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
               key={ach.id}
               className={`rounded-2xl border p-5 transition-all flex flex-col justify-between ${
                 ach.isUnlocked
-                  ? 'bg-white border-indigo-200/90 shadow-sm shadow-indigo-950/5'
-                  : 'bg-slate-50/80 border-slate-200/90 opacity-85'
-              } ${isHighlightedMilestone && !ach.isUnlocked ? 'ring-2 ring-indigo-500/20' : ''}`}
+                  ? 'bg-white dark:bg-sv-burgundy-deep border-indigo-200/90 dark:border-sv-burgundy shadow-sm shadow-indigo-950/5'
+                  : 'bg-slate-50/80 dark:bg-sv-navy/60 border-slate-200/90 dark:border-sv-burgundy/60 opacity-85'
+              } ${isHighlightedMilestone && !ach.isUnlocked ? 'ring-2 ring-sv-red/30' : ''}`}
             >
               
               <div className="space-y-3">
@@ -278,8 +278,8 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
                 <div className="flex items-start justify-between gap-3">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
                     ach.isUnlocked
-                      ? 'bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-xs'
-                      : 'bg-slate-200/70 text-slate-400'
+                      ? 'bg-sv-red/10 dark:bg-sv-navy text-sv-red dark:text-sv-gold border border-sv-red/20 dark:border-sv-burgundy shadow-xs'
+                      : 'bg-slate-200/70 dark:bg-sv-burgundy/40 text-slate-400 dark:text-slate-500'
                   }`}>
                     {renderIcon(ach.iconName)}
                   </div>
@@ -288,7 +288,7 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getTierColor(ach.tier)} font-mono`}>
                       {ach.tier}
                     </span>
-                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md font-mono">
+                    <span className="text-xs font-bold text-sv-red dark:text-sv-gold bg-sv-red/10 dark:bg-sv-navy border border-sv-red/20 dark:border-sv-burgundy px-2 py-0.5 rounded-md font-mono">
                       +{ach.points} AP
                     </span>
                   </div>
@@ -297,16 +297,16 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
                 {/* Title & Description */}
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                       {ach.title}
                     </h3>
                     {isHighlightedMilestone && (
-                      <span className="text-[9px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.2 rounded uppercase">
+                      <span className="text-[9px] font-bold text-sv-warm-orange bg-sv-warm-orange/10 dark:bg-sv-warm-orange/20 px-1.5 py-0.2 rounded uppercase">
                         Featured
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-300 leading-relaxed mt-1">
                     {ach.description}
                   </p>
                 </div>
@@ -314,21 +314,21 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
                 {/* Progress Bar & Numerical Target */}
                 <div className="space-y-1.5 pt-1">
                   <div className="flex justify-between text-[11px] font-semibold">
-                    <span className="text-slate-500">
+                    <span className="text-slate-500 dark:text-slate-400">
                       Progress
                     </span>
-                    <span className="font-mono text-slate-700">
+                    <span className="font-mono text-slate-700 dark:text-slate-300">
                       {ach.current} / {ach.target} ({ach.percent}%)
                     </span>
                   </div>
 
-                  <div className="w-full bg-slate-200/80 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-slate-200/80 dark:bg-sv-navy h-2 rounded-full overflow-hidden border border-transparent dark:border-sv-burgundy/40">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
                         ach.isUnlocked
                           ? 'bg-emerald-500'
                           : ach.percent > 0
-                          ? 'bg-indigo-600'
+                          ? 'bg-sv-red dark:bg-sv-warm-orange'
                           : 'bg-transparent'
                       }`}
                       style={{ width: `${ach.percent}%` }}
@@ -339,7 +339,7 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
               </div>
 
               {/* Status Footer */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-sv-burgundy/50 flex items-center justify-between text-xs">
                 {ach.isUnlocked ? (
                   <span className="text-emerald-700 font-bold flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4" />
