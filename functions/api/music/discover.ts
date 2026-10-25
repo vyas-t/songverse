@@ -1,8 +1,8 @@
 
-/** Cloudflare Pages Function: GET /api/music/discover
- * Discovers playable hit previews from the user's chosen artists.
- * Uses Deezer first and Apple iTunes as fallback.
- * Returns up to 10 playable songs per artist.
+/** GET /api/music/discover
+ * SongVerse's default artist-focused catalogue.
+ * Searches Apple iTunes one artist at a time to reduce request bursts.
+ * Returns up to 5 playable previews per requested artist.
  */
 
 const ARTISTS = [
@@ -24,230 +24,65 @@ const ARTISTS = [
   { name: "Yo Yo Honey Singh", language: "Punjabi" },
 ] as const;
 
-const SONGS_PER_ARTIST = 10;
+const SONGS_PER_ARTIST = 5;
 
-export async function onRequestGet(context: any): Promise<Response> {
-  const cacheKey = new Request(
-    "https://songverse-cache.invalid/api/music/discover/artist-hits-v1"
-  );
+function normalize(value: unknown): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
 
-  const cache = (globalThis as any).caches?.default;
+function matchesArtist(actual: string, requested: string): boolean {
+  const a = normalize(actual);
+  const r = normalize(requested);
 
-  if (cache) {
-    try {
-      const cached = await cache.match(cacheKey);
-      if (cached) {
-        return new Response(cached.body, {
-          status: cached.status,
-          headers: cached.headers,
-        });
-      }
-    } catch {
-      // Continue if cache is unavailable.
-    }
+  if (!a || !r) return false;
+  if (a === r || a.includes(r) || r.includes(a)) return true;
+
+  // Common alternative spelling for The Weeknd.
+  if (r === "theweeknd" && a === "weeknd") return true;
+
+  return false;
+}
+
+function mapAppleTrack(item: any, artist: typeof ARTISTS[number]) {
+  if (!item?.trackId || !item?.trackName || !item?.artistName) {
+    return null;
   }
 
-  const results = await Promise.all(
-    ARTISTS.map(async (artist) => {
-      try {
-        const deezerUrl = new URL("https://api.deezer.com/search");
-        deezerUrl.searchParams.set("q", `artist:"${artist.name}"`);
-        deezerUrl.searchParams.set("limit", "25");
-
-        const response = await fetch(deezerUrl.toString(), {
-          headers: { Accept: "application/json" },
-        });
-
-        if (response.ok) {
-          const payload: any = await response.json();
-
-          if (Array.isArray(payload.data)) {
-            const tracks = payload.data
-              .map((item: any) => mapDeezerTrack(item, artist.name, artist.language))
-              .filter(Boolean)
-              .slice(0, SONGS_PER_ARTIST);
-
-            if (tracks.length > 0) return tracks;
-          }
-        }
-      } catch {
-        // Try Apple below.
-      }
-
-      try {
-        const appleUrl = new URL("https://itunes.apple.com/search");
-        appleUrl.searchParams.set("term", artist.name);
-        appleUrl.searchParams.set("entity", "song");
-        appleUrl.searchParams.set("limit", "50");
-
-        const response = await fetch(appleUrl.toString(), {
-          headers: { Accept: "application/json" },
-        });
-
-        if (!response.ok) return [];
-
-        const payload: any = await response.json();
-        if (!Array.isArray(payload.results)) return [];
-
-        return payload.results
-          .filter((item: any) =>
-            String(item.artistName || "")
-              .toLowerCase()
-              .includes(artist.name.toLowerCase())
-          )
-          .map((item: any) =>
-            mapAppleTrack(item, artist.name, artist.language)
-          )
-          .filter(Boolean)
-          .slice(0, SONGS_PER_ARTIST);
-      } catch {
-        return [];
-      }
-    })
-  );
-
-  const unique = Array.from(
-    new Map(
-      results
-        .flat()
-        .filter(Boolean)
-        .map((track: any) => [track.id, track])
-    ).values()
-  );
-
-  const response = new Response(
-    JSON.stringify({
-      count: unique.length,
-      artists: ARTISTS.map((artist) => artist.name),
-      tracks: unique,
-      ...(unique.length === 0
-        ? { error: "No playable artist previews were found. Please retry." }
-        : {}),
-    }),
-    {
-      status: unique.length > 0 ? 200 : 502,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control":
-          unique.length > 0 ? "public, max-age=60, s-maxage=300" : "no-store",
-        "X-Content-Type-Options": "nosniff",
-        ...(unique.length === 0 ? { "Retry-After": "30" } : {}),
-      },
-    }
-  );
-
-  if (cache && unique.length > 0) {
-    try {
-      await cache.put(cacheKey, response.clone());
-    } catch {
-      // Caching is optional.
-    }
+  const audio = item.previewUrl;
+  if (typeof audio !== "string" || !/^https:\/\//i.test(audio)) {
+    return null;
   }
 
-  return response;
-}
+  if (!matchesArtist(item.artistName, artist.name)) {
+    return null;
+  }
 
-function cleanText(value: unknown): string {
-  return String(value ?? "").replace(/<[^>]*>/g, "").trim();
-}
-
-function mapDeezerTrack(
-  item: any,
-  requestedArtist: string,
-  language: string
-): any | null {
-  if (!item || item.id == null || !item.title) return null;
-
-  const actualArtist = cleanText(item.artist?.name || "");
-  const audio =
-    typeof item.preview === "string" &&
-    /^https:\/\//i.test(item.preview)
-      ? item.preview
-      : undefined;
-
-  // Don't include tracks without preview audio.
-  if (!audio || !actualArtist) return null;
-
-  const year = item.release_date
-    ? Number.parseInt(String(item.release_date).slice(0, 4), 10)
-    : 2024;
-
-  const validYear = Number.isFinite(year) ? year : 2024;
-
-  return {
-    id: `deezer_${item.id}`,
-    provider: "deezer",
-    providerTrackId: String(item.id),
-    title: cleanText(item.title),
-    artist: actualArtist,
-    album: cleanText(item.album?.title || "Single"),
-    releaseYear: validYear,
-    decade: `${Math.floor(validYear / 10) * 10}s`,
-    country: "Global",
-    language,
-    genre: "Pop",
-    artworkUrl:
-      item.album?.cover_xl ||
-      item.album?.cover_big ||
-      item.album?.cover_medium,
-    audioUrl: audio,
-    audioAssetUrl: audio,
-    hasAuthorizedAudio: true,
-    playbackStatus: "verified_audio",
-    availabilityStatus: "available",
-    audioAvailability: "available",
-    durationSeconds: 30,
-    clipStartSeconds: 0,
-    licenceReference: `DEEZER-${item.id}`,
-    licenceType: "Deezer promotional preview (30s)",
-    attributionText: "Track metadata, artwork and preview provided by Deezer.",
-    source: "deezer",
-    requestedArtist,
-    isrc: item.isrc || undefined,
-  };
-}
-
-function mapAppleTrack(
-  item: any,
-  requestedArtist: string,
-  language: string
-): any | null {
-  if (!item || item.trackId == null || !item.trackName) return null;
-
-  const audio =
-    typeof item.previewUrl === "string" &&
-    /^https:\/\//i.test(item.previewUrl)
-      ? item.previewUrl
-      : undefined;
-
-  if (!audio || !item.artistName) return null;
-
-  const year = item.releaseDate
+  const parsedYear = item.releaseDate
     ? Number.parseInt(String(item.releaseDate).slice(0, 4), 10)
-    : 2024;
+    : NaN;
+  const year = Number.isFinite(parsedYear) ? parsedYear : undefined;
 
-  const validYear = Number.isFinite(year) ? year : 2024;
-
-  const artwork =
-    typeof item.artworkUrl100 === "string"
-      ? item.artworkUrl100.replace(
-          /100x100bb\.(jpg|png)$/i,
-          "600x600bb.$1"
-        )
-      : undefined;
+  const artwork = typeof item.artworkUrl100 === "string"
+    ? item.artworkUrl100.replace(
+        /100x100bb\.(jpg|png)$/i,
+        "600x600bb.$1"
+      )
+    : undefined;
 
   return {
     id: `itunes_${item.trackId}`,
     provider: "apple-itunes",
     providerTrackId: String(item.trackId),
-    title: cleanText(item.trackName),
-    artist: cleanText(item.artistName),
-    album: cleanText(item.collectionName || "Single"),
-    releaseYear: validYear,
-    decade: `${Math.floor(validYear / 10) * 10}s`,
-    country: item.country || "Global",
-    language,
-    genre: item.primaryGenreName || "Pop",
+    title: String(item.trackName),
+    artist: String(item.artistName),
+    album: String(item.collectionName || "Single"),
+    releaseYear: year ?? 2024,
+    decade: `${Math.floor((year ?? 2024) / 10) * 10}s`,
+    country: "Global",
+    language: artist.language,
+    genre: String(item.primaryGenreName || "Pop"),
     artworkUrl: artwork || item.artworkUrl100,
     audioUrl: audio,
     audioAssetUrl: audio,
@@ -262,7 +97,124 @@ function mapAppleTrack(
     attributionText:
       "Artwork and promotional preview courtesy of Apple iTunes Search API.",
     source: "apple-itunes",
-    requestedArtist,
+    requestedArtist: artist.name,
     isrc: item.isrc || undefined,
   };
+}
+
+async function searchArtist(artist: typeof ARTISTS[number]) {
+  const url = new URL("https://itunes.apple.com/search");
+  url.searchParams.set("term", artist.name);
+  url.searchParams.set("entity", "song");
+  url.searchParams.set("limit", "50");
+
+  // Retry once after a short wait if Apple rate-limits the request.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(url.toString(), {
+        headers: { Accept: "application/json" },
+      });
+
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 700));
+          continue;
+        }
+        return [];
+      }
+
+      if (!response.ok) return [];
+
+      const payload: any = await response.json();
+      if (!Array.isArray(payload.results)) return [];
+
+      return payload.results
+        .map((item: any) => mapAppleTrack(item, artist))
+        .filter(Boolean)
+        .slice(0, SONGS_PER_ARTIST);
+    } catch {
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        continue;
+      }
+      return [];
+    }
+  }
+
+  return [];
+}
+
+export async function onRequestGet(): Promise<Response> {
+  const cacheKey = new Request(
+    "https://songverse-cache.invalid/api/music/discover/artist-hits-v2"
+  );
+  const cache = (globalThis as any).caches?.default;
+
+  if (cache) {
+    try {
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        return new Response(cached.body, {
+          status: cached.status,
+          headers: cached.headers,
+        });
+      }
+    } catch {
+      // Continue without cache.
+    }
+  }
+
+  const tracks: any[] = [];
+  const artistCounts: Record<string, number> = {};
+  const errors: string[] = [];
+
+  // Sequential requests reduce provider rate-limit pressure.
+  for (const artist of ARTISTS) {
+    const found = await searchArtist(artist);
+    artistCounts[artist.name] = found.length;
+    tracks.push(...found);
+
+    // Small pause between artists.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  const unique = Array.from(
+    new Map(tracks.map((track) => [track.id, track])).values()
+  );
+
+  const body = {
+    count: unique.length,
+    targetCount: ARTISTS.length * SONGS_PER_ARTIST,
+    artists: ARTISTS.map((artist) => artist.name),
+    artistCounts,
+    tracks: unique,
+    ...(unique.length === 0
+      ? {
+          error:
+            "No playable previews were returned. The provider may be rate-limiting requests.",
+          details: errors,
+        }
+      : {}),
+  };
+
+  const response = new Response(JSON.stringify(body), {
+    status: unique.length > 0 ? 200 : 502,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control":
+        unique.length > 0 ? "public, max-age=60, s-maxage=300" : "no-store",
+      "X-Content-Type-Options": "nosniff",
+      ...(unique.length === 0 ? { "Retry-After": "30" } : {}),
+    },
+  });
+
+  if (cache && unique.length > 0) {
+    try {
+      await cache.put(cacheKey, response.clone());
+    } catch {
+      // Cache failure does not affect the response.
+    }
+  }
+
+  return response;
 }
