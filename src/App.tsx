@@ -61,38 +61,6 @@ export default function App() {
     return () => unsubCookies();
   }, []);
 
-  // Automatically discover songs when the app starts.
-  useEffect(() => {
-    let cancelled = false;
-
-    const discoverSongs = async () => {
-      try {
-        const addedCount = await musicCatalogue.autoDiscoverSongs(
-          DISCOVERY_LANGUAGES
-        );
-
-        if (!cancelled) {
-          console.info(
-            `SongVerse startup discovery finished. Added ${addedCount} new tracks.`
-          );
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error(
-            'SongVerse startup music discovery failed:',
-            error
-          );
-        }
-      }
-    };
-
-    void discoverSongs();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const refreshProfile = () => {
     setUserProfile(gameEngine.getUserProfile());
   };

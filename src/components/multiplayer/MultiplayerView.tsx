@@ -281,7 +281,37 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
 
       {/* LOBBY BROWSER / ROOM CREATOR (When not in an active room) */}
       {!room ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        <div className="space-y-6">
+          {/* Customizable Player Identity Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white dark:bg-sv-burgundy-deep rounded-2xl border border-slate-200 dark:border-sv-burgundy shadow-xs">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sv-red to-sv-orange flex items-center justify-center text-white font-black text-sm uppercase">
+                {profile.displayName.slice(0, 2)}
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-sv-orange uppercase tracking-wider block">Your Player Identity</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Seen by other players in the room</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="text"
+                maxLength={20}
+                value={profile.displayName}
+                onChange={(e) => {
+                  const val = e.target.value.trim().slice(0, 20);
+                  if (val) {
+                    const upd = gameEngine.updateUserProfile({ displayName: val });
+                    setProfile(upd);
+                  }
+                }}
+                className="w-full sm:w-48 px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-sv-navy border border-slate-200 dark:border-sv-burgundy rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-sv-red"
+                placeholder="Enter player name..."
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           
           {/* Create Room Card */}
           <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm">
@@ -384,8 +414,8 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
               </button>
             </form>
           </div>
-
         </div>
+      </div>
       ) : (
         /* ACTIVE MULTIPLAYER ROOM (Lobby or In-Game) */
         <div className="space-y-6">

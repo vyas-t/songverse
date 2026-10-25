@@ -164,7 +164,7 @@ class MultiplayerEngineService {
       }
     }
 
-    // Local standalone join fallback (e.g. In unit tests)
+    // Local in-memory join (only for same-client multi-session testing where the room already exists locally)
     if (this.activeRoom && this.activeRoom.roomCode === cleanCode) {
       if (this.activeRoom.players.length >= 20) {
         throw new Error('This room has reached the maximum capacity of 20 participants.');
@@ -186,35 +186,8 @@ class MultiplayerEngineService {
       return this.activeRoom;
     }
 
-    // Standalone test room creation with requested 6-digit code
-    const availableTracks = musicCatalogue.getAvailableTracks();
-    const shuffled = [...availableTracks].sort(() => 0.5 - Math.random());
-    const trackIds = shuffled.slice(0, 3).map(t => t.id);
-
-    const player: MultiplayerPlayer = {
-      id: playerId,
-      displayName: playerName || 'Player',
-      avatarSeed: 'p_' + playerId.slice(0, 4),
-      isReady: false,
-      isHost: false,
-      score: 0,
-      currentLevel: 1,
-      hasGuessedThisRound: false
-    };
-
-    this.activeRoom = {
-      roomCode: cleanCode,
-      hostId: 'host_external',
-      status: 'lobby',
-      trackIds,
-      currentRoundIndex: 0,
-      players: [player],
-      roundStartedAt: 0,
-      createdAt: Date.now()
-    };
-
-    this.notify();
-    return this.activeRoom;
+    // Never silently spawn a phantom room when join fails
+    throw new Error(`Unable to join room ${cleanCode}. Please check the code and ensure the host is online.`);
   }
 
   /**

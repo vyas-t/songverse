@@ -6,3 +6,18 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local backups and intermediate migration files (do not publish)
+data/catalogue_backup_pre_migration.json
+data/*_checkpoint.json
+data/strictly_verified_*.json
+data/itunes_verified_*.json
+data/curated_*.json
+data/real_80_song_catalogue.json
+
+# Obsolete synthetic placeholder audio files (do not publish)
+public/audio/track_*.mp3
+public/audio/temp_*.wav
+
+# Scratch test files
+check-*.cjs

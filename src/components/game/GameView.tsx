@@ -458,7 +458,7 @@ export const GameView: React.FC<GameViewProps> = ({
               {!isSessionOver ? (
                 <button
                   onClick={handleNextRound}
-                  className="w-full sm:w-auto px-6 py-3 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-3 text-xs font-semibold text-white bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <span>Next Round</span>
                   <ArrowRight className="w-4 h-4" />
@@ -466,7 +466,7 @@ export const GameView: React.FC<GameViewProps> = ({
               ) : (
                 <button
                   onClick={handleRestartGame}
-                  className="w-full sm:w-auto px-6 py-3 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-3 text-xs font-semibold text-white bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>Play Again</span>
@@ -481,36 +481,36 @@ export const GameView: React.FC<GameViewProps> = ({
 
       {/* Session Completed Final Summary Modal */}
       {isSessionOver && (
-        <div className="mt-8 bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-md">
+        <div className="mt-8 bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 sm:p-8 shadow-md">
           <div className="text-center max-w-md mx-auto space-y-4">
-            <div className="w-14 h-14 bg-amber-50 border border-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+            <div className="w-14 h-14 bg-amber-50 dark:bg-sv-navy/80 border border-amber-200 dark:border-sv-burgundy text-sv-gold rounded-2xl flex items-center justify-center mx-auto shadow-xs">
               <Trophy className="w-7 h-7" />
             </div>
 
             <div>
-              <h2 className="text-xl font-bold text-slate-900">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 Session Complete!
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                You scored <strong className="text-indigo-600 text-sm tabular-nums">{session.totalScore} points</strong> across {session.rounds.length} rounds.
+              <p className="text-xs text-slate-500 dark:text-slate-300 mt-1">
+                You scored <strong className="text-sv-red dark:text-sv-gold text-sm tabular-nums">{session.totalScore} points</strong> across {session.rounds.length} rounds.
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 py-3 border-y border-slate-100">
+            <div className="grid grid-cols-3 gap-3 py-3 border-y border-slate-100 dark:border-sv-burgundy/60">
               <div className="p-2">
-                <div className="text-base font-bold text-slate-900 tabular-nums">
+                <div className="text-base font-bold text-slate-900 dark:text-white tabular-nums">
                   {session.rounds.filter(r => r.status === 'won').length} / {session.rounds.length}
                 </div>
                 <div className="text-[11px] text-slate-400">Rounds Won</div>
               </div>
               <div className="p-2">
-                <div className="text-base font-bold text-slate-900 tabular-nums">
+                <div className="text-base font-bold text-slate-900 dark:text-white tabular-nums">
                   {Math.round((session.rounds.filter(r => r.status === 'won').length / session.rounds.length) * 100)}%
                 </div>
                 <div className="text-[11px] text-slate-400">Accuracy</div>
               </div>
               <div className="p-2">
-                <div className="text-base font-bold text-slate-900 tabular-nums">
+                <div className="text-base font-bold text-slate-900 dark:text-white tabular-nums">
                   {session.totalScore}
                 </div>
                 <div className="text-[11px] text-slate-400">Total Score</div>
@@ -520,7 +520,7 @@ export const GameView: React.FC<GameViewProps> = ({
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
                 onClick={handleRestartGame}
-                className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors cursor-pointer shadow-xs"
+                className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-white bg-sv-red hover:bg-sv-crimson rounded-xl transition-colors cursor-pointer shadow-xs"
               >
                 Play Another Game
               </button>
@@ -530,20 +530,20 @@ export const GameView: React.FC<GameViewProps> = ({
                     audioEngine.stop();
                     onChangeLanguages();
                   }}
-                  className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-sv-red dark:text-sv-warm-orange bg-sv-red/10 dark:bg-sv-navy hover:bg-sv-red/20 border border-sv-red/20 dark:border-sv-burgundy rounded-xl transition-colors cursor-pointer"
                 >
                   Change Languages
                 </button>
               )}
               <button
                 onClick={onNavigateLeaderboard}
-                className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-sv-navy/70 dark:hover:bg-sv-burgundy rounded-xl transition-colors cursor-pointer"
               >
                 View Leaderboard
               </button>
               <button
                 onClick={onNavigateHome}
-                className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
               >
                 Home
               </button>

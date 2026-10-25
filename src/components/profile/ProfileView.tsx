@@ -157,7 +157,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
           <button
             onClick={() => setAuthModalOpen(true)}
-            className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-white bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy rounded-xl shadow-xs transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <LogIn className="w-3.5 h-3.5" />
             <span>Link / Sign In Account</span>

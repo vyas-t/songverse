@@ -35,10 +35,11 @@ class GameEngineService {
       // Fallback
     }
 
+    const randId = Math.random().toString(36).substring(2, 8);
     const defaultProfile: UserProfile = {
-      id: 'usr_' + Math.random().toString(36).substring(2, 9),
-      displayName: 'GrooveExplorer',
-      avatarSeed: 'aurora',
+      id: 'usr_' + randId,
+      displayName: `Guest_${randId.substring(0, 4).toUpperCase()}`,
+      avatarSeed: 'seed_' + randId,
       isGuest: true,
       gamesPlayed: 0,
       roundsPlayed: 0,

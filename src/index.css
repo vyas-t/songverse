@@ -3,17 +3,22 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
 
 @theme {
-  /* Sunset Club palette — retained token names for compatibility */
-  --color-sv-navy: #190E24;
-  --color-sv-burgundy-deep: #2B172F;
-  --color-sv-burgundy: #4B2142;
-  --color-sv-crimson: #F05D5E;
-  --color-sv-red: #F05D5E;
-  --color-sv-red-orange: #F47762;
-  --color-sv-orange: #FF855E;
-  --color-sv-warm-orange: #FF9B71;
-  --color-sv-amber: #FFD166;
-  --color-sv-gold: #FFE0A0;
+  /* SongVerse Master 10-Color Foundation Palette */
+  --color-sv-midnight: #03071E;
+  --color-sv-navy: #03071E;
+  --color-sv-dark-wine: #370617;
+  --color-sv-burgundy-deep: #370617;
+  --color-sv-burgundy: #6A040F;
+  --color-sv-crimson: #9D0208;
+  --color-sv-vivid-red: #D00000;
+  --color-sv-red: #D00000;
+  --color-sv-red-orange: #DC2F02;
+  --color-sv-orange: #E85D04;
+  --color-sv-amber: #F48C06;
+  --color-sv-golden-orange: #FAA307;
+  --color-sv-warm-orange: #FAA307;
+  --color-sv-warm-gold: #FFBA08;
+  --color-sv-gold: #FFBA08;
 }
 
 @layer base {
@@ -21,32 +26,42 @@
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'Space Grotesk', monospace;
 
-    /* Light theme */
-    --app-bg: #FFF7F1;
+    /* Light theme — refined high-contrast palette */
+    --app-bg: #FCFBF9;
     --app-card: #FFFFFF;
-    --app-text: #291729;
-    --app-text-muted: #745D70;
-    --app-border: #F0DCD7;
+    --app-card-subtle: #FDF4EC;
+    --app-text: #03071E;
+    --app-text-muted: #6A040F;
+    --app-border: #F6D6C8;
 
-    /* Shared Sunset Club tokens */
-    --sv-plum: #190E24;
-    --sv-wine: #4B2142;
-    --sv-coral: #F05D5E;
-    --sv-peach: #FF9B71;
-    --sv-amber: #FFD166;
-    --sv-cream: #FFF2E8;
-    --sv-gradient-sunset: linear-gradient(125deg, #190E24 0%, #4B2142 34%, #F05D5E 64%, #FF9B71 82%, #FFD166 100%);
-    --sv-gradient-warm: linear-gradient(135deg, #F05D5E 0%, #FF9B71 58%, #FFD166 100%);
-    --sv-shadow-warm: 0 12px 36px rgba(75, 33, 66, 0.14);
-    --sv-glow-coral: 0 0 24px rgba(240, 93, 94, 0.22);
+    /* 10-Color Palette Variables */
+    --sv-midnight: #03071E;
+    --sv-dark-wine: #370617;
+    --sv-burgundy: #6A040F;
+    --sv-crimson: #9D0208;
+    --sv-vivid-red: #D00000;
+    --sv-red-orange: #DC2F02;
+    --sv-orange: #E85D04;
+    --sv-amber: #F48C06;
+    --sv-golden-orange: #FAA307;
+    --sv-warm-gold: #FFBA08;
+
+    /* Atmospheric Gradients */
+    --sv-gradient-sunset: linear-gradient(135deg, #03071E 0%, #370617 25%, #6A040F 50%, #DC2F02 75%, #FFBA08 100%);
+    --sv-gradient-warm: linear-gradient(135deg, #9D0208 0%, #E85D04 60%, #FFBA08 100%);
+    --sv-gradient-gold: linear-gradient(135deg, #F48C06 0%, #FAA307 50%, #FFBA08 100%);
+    --sv-shadow-warm: 0 12px 36px rgba(55, 6, 23, 0.12);
+    --sv-glow-coral: 0 0 24px rgba(220, 47, 2, 0.22);
   }
 
   [data-theme="dark"], html.dark, .dark {
-    --app-bg: #190E24;
-    --app-card: #2B172F;
-    --app-text: #FFF2E8;
-    --app-text-muted: #E5BEBB;
-    --app-border: #56304F;
+    /* Dark theme — deep midnight & dark wine */
+    --app-bg: #03071E;
+    --app-card: #14050D;
+    --app-card-subtle: #240510;
+    --app-text: #FFF8F2;
+    --app-text-muted: #E29D7C;
+    --app-border: #370617;
     color-scheme: dark;
   }
 
@@ -64,8 +79,8 @@
     font-family: var(--font-sans);
     background-color: var(--app-bg);
     background-image:
-      radial-gradient(ellipse at 0% 0%, rgba(240, 93, 94, 0.08), transparent 36%),
-      radial-gradient(ellipse at 100% 10%, rgba(255, 155, 113, 0.09), transparent 32%);
+      radial-gradient(ellipse at 0% 0%, rgba(208, 0, 0, 0.07), transparent 36%),
+      radial-gradient(ellipse at 100% 10%, rgba(232, 93, 4, 0.08), transparent 32%);
     color: var(--app-text);
     overflow-x: hidden;
     transition: background-color 0.28s ease, color 0.28s ease;
@@ -74,12 +89,12 @@
   }
 
   ::selection {
-    background: rgba(240, 93, 94, 0.30);
+    background: rgba(220, 47, 2, 0.28);
     color: var(--app-text);
   }
 
   :focus-visible {
-    outline: 3px solid var(--sv-peach);
+    outline: 2px solid var(--sv-amber);
     outline-offset: 3px;
   }
 
@@ -158,13 +173,13 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #F05D5E, #FF9B71);
+  background: linear-gradient(180deg, #D00000, #E85D04);
   border: 2px solid var(--app-bg);
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #FFD166;
+  background: #F48C06;
 }
 
 /* Floating animation keyframes for landing screen cards */
@@ -239,8 +254,8 @@
 }
 
 .sv-animated-sunset {
-  background: linear-gradient(125deg, #190E24, #4B2142, #F05D5E, #FF9B71, #FFD166);
-  background-size: 220% 220%;
+  background: linear-gradient(135deg, #03071E, #370617, #6A040F, #D00000, #E85D04, #FFBA08);
+  background-size: 240% 240%;
   animation: sv-sunset-drift 18s ease-in-out infinite;
 }
 

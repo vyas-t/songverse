@@ -1,6 +1,7 @@
 import { Track, PaginatedResult, CatalogueFilterOptions, CSVImportValidationResult } from '../types';
+import { INITIAL_TRACK_CATALOGUE } from './initialCatalogue';
 
-export const INITIAL_TRACK_CATALOGUE: Track[] = [];
+export { INITIAL_TRACK_CATALOGUE };
 const STORAGE_KEY_USER_CATALOGUE = 'songverse_user_catalogue_v2';
 
 class MusicCatalogueService {
@@ -50,7 +51,20 @@ class MusicCatalogueService {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
-            this.tracks = parsed;
+            // Stage 4: Safe legacy migration — strip any synthetic placeholder tracks
+            const cleaned = parsed.filter(
+              t => !t.id?.startsWith('trk_') &&
+                   !t.licenceReference?.includes('SV-LIC-2023-CC0') &&
+                   !t.providerTrackId?.startsWith('SV-AUTH-')
+            );
+            // Merge with verified baseline INITIAL_TRACK_CATALOGUE
+            const merged = [...INITIAL_TRACK_CATALOGUE];
+            for (const t of cleaned) {
+              if (!merged.some(m => m.id === t.id || m.providerTrackId === t.providerTrackId)) {
+                merged.push(t);
+              }
+            }
+            this.tracks = merged;
             this.hasInitialized = true;
             return;
           }
@@ -137,13 +151,13 @@ class MusicCatalogueService {
     this.tracks = [];
     this.saveToStorage();
     this.notify();
-    try {
-      if (typeof window !== 'undefined' && typeof fetch === 'undefined') {
-        fetch('/api/catalogue/clear', { method: 'POST' }).catch(() => {});
-      }
-    } catch {
-      // Ignored
-    }
+    // Do not call server /api/catalogue/clear — client clearing must never wipe global shared data
+  }
+
+  public restoreBaseline(): void {
+    this.tracks = [...INITIAL_TRACK_CATALOGUE];
+    this.saveToStorage();
+    this.notify();
   }
 
   /**
@@ -475,10 +489,14 @@ class MusicCatalogueService {
   public addTrack(newTrack: Track): { added: boolean; track: Track; reason?: string } {
     const normTitle = this.normalizeString(newTrack.title);
     const normArtist = this.normalizeString(newTrack.artist);
+    const normAlbum = this.normalizeString(newTrack.album || '');
+
     const existing = this.tracks.find(
       t => (t.id && t.id === newTrack.id) ||
            (t.providerTrackId && t.providerTrackId === newTrack.providerTrackId) ||
-           (this.normalizeString(t.title) === normTitle && this.normalizeString(t.artist) === normArtist)
+           (this.normalizeString(t.title) === normTitle &&
+            this.normalizeString(t.artist) === normArtist &&
+            (!normAlbum || !this.normalizeString(t.album || '') || normAlbum === this.normalizeString(t.album || '')))
     );
     if (existing) {
       return { added: false, track: existing, reason: 'Duplicate or already exists in catalogue' };

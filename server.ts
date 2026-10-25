@@ -809,8 +809,8 @@ app.delete('/api/catalogue/tracks/:id', (req: Request, res: Response) => {
   }
 });
 
-// 6. Explicitly Clear Active Catalogue
-app.post('/api/catalogue/clear', (_req: Request, res: Response) => {
+// 6. Explicitly Clear Active Catalogue (Admin Only)
+app.post('/api/catalogue/clear', checkAdminAuth, (_req: Request, res: Response) => {
   catalogueStore.clearCatalogue();
   return res.json({ success: true, count: 0, message: 'Active catalogue cleared successfully.' });
 });
@@ -1869,7 +1869,11 @@ async function startServer() {
   });
 }
 
-startServer().catch(err => {
-  console.error('Failed to start SongVerse server:', err);
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'test') {
+  startServer().catch(err => {
+    console.error('Failed to start SongVerse server:', err);
+    process.exit(1);
+  });
+}
+
+export { app };

@@ -46,6 +46,8 @@ class MusicBrainzService {
   private lastDirectRequestTime = 0;
   private readonly rateLimitMs = 1200;
   private readonly userAgent = 'SongVerse/1.0.0 ( https://songverse.app; contact@songverse.app )';
+  private queryCache = new Map<string, { timestamp: number; recordings: MusicBrainzRecording[]; count: number }>();
+  private readonly cacheTtlMs = 5 * 60 * 1000;
 
   /**
    * Search MusicBrainz recordings with pagination and duplicate prevention
@@ -81,6 +83,19 @@ class MusicBrainzService {
       };
     }
 
+    const cacheKey = `${rawQuery}::${title}::${artist}`;
+    const now = Date.now();
+    const cached = this.queryCache.get(cacheKey);
+    if (cached && (now - cached.timestamp < this.cacheTtlMs) && cached.recordings.length >= reqOffset + reqLimit) {
+      return {
+        query: rawQuery || `${title} ${artist}`.trim(),
+        count: cached.count,
+        offset: reqOffset,
+        limit: reqLimit,
+        recordings: cached.recordings.slice(reqOffset, reqOffset + reqLimit)
+      };
+    }
+
     // Try server-side endpoint first
     try {
       const params = new URLSearchParams();
@@ -110,7 +125,28 @@ class MusicBrainzService {
     }
 
     // Direct fetch fallback with strict rate limiting and 503 retry
-    return await this.fetchDirectFromMusicBrainz(rawQuery, title, artist, reqLimit, reqOffset);
+    const result = await this.fetchDirectFromMusicBrainz(rawQuery, title, artist, reqLimit, reqOffset);
+    if (result.recordings.length > 0) {
+      const existing = this.queryCache.get(cacheKey)?.recordings || [];
+      const combined = [...existing];
+      for (const r of result.recordings) {
+        if (!combined.some(c => c.id === r.id)) {
+          combined.push(r);
+        }
+      }
+      this.queryCache.set(cacheKey, {
+        timestamp: Date.now(),
+        recordings: combined,
+        count: Math.max(result.count, combined.length)
+      });
+      if (reqOffset > 0 && combined.length > reqOffset) {
+        return {
+          ...result,
+          recordings: combined.slice(reqOffset, reqOffset + reqLimit)
+        };
+      }
+    }
+    return result;
   }
 
   /**

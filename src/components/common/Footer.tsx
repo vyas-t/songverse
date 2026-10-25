@@ -13,14 +13,14 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenAdmin
 }) => {
   return (
-    <footer className="bg-slate-900 text-slate-400 text-xs border-t border-slate-800 mt-24">
+    <footer className="bg-sv-midnight text-slate-400 text-xs border-t border-sv-burgundy mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
           
           {/* Col 1: Brand & Purpose */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-white font-bold text-base">
-              <div className="w-6 h-6 rounded-lg bg-indigo-500 flex items-center justify-center text-white">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-sv-red to-sv-orange flex items-center justify-center text-white shadow-xs">
                 <Music className="w-3.5 h-3.5" />
               </div>
               <span>SongVerse</span>
@@ -121,7 +121,7 @@ export const Footer: React.FC<FooterProps> = ({
                 onClick={onOpenCookies}
                 className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-slate-300"
               >
-                <Cookie className="w-3.5 h-3.5 text-indigo-400" />
+                <Cookie className="w-3.5 h-3.5 text-sv-warm-orange" />
                 Cookie Preferences
               </button>
               <button
@@ -164,7 +164,7 @@ export const Footer: React.FC<FooterProps> = ({
               Cookies
             </button>
             <span>·</span>
-            <button onClick={onOpenAdmin} className="text-indigo-400 hover:text-indigo-300">
+            <button onClick={onOpenAdmin} className="text-sv-gold hover:text-sv-warm-orange">
               Diagnostics
             </button>
           </div>

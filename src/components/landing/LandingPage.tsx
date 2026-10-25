@@ -63,35 +63,35 @@ const FLOATING_ARTISTS_LEFT = [
 
 const FLOATING_ARTISTS_RIGHT = [
   {
-    title: 'Shape of You',
-    artist: 'Ed Sheeran',
-    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/9d/23/91/9d23910c-f38d-0b73-0ff7-fa4cfd14fb93/0190295851286.jpg/600x600bb.jpg',
-    genre: 'Pop',
-    year: '2017',
+    title: '24K Magic',
+    artist: 'Bruno Mars',
+    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/e3/47/a0/e347a0cc-87ce-5d05-d560-176c7d48f66e/075679904119.jpg/600x600bb.jpg',
+    genre: 'Pop / Funk',
+    year: '2016',
     animationClass: 'animate-float-medium'
   },
   {
     title: 'Levitating',
     artist: 'Dua Lipa',
-    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/bc/9e/7b/bc9e7b23-1d68-07cb-fb7a-9cf890da895a/190295286101.jpg/600x600bb.jpg',
+    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6c/11/d6/6c11d681-aa3a-d59e-4c2e-f77e181026ab/190295092665.jpg/600x600bb.jpg',
     genre: 'Nu-Disco',
     year: '2020',
     animationClass: 'animate-float-slow'
   },
   {
-    title: 'Naatu Naatu',
-    artist: 'M.M. Keeravani',
-    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/ce/d3/18/ced318ee-a63e-b838-5f21-70e0e1eb87eb/8902894361095.jpg/600x600bb.jpg',
-    genre: 'Telugu Cinema',
-    year: '2022',
+    title: 'Ashke',
+    artist: 'Karan Aujla',
+    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/f7/6d/78/f76d78c5-cc9c-f2d6-8603-ba690eaa5c7d/5064089826918_cover.jpg/600x600bb.jpg',
+    genre: 'Punjabi Pop',
+    year: '2026',
     animationClass: 'animate-float-reverse'
   },
   {
-    title: 'Brown Munde',
-    artist: 'AP Dhillon',
-    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/55/bb/e9/55bbe96a-0d67-62f4-7e0e-9d29ef1e6878/195448375497.jpg/600x600bb.jpg',
-    genre: 'Punjabi Hip-Hop',
-    year: '2020',
+    title: 'BUTTERFLY EFFECT',
+    artist: 'Travis Scott',
+    artworkUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/e7/49/8f/e7498f65-df8f-bead-d6e3-2a8d4d642a79/886447235317.jpg/600x600bb.jpg',
+    genre: 'Hip-Hop / Rap',
+    year: '2017',
     animationClass: 'animate-float-medium'
   }
 ];

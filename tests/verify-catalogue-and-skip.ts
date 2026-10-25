@@ -153,6 +153,9 @@ async function runVerification() {
   // --- Test 6: Skip Level Mechanics and Point Deduction ---
   console.log('--- Test 6: Testing Skip Level Mechanics and Point Deduction ---');
   {
+    if (musicCatalogue.getPlayableTracks().length === 0) {
+      musicCatalogue.restoreBaseline();
+    }
     const session = gameEngine.startSession({ mode: 'practice', totalRounds: 1 });
     const round = session.rounds[0];
 
