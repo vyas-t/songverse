@@ -216,6 +216,12 @@ export interface MultiplayerRoom {
   roundStartedAt: number;
   createdAt: number;
   currentTrack?: Track;
+  roundDeadline?: number;
+  totalRounds?: number;
+  roundGuessedPlayerIds?: string[];
+  roundResultsUntil?: number;
+  roundEndReason?: 'timeout' | 'two_players_guessed' | 'all_guessed' | 'completed';
+  targetTrackRevealed?: Track;
 }
 
 export interface CookiePreferences {

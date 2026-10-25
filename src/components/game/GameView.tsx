@@ -326,13 +326,42 @@ export const GameView: React.FC<GameViewProps> = ({
       </div>
 
       {/* Audio Waveform Player */}
-      <div className="mb-8">
+      <div className="mb-3">
         <AudioPlayer
           track={targetTrack}
           level={currentRound.currentLevel}
           roundStatus={currentRound.status}
         />
       </div>
+
+      {/* Solo Mode Repositioned Controls: Skip Round & Submit Your Guess (Immediately below audio component) */}
+      {!isRoundOver && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+          <button
+            type="button"
+            onClick={handleSkipRound}
+            disabled={isSubmitting}
+            className="px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-sv-burgundy/40 border border-rose-200 dark:border-rose-900/60 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            title="Skip entire round (0 points awarded for this round)"
+          >
+            <span>Skip Round</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSubmitGuess}
+            disabled={!selectedTrack || isSubmitting}
+            className={`px-6 py-2.5 text-xs font-semibold text-white rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 ${
+              selectedTrack && !isSubmitting
+                ? 'bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy cursor-pointer shadow-sv-red/25'
+                : 'bg-slate-300 dark:bg-sv-burgundy/50 dark:text-slate-500 cursor-not-allowed'
+            }`}
+          >
+            <span>Submit Your Guess</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Answer Submission or Result Section */}
       {!isRoundOver ? (
@@ -362,47 +391,21 @@ export const GameView: React.FC<GameViewProps> = ({
               disabled={isSubmitting}
             />
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={handleSkipLevel}
-                  disabled={isSubmitting}
-                  className="flex-1 sm:flex-none px-3.5 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-sv-navy/70 dark:hover:bg-sv-burgundy border border-transparent dark:border-sv-burgundy/50 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                  title="Unlock next level with more audio while reducing available points"
-                >
-                  <FastForward className="w-3.5 h-3.5 text-sv-red dark:text-sv-warm-orange" />
-                  <span>
-                    {currentRound.currentLevel === 1 && 'Skip Level 1 (Deduct: 100 → 70 pts)'}
-                    {currentRound.currentLevel === 2 && 'Skip Level 2 (Deduct: 70 → 40 pts)'}
-                    {currentRound.currentLevel === 3 && 'Skip Level 3 (Deduct: 40 → 20 pts)'}
-                    {currentRound.currentLevel === 4 && 'Skip Level 4 (Forfeit · 0 pts)'}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSkipRound}
-                  disabled={isSubmitting}
-                  className="px-3 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-sv-burgundy/40 border border-rose-200 dark:border-rose-900/60 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
-                  title="Skip entire round (0 points awarded for this round)"
-                >
-                  <span>Skip Round</span>
-                </button>
-              </div>
-
+            <div className="flex items-center justify-between pt-1">
               <button
                 type="button"
-                onClick={handleSubmitGuess}
-                disabled={!selectedTrack || isSubmitting}
-                className={`w-full sm:w-auto px-6 py-2.5 text-xs font-semibold text-white rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 ${
-                  selectedTrack && !isSubmitting
-                    ? 'bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy cursor-pointer shadow-sv-red/25'
-                    : 'bg-slate-300 dark:bg-sv-burgundy/50 dark:text-slate-500 cursor-not-allowed'
-                }`}
+                onClick={handleSkipLevel}
+                disabled={isSubmitting}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-sv-navy/70 dark:hover:bg-sv-burgundy border border-transparent dark:border-sv-burgundy/50 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                title="Unlock next level with more audio while reducing available points"
               >
-                <span>Submit Guess</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <FastForward className="w-3.5 h-3.5 text-sv-red dark:text-sv-warm-orange" />
+                <span>
+                  {currentRound.currentLevel === 1 && 'Skip Level 1 (Deduct: 100 → 70 pts)'}
+                  {currentRound.currentLevel === 2 && 'Skip Level 2 (Deduct: 70 → 40 pts)'}
+                  {currentRound.currentLevel === 3 && 'Skip Level 3 (Deduct: 40 → 20 pts)'}
+                  {currentRound.currentLevel === 4 && 'Skip Level 4 (Forfeit · 0 pts)'}
+                </span>
               </button>
             </div>
           </div>

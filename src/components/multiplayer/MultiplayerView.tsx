@@ -21,7 +21,13 @@ import {
   WifiOff,
   RotateCcw,
   SkipForward,
-  Trophy
+  Trophy,
+  Timer,
+  Clock,
+  Zap,
+  CheckCircle2,
+  XCircle,
+  Hourglass
 } from 'lucide-react';
 import { MultiplayerRoom, Track, GameLevelNumber } from '../../types';
 import { multiplayerEngine } from '../../services/multiplayerEngine';
@@ -50,6 +56,9 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [roomLanguage, setRoomLanguage] = useState('English');
   const [roomMixLanguages, setRoomMixLanguages] = useState(false);
+  const [selectedRounds, setSelectedRounds] = useState<number>(3);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(30);
+  const [resultsSeconds, setResultsSeconds] = useState<number>(5);
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
@@ -64,9 +73,26 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   useEffect(() => {
     const unsub = multiplayerEngine.subscribeRoom((updatedRoom) => {
       setRoom({ ...updatedRoom });
+      if (updatedRoom.totalRounds) {
+        setSelectedRounds(updatedRoom.totalRounds);
+      }
     });
     return () => unsub();
   }, []);
+
+  // Tick interval for 30-second round countdown and 5-second round summary countdown
+  useEffect(() => {
+    const updateCountdowns = () => {
+      if (room?.status === 'playing') {
+        setRemainingSeconds(multiplayerEngine.getRemainingSeconds());
+      } else if (room?.status === 'round-summary') {
+        setResultsSeconds(multiplayerEngine.getResultsCountdownSeconds());
+      }
+    };
+    updateCountdowns();
+    const interval = setInterval(updateCountdowns, 200);
+    return () => clearInterval(interval);
+  }, [room?.status, room?.roundDeadline, room?.roundResultsUntil]);
 
   useEffect(() => {
     const unsubPlayback = audioEngine.subscribePlayback((playing, curTime) => {
@@ -107,13 +133,20 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
       const newRoom = await multiplayerEngine.createRoom(
         profile.displayName,
         profile.id,
-        { language: roomLanguage, mixLanguages: roomMixLanguages }
+        { language: roomLanguage, mixLanguages: roomMixLanguages, totalRounds: selectedRounds }
       );
       setRoom(newRoom);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to create room.');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleSelectRounds = (count: number) => {
+    setSelectedRounds(count);
+    if (isHost && room && room.status === 'lobby') {
+      multiplayerEngine.setTotalRounds(count);
     }
   };
 
@@ -231,12 +264,6 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
     }
   };
 
-  const handleNextRound = async () => {
-    audioEngine.stop();
-    setIsPlayingAudio(false);
-    await multiplayerEngine.nextRound();
-  };
-
   const handleLeaveRoom = () => {
     audioEngine.stop();
     multiplayerEngine.leaveRoom();
@@ -345,6 +372,41 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 </select>
               </div>
 
+              {/* Host Round Count Selector (3 to 10 rounds) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Match Length (Rounds)
+                  </label>
+                  <span className="text-xs font-extrabold text-sv-red dark:text-sv-warm-orange">
+                    {selectedRounds} Rounds
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 p-1.5 bg-slate-50 dark:bg-sv-navy rounded-2xl border border-slate-200 dark:border-sv-burgundy">
+                  {[3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                    const isSelected = selectedRounds === num;
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => handleSelectRounds(num)}
+                        className={`py-2 px-1 rounded-xl text-xs font-extrabold transition-all duration-200 cursor-pointer flex flex-col items-center justify-center ${
+                          isSelected
+                            ? 'bg-sv-red text-white shadow-md scale-105 ring-2 ring-sv-red/30'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-sv-burgundy/60'
+                        }`}
+                      >
+                        <span>{num}</span>
+                        <span className="text-[9px] opacity-75 font-normal">rnd</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5">
+                  Host selects 3 to 10 rounds. Each round has a 30s deadline and auto-finishes if 2 players guess.
+                </p>
+              </div>
+
               <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-sv-navy rounded-xl border border-slate-200 dark:border-sv-burgundy">
                 <div className="space-y-0.5">
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Mix Languages</span>
@@ -361,6 +423,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
               <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <p>• Capacity: <strong>20 participants</strong> (including host)</p>
                 <p>• Code Format: <strong>6 numeric digits (000000–999999)</strong></p>
+                <p>• Round Rules: <strong>30s timeout · 2-player early round end · 5s results review</strong></p>
               </div>
 
               <button
@@ -417,7 +480,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
         </div>
       </div>
       ) : (
-        /* ACTIVE MULTIPLAYER ROOM (Lobby or In-Game) */
+        /* ACTIVE MULTIPLAYER ROOM (Lobby, Playing, Round Summary, or Completed) */
         <div className="space-y-6">
           
           {/* Room Header & Controls */}
@@ -429,6 +492,10 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                   <span className="text-xs text-slate-400">•</span>
                   <span className="text-xs font-mono text-slate-600 dark:text-slate-300">
                     {room.players.length} / 20 Participants
+                  </span>
+                  <span className="text-xs text-slate-400">•</span>
+                  <span className="text-xs font-bold text-sv-warm-orange">
+                    {room.totalRounds || room.trackIds?.length || 3} Rounds
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -493,7 +560,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
 
           {/* DEDICATED HOST MANAGEMENT PANEL */}
           {isHost && room.status === 'lobby' && (
-            <div className="bg-sv-burgundy-deep/10 dark:bg-sv-burgundy-deep border border-sv-burgundy/30 rounded-3xl p-6 space-y-4 shadow-sm">
+            <div className="bg-sv-burgundy-deep/10 dark:bg-sv-burgundy-deep border border-sv-burgundy/30 rounded-3xl p-6 space-y-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Crown className="w-4 h-4 text-sv-gold" />
@@ -504,7 +571,40 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              {/* Host Round Count Selector (3 to 10 rounds) in Lobby */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Settings className="w-3.5 h-3.5 text-sv-red" />
+                    <span>Match Length ({room.totalRounds || selectedRounds} Rounds)</span>
+                  </label>
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                    Synchronizes to all players
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 p-1.5 bg-slate-50 dark:bg-sv-navy rounded-2xl border border-slate-200 dark:border-sv-burgundy">
+                  {[3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                    const isSelected = (room.totalRounds || selectedRounds) === num;
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => handleSelectRounds(num)}
+                        className={`py-2 px-1 rounded-xl text-xs font-extrabold transition-all duration-200 cursor-pointer flex flex-col items-center justify-center ${
+                          isSelected
+                            ? 'bg-sv-red text-white shadow-md scale-105 ring-2 ring-sv-red/30'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-sv-burgundy/60'
+                        }`}
+                      >
+                        <span>{num}</span>
+                        <span className="text-[9px] opacity-75 font-normal">rnd</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <button
                   onClick={handleStartGame}
                   className="px-6 py-2.5 bg-sv-red hover:bg-sv-crimson text-white rounded-xl text-xs font-bold cursor-pointer shadow-sm flex items-center gap-2 transition-all"
@@ -574,7 +674,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
           {room.status === 'playing' && (
             <div className="bg-white dark:bg-sv-burgundy-deep border-2 border-sv-red/30 rounded-3xl p-6 sm:p-8 space-y-6 shadow-md animate-in fade-in">
               
-              {/* Header: Synchronized Match Status, Round & Level Badges */}
+              {/* Header: Synchronized Match Status, Round & Level Badges, 30s Countdown Timer & 2-Player Guess Tracker */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-sv-burgundy pb-4">
                 <div className="flex items-center gap-2.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
@@ -582,15 +682,43 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                     Synchronized Match In Progress
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-sv-red dark:text-sv-gold bg-sv-red/10 dark:bg-sv-navy/80 border border-sv-red/20 dark:border-sv-burgundy px-2.5 py-1 rounded-md tabular-nums">
-                    Level {myLevel} · {levelConfig.label} ({maxDuration.toFixed(1)}s)
-                  </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* 30-Second Round Deadline Timer Badge */}
+                  <div
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
+                      remainingSeconds <= 5
+                        ? 'bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/30 ring-2 ring-rose-400'
+                        : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                    }`}
+                    title="Authoritative 30-Second Round Deadline"
+                  >
+                    <Timer className={`w-3.5 h-3.5 ${remainingSeconds <= 5 ? 'animate-spin' : ''}`} />
+                    <span>{remainingSeconds}s remaining</span>
+                  </div>
+
+                  {/* 2-Player Guess Tracker Badge */}
+                  <div
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                      (room.roundGuessedPlayerIds?.length || 0) >= 2
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-300'
+                        : (room.roundGuessedPlayerIds?.length || 0) === 1
+                        ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 text-indigo-700 dark:text-indigo-300'
+                        : 'bg-slate-100 dark:bg-sv-navy border-slate-200 dark:border-sv-burgundy text-slate-700 dark:text-slate-300'
+                    }`}
+                    title="Round ends automatically when at least 2 distinct players submit a guess"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-sv-warm-orange" />
+                    <span>{(room.roundGuessedPlayerIds?.length || 0)} / 2 guessed</span>
+                  </div>
+
+                  {/* Round Index / Total Rounds Badge */}
                   <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-sv-navy px-2.5 py-1 rounded-md">
-                    Round {room.currentRoundIndex + 1} of 3
+                    Round {room.currentRoundIndex + 1} of {room.totalRounds || room.trackIds?.length || 3}
                   </span>
-                  <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-md">
-                    +{pointsMap[myLevel]} pts
+
+                  {/* Player Level Badge */}
+                  <span className="text-xs font-bold uppercase tracking-wider text-sv-red dark:text-sv-gold bg-sv-red/10 dark:bg-sv-navy/80 border border-sv-red/20 dark:border-sv-burgundy px-2.5 py-1 rounded-md tabular-nums">
+                    Lvl {myLevel} ({maxDuration.toFixed(1)}s)
                   </span>
                 </div>
               </div>
@@ -694,8 +822,8 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                   </p>
                   <p>
                     {myPlayer.lastGuessCorrect
-                      ? 'Great ears! Waiting for other participants to submit their guesses.'
-                      : 'Your answer was recorded. Waiting for the next round to begin.'}
+                      ? 'Great ears! Waiting for other participants or 30s round timer.'
+                      : 'Your answer was recorded. Waiting for round completion.'}
                   </p>
                 </div>
               ) : (
@@ -736,22 +864,167 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 </div>
               )}
 
-              {/* Host Control: Advance to Next Round */}
-              {isHost && (
-                <div className="pt-4 border-t border-slate-100 dark:border-sv-burgundy/60 flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Host Control: Progress match when players are ready
-                  </span>
-                  <button
-                    onClick={handleNextRound}
-                    className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-sv-navy text-white text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center gap-1.5"
-                  >
-                    <span>
-                      {room.currentRoundIndex < 2 ? 'Advance to Next Round →' : 'Complete Match →'}
+              {/* Fair Host Notice: Manual skipping is disabled during active play */}
+              <div className="pt-3 border-t border-slate-100 dark:border-sv-burgundy/60 text-center">
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                  ⚡ Fair Match Rules: Round advances automatically after 30s or when 2 players submit guesses.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ROUND RESULTS INTERMISSION (When status is 'round-summary') */}
+          {room.status === 'round-summary' && (
+            <div className="bg-white dark:bg-sv-burgundy-deep border-2 border-sv-red/30 rounded-3xl p-6 sm:p-8 space-y-6 shadow-md animate-in fade-in">
+              {/* Round Summary Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-sv-burgundy pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold text-sv-red tracking-wider uppercase">
+                      Round {room.currentRoundIndex + 1} Completed
                     </span>
-                  </button>
+                    <span className="text-xs text-slate-400">•</span>
+                    <span className="text-xs font-mono text-slate-600 dark:text-slate-300">
+                      Total {room.totalRounds || room.trackIds?.length || 3} Rounds
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">
+                    Round Results
+                  </h2>
                 </div>
-              )}
+
+                {/* Auto Countdown Badge to Next Round */}
+                <div className="flex items-center gap-2 bg-sv-red/10 dark:bg-sv-navy border border-sv-red/30 px-4 py-2 rounded-2xl">
+                  <Hourglass className="w-4 h-4 text-sv-red animate-spin" />
+                  <div className="text-left">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block leading-none">
+                      Next Round Starts In
+                    </span>
+                    <span className="text-base font-extrabold font-mono text-sv-red dark:text-sv-warm-orange">
+                      {resultsSeconds}s...
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Round End Trigger Reason Banner */}
+              <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
+                room.roundEndReason === 'two_players_guessed'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                  : room.roundEndReason === 'all_guessed'
+                  ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200'
+                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+              }`}>
+                {room.roundEndReason === 'two_players_guessed' ? (
+                  <>
+                    <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div>
+                      <p className="font-bold text-sm">Round Ended Early: 2 Players Submitted Guesses!</p>
+                      <p className="text-[11px] opacity-90">First 2 distinct participants answered, triggering fair automatic round completion.</p>
+                    </div>
+                  </>
+                ) : room.roundEndReason === 'all_guessed' ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <div>
+                      <p className="font-bold text-sm">Round Ended: All Players Submitted Guesses!</p>
+                      <p className="text-[11px] opacity-90">Every participant in the room placed their guess.</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <div>
+                      <p className="font-bold text-sm">Round Ended: 30-Second Time Limit Expired</p>
+                      <p className="text-[11px] opacity-90">Authoritative 30s round timer reached zero and locked all answers.</p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Revealed Target Song Card */}
+              {(room.targetTrackRevealed || room.currentTrack) && (() => {
+                const track = room.targetTrackRevealed || room.currentTrack!;
+                return (
+                  <div className="p-5 bg-slate-50 dark:bg-sv-navy/80 border border-slate-200 dark:border-sv-burgundy rounded-2xl flex flex-col sm:flex-row items-center gap-5">
+                    <div className={`w-20 h-20 rounded-2xl bg-gradient-to-tr ${track.artworkGradient || 'from-sv-red to-sv-orange'} flex items-center justify-center text-white shrink-0 shadow-md`}>
+                      <Disc3 className="w-10 h-10 animate-spin" style={{ animationDuration: '8s' }} />
+                    </div>
+                    <div className="space-y-1 text-center sm:text-left flex-1 min-w-0">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-sv-red dark:text-sv-warm-orange">
+                        The Mystery Track Was
+                      </span>
+                      <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate">
+                        {track.title}
+                      </h3>
+                      <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 truncate">
+                        {track.artist}
+                      </p>
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span className="bg-slate-200/70 dark:bg-sv-burgundy/60 px-2 py-0.5 rounded-md">{track.language}</span>
+                        <span className="bg-slate-200/70 dark:bg-sv-burgundy/60 px-2 py-0.5 rounded-md">{track.genre}</span>
+                        <span className="bg-slate-200/70 dark:bg-sv-burgundy/60 px-2 py-0.5 rounded-md">{track.releaseYear}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Player Round Standings Breakdown */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Current Scoreboard
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[...room.players]
+                    .sort((a, b) => (b.score || 0) - (a.score || 0))
+                    .map((p, idx) => (
+                      <div
+                        key={p.id}
+                        className="p-3 bg-slate-50 dark:bg-sv-navy/70 border border-slate-200 dark:border-sv-burgundy rounded-xl flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono font-bold text-slate-400 w-4">{idx + 1}.</span>
+                          <span className="font-bold text-slate-900 dark:text-white truncate">
+                            {p.displayName} {p.id === profile.id && '(You)'}
+                          </span>
+                          {idx === 0 && <Crown className="w-3.5 h-3.5 text-sv-gold shrink-0" />}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {p.lastGuessCorrect ? (
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                              Correct
+                            </span>
+                          ) : p.hasGuessedThisRound ? (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">
+                              Guessed
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              No guess
+                            </span>
+                          )}
+                          <span className="font-mono font-bold text-sv-red dark:text-sv-gold">
+                            {p.score || 0} pts
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* 5-second automatic progression bar */}
+              <div className="space-y-1.5 pt-2">
+                <div className="w-full bg-slate-100 dark:bg-sv-navy h-2 rounded-full overflow-hidden border border-transparent dark:border-sv-burgundy/40">
+                  <div
+                    className="bg-sv-red dark:bg-sv-warm-orange h-full rounded-full transition-all duration-200"
+                    style={{ width: `${Math.min(100, ((5 - resultsSeconds) / 5) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-center text-slate-400 dark:text-slate-500">
+                  Automatic progression in {resultsSeconds}s... Next round begins with newly selected music.
+                </p>
+              </div>
             </div>
           )}
 

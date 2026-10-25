@@ -3,6 +3,11 @@ import { musicCatalogue } from './musicCatalogue';
 
 type RoomListener = (room: MultiplayerRoom) => void;
 
+export const MULTIPLAYER_ROUND_DURATION_MS = 30000; // Strict 30-second round limit
+export const MULTIPLAYER_ROUND_RESULTS_DURATION_MS = 5000; // 5-second results transition window
+export const MULTIPLAYER_MIN_ROUNDS = 3;
+export const MULTIPLAYER_MAX_ROUNDS = 10;
+
 const PEER_PREFIX = 'songverse-room-';
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -64,6 +69,8 @@ class MultiplayerEngineService {
   private roomListeners: Set<RoomListener> = new Set();
   private pollInterval: any = null;
   private heartbeatInterval: any = null;
+  private roundTimerInterval: any = null;
+  private isEndingRound: boolean = false;
   private broadcastChannel: BroadcastChannel | null = null;
 
   // Cross-device WebRTC PeerJS fields
@@ -346,14 +353,33 @@ class MultiplayerEngineService {
       }
 
       case 'GUESS': {
+        if (!this.activeRoom || this.activeRoom.status !== 'playing') return;
+        if (this.activeRoom.roundDeadline && Date.now() >= this.activeRoom.roundDeadline) return;
+
         const player = this.activeRoom.players.find(p => p.id === data.playerId);
-        if (player && !player.hasGuessedThisRound) {
+        if (!player) return;
+
+        // Track distinct player identities who submitted a guess this round
+        if (!this.activeRoom.roundGuessedPlayerIds) {
+          this.activeRoom.roundGuessedPlayerIds = [];
+        }
+        if (!this.activeRoom.roundGuessedPlayerIds.includes(data.playerId)) {
+          this.activeRoom.roundGuessedPlayerIds.push(data.playerId);
+        }
+
+        if (!player.hasGuessedThisRound) {
           player.hasGuessedThisRound = true;
           player.score += data.points || 0;
           player.lastGuessCorrect = Boolean(data.isCorrect);
-          this.saveLocalRoomState(this.activeRoom);
-          this.broadcastRoomToPeers();
-          this.notify();
+        }
+
+        this.saveLocalRoomState(this.activeRoom);
+        this.broadcastRoomToPeers();
+        this.notify();
+
+        // End round early when at least TWO distinct players have submitted a guess
+        if (this.activeRoom.roundGuessedPlayerIds.length >= 2) {
+          this.endCurrentRound('two_players_guessed');
         }
         break;
       }
@@ -395,17 +421,20 @@ class MultiplayerEngineService {
   public async createRoom(
     hostPlayerName: string,
     hostPlayerId: string,
-    settings?: { language?: string; mixLanguages?: boolean }
+    settings?: { language?: string; mixLanguages?: boolean; totalRounds?: number }
   ): Promise<MultiplayerRoom> {
     this.leaveRoom();
     this.currentUserId = hostPlayerId;
 
     let roomCode = this.generate6DigitCode();
+    const totalRounds = settings?.totalRounds
+      ? Math.min(MULTIPLAYER_MAX_ROUNDS, Math.max(MULTIPLAYER_MIN_ROUNDS, settings.totalRounds))
+      : 3;
 
     // Prepare verified playable tracks
     const availableTracks = musicCatalogue.getAvailableTracks();
     const shuffled = [...availableTracks].sort(() => 0.5 - Math.random());
-    const trackIds = shuffled.slice(0, 3).map(t => t.id);
+    const trackIds = shuffled.slice(0, totalRounds).map(t => t.id);
     const initialTrack = trackIds.length > 0 ? musicCatalogue.getTrackById(trackIds[0]) : undefined;
 
     const hostPlayer: MultiplayerPlayer = {
@@ -429,7 +458,8 @@ class MultiplayerEngineService {
           hostId: hostPlayerId,
           displayName: hostPlayerName,
           language: settings?.language || 'English',
-          mixLanguages: Boolean(settings?.mixLanguages)
+          mixLanguages: Boolean(settings?.mixLanguages),
+          totalRounds
         })
       });
 
@@ -446,11 +476,14 @@ class MultiplayerEngineService {
       roomCode,
       hostId: hostPlayerId,
       status: 'lobby',
+      totalRounds,
       trackIds,
       currentTrack: initialTrack,
       currentRoundIndex: 0,
       players: [hostPlayer],
       roundStartedAt: 0,
+      roundDeadline: 0,
+      roundGuessedPlayerIds: [],
       createdAt: Date.now()
     };
 
@@ -465,6 +498,27 @@ class MultiplayerEngineService {
     this.startSyncPolling(roomCode, hostPlayerId);
     this.notify();
     return this.activeRoom;
+  }
+
+  /**
+   * Set total number of match rounds (Host choice: 3 to 10)
+   */
+  public setTotalRounds(rounds: number): void {
+    if (!this.activeRoom || this.activeRoom.status !== 'lobby') return;
+    const count = Math.min(MULTIPLAYER_MAX_ROUNDS, Math.max(MULTIPLAYER_MIN_ROUNDS, Math.round(rounds)));
+    this.activeRoom.totalRounds = count;
+
+    const availableTracks = musicCatalogue.getAvailableTracks();
+    const shuffled = [...availableTracks].sort(() => 0.5 - Math.random());
+    this.activeRoom.trackIds = shuffled.slice(0, count).map(t => t.id);
+    if (this.activeRoom.trackIds.length > 0) {
+      this.activeRoom.currentTrack = musicCatalogue.getTrackById(this.activeRoom.trackIds[0]);
+    }
+
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'ROOM_SETTINGS_UPDATED', room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'ROOM_SETTINGS_UPDATED', room: this.activeRoom });
+    this.notify();
   }
 
   /**
@@ -668,11 +722,22 @@ class MultiplayerEngineService {
       return;
     }
 
-    if (data.type === 'ROOM_STATE' || data.type === 'MATCH_STARTED' || data.type === 'NEXT_ROUND') {
+    if (
+      data.type === 'ROOM_STATE' ||
+      data.type === 'MATCH_STARTED' ||
+      data.type === 'NEXT_ROUND' ||
+      data.type === 'ROUND_ENDED' ||
+      data.type === 'MATCH_COMPLETED' ||
+      data.type === 'ROOM_SETTINGS_UPDATED' ||
+      data.type === 'PLAYER_UPDATE'
+    ) {
       if (data.room) {
         this.activeRoom = data.room;
         this.saveLocalRoomState(data.room);
         this.notify();
+        if (this.activeRoom && (this.activeRoom.status === 'playing' || this.activeRoom.status === 'round-summary')) {
+          this.startAuthoritativeRoundLoop();
+        }
         if (onJoinResolved) {
           onJoinResolved(data.room);
         }
@@ -757,7 +822,135 @@ class MultiplayerEngineService {
   }
 
   /**
+   * Evaluates authoritative round rules (30s deadline, 2-player early completion, 5s results review)
+   */
+  public checkAuthoritativeRoundStatus(): void {
+    if (!this.activeRoom) {
+      this.stopAuthoritativeRoundLoop();
+      return;
+    }
+
+    const now = Date.now();
+
+    // Active round state check
+    if (this.activeRoom.status === 'playing') {
+      const distinctGuessedCount = this.activeRoom.roundGuessedPlayerIds?.length || 0;
+
+      // Rule 1: End round early if at least TWO distinct players have submitted a guess
+      if (distinctGuessedCount >= 2) {
+        this.endCurrentRound('two_players_guessed');
+        return;
+      }
+
+      // Rule 2: End round automatically when authoritative 30-second deadline expires
+      if (this.activeRoom.roundDeadline && now >= this.activeRoom.roundDeadline) {
+        this.endCurrentRound('timeout');
+        return;
+      }
+    }
+
+    // Round summary state check: Auto-transition to next round after 5 seconds
+    if (this.activeRoom.status === 'round-summary') {
+      if (this.activeRoom.roundResultsUntil && now >= this.activeRoom.roundResultsUntil) {
+        this.advanceToNextRound();
+        return;
+      }
+    }
+  }
+
+  /**
+   * Start Authoritative Round Synchronization Loop
+   * Enforces 30-second round deadline, two-player early round-end, and 5-second automatic round transition
+   */
+  private startAuthoritativeRoundLoop() {
+    this.stopAuthoritativeRoundLoop();
+
+    this.roundTimerInterval = setInterval(() => {
+      this.checkAuthoritativeRoundStatus();
+    }, 150);
+  }
+
+  private stopAuthoritativeRoundLoop() {
+    if (this.roundTimerInterval !== null) {
+      clearInterval(this.roundTimerInterval);
+      this.roundTimerInterval = null;
+    }
+  }
+
+  /**
+   * End the current round and transition to round results
+   * Triggered by:
+   * 1. Authoritative 30-second timeout
+   * 2. At least two distinct players submitting a guess
+   */
+  public endCurrentRound(reason: 'timeout' | 'two_players_guessed' | 'all_guessed' = 'timeout'): void {
+    if (!this.activeRoom || this.activeRoom.status !== 'playing' || this.isEndingRound) return;
+    this.isEndingRound = true;
+
+    const now = Date.now();
+    this.activeRoom.status = 'round-summary';
+    this.activeRoom.roundEndReason = reason;
+    this.activeRoom.roundResultsUntil = now + MULTIPLAYER_ROUND_RESULTS_DURATION_MS;
+    this.activeRoom.targetTrackRevealed = this.getCurrentTrack();
+
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'ROUND_ENDED', reason, room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'ROUND_ENDED', reason, room: this.activeRoom });
+    this.notify();
+
+    this.isEndingRound = false;
+  }
+
+  /**
+   * Automatically advance to the next round or complete match
+   */
+  public advanceToNextRound(): void {
+    if (!this.activeRoom || this.activeRoom.status !== 'round-summary' || this.isEndingRound) return;
+    this.isEndingRound = true;
+
+    const totalRounds = this.activeRoom.totalRounds || this.activeRoom.trackIds.length || 3;
+    const hasMoreRounds = this.activeRoom.currentRoundIndex < this.activeRoom.trackIds.length - 1 &&
+                          this.activeRoom.currentRoundIndex < totalRounds - 1;
+
+    if (hasMoreRounds) {
+      this.activeRoom.currentRoundIndex += 1;
+      const now = Date.now();
+      this.activeRoom.status = 'playing';
+      this.activeRoom.roundStartedAt = now;
+      this.activeRoom.roundDeadline = now + MULTIPLAYER_ROUND_DURATION_MS;
+      this.activeRoom.roundGuessedPlayerIds = [];
+      this.activeRoom.roundEndReason = undefined;
+      this.activeRoom.roundResultsUntil = undefined;
+      this.activeRoom.targetTrackRevealed = undefined;
+
+      const nextId = this.activeRoom.trackIds[this.activeRoom.currentRoundIndex];
+      this.activeRoom.currentTrack = musicCatalogue.getTrackById(nextId);
+
+      this.activeRoom.players.forEach(p => {
+        p.hasGuessedThisRound = false;
+        p.currentLevel = 1;
+        p.lastGuessCorrect = undefined;
+      });
+
+      this.saveLocalRoomState(this.activeRoom);
+      this.broadcastMessage({ type: 'NEXT_ROUND', room: this.activeRoom });
+      this.broadcastRoomToPeers({ type: 'NEXT_ROUND', room: this.activeRoom });
+      this.notify();
+    } else {
+      this.activeRoom.status = 'completed';
+      this.activeRoom.roundEndReason = 'completed';
+      this.saveLocalRoomState(this.activeRoom);
+      this.broadcastMessage({ type: 'MATCH_COMPLETED', room: this.activeRoom });
+      this.broadcastRoomToPeers({ type: 'MATCH_COMPLETED', room: this.activeRoom });
+      this.notify();
+    }
+
+    this.isEndingRound = false;
+  }
+
+  /**
    * Host Controls: Start Match
+   * Begins authoritative 30-second round countdown
    */
   public async startMatch(hostId: string): Promise<void> {
     if (!this.activeRoom) return;
@@ -774,16 +967,24 @@ class MultiplayerEngineService {
       }
     }
 
-    if (!this.activeRoom.trackIds || this.activeRoom.trackIds.length === 0) {
+    const totalRounds = this.activeRoom.totalRounds || 3;
+    if (!this.activeRoom.trackIds || this.activeRoom.trackIds.length < totalRounds) {
       const availableTracks = musicCatalogue.getAvailableTracks();
       const shuffled = [...availableTracks].sort(() => 0.5 - Math.random());
-      this.activeRoom.trackIds = shuffled.slice(0, 3).map(t => t.id);
+      this.activeRoom.trackIds = shuffled.slice(0, totalRounds).map(t => t.id);
     }
 
+    const now = Date.now();
     this.activeRoom.currentTrack = musicCatalogue.getTrackById(this.activeRoom.trackIds[0]);
     this.activeRoom.status = 'playing';
-    this.activeRoom.roundStartedAt = Date.now();
+    this.activeRoom.roundStartedAt = now;
+    this.activeRoom.roundDeadline = now + MULTIPLAYER_ROUND_DURATION_MS;
     this.activeRoom.currentRoundIndex = 0;
+    this.activeRoom.roundGuessedPlayerIds = [];
+    this.activeRoom.roundEndReason = undefined;
+    this.activeRoom.roundResultsUntil = undefined;
+    this.activeRoom.targetTrackRevealed = undefined;
+
     this.activeRoom.players.forEach(p => {
       p.currentLevel = 1;
       p.hasGuessedThisRound = false;
@@ -793,6 +994,7 @@ class MultiplayerEngineService {
     this.saveLocalRoomState(this.activeRoom);
     this.broadcastMessage({ type: 'MATCH_STARTED', room: this.activeRoom });
     this.broadcastRoomToPeers({ type: 'MATCH_STARTED', room: this.activeRoom });
+    this.startAuthoritativeRoundLoop();
     this.notify();
   }
 
@@ -836,6 +1038,8 @@ class MultiplayerEngineService {
   public async closeRoom(): Promise<void> {
     if (!this.activeRoom) return;
     const code = this.activeRoom.roomCode;
+
+    this.stopAuthoritativeRoundLoop();
 
     // Send close event to all guests
     this.broadcastRoomToPeers({ type: 'ROOM_CLOSED', roomCode: code });
@@ -919,9 +1123,21 @@ class MultiplayerEngineService {
 
   public submitPlayerGuess(playerId: string, isCorrect: boolean, points: number, guessTrackId?: string, guessTitle?: string) {
     if (!this.activeRoom) return;
+    if (this.activeRoom.status !== 'playing') return;
+    if (this.activeRoom.roundDeadline && Date.now() >= this.activeRoom.roundDeadline) return;
 
     const player = this.activeRoom.players.find(p => p.id === playerId);
-    const level = player?.currentLevel || 1;
+    if (!player) return;
+
+    const level = player.currentLevel || 1;
+
+    // Track distinct player identities who submitted a guess this round
+    if (!this.activeRoom.roundGuessedPlayerIds) {
+      this.activeRoom.roundGuessedPlayerIds = [];
+    }
+    if (!this.activeRoom.roundGuessedPlayerIds.includes(playerId)) {
+      this.activeRoom.roundGuessedPlayerIds.push(playerId);
+    }
 
     // Guest sends to host via DataChannel
     if (this.hostConnection && this.hostConnection.open) {
@@ -951,7 +1167,7 @@ class MultiplayerEngineService {
       }).catch(() => {});
     }
 
-    if (player && !player.hasGuessedThisRound) {
+    if (!player.hasGuessedThisRound) {
       player.hasGuessedThisRound = true;
       player.score += points;
       player.lastGuessCorrect = isCorrect;
@@ -961,36 +1177,46 @@ class MultiplayerEngineService {
     this.broadcastMessage({ type: 'PLAYER_UPDATE', room: this.activeRoom });
     this.broadcastRoomToPeers();
     this.notify();
+
+    // End round early when at least TWO distinct players have submitted a guess
+    if (this.activeRoom.roundGuessedPlayerIds.length >= 2) {
+      this.endCurrentRound('two_players_guessed');
+    }
   }
 
+  /**
+   * Safe next round handler.
+   * Fair Host Permissions: Disallows manual host skipping during an active round.
+   * Automatic round transitions govern all gameplay progression.
+   */
   public async nextRound(): Promise<void> {
     if (!this.activeRoom) return;
 
-    if (this.hostToken && this.activeRoom.roomCode) {
-      fetch(`/api/multiplayer/rooms/${this.activeRoom.roomCode}/host/next-round`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hostToken: this.hostToken })
-      }).catch(() => {});
+    // Disallow manual skip while round is actively playing (preserves fair rules)
+    if (this.activeRoom.status === 'playing') {
+      console.warn('[MultiplayerEngine] Manual round advance blocked during active play; rounds transition automatically.');
+      return;
     }
 
-    if (this.activeRoom.currentRoundIndex < this.activeRoom.trackIds.length - 1) {
-      this.activeRoom.currentRoundIndex += 1;
-      const nextId = this.activeRoom.trackIds[this.activeRoom.currentRoundIndex];
-      this.activeRoom.currentTrack = musicCatalogue.getTrackById(nextId);
-      this.activeRoom.players.forEach(p => {
-        p.hasGuessedThisRound = false;
-        p.currentLevel = 1;
-        p.lastGuessCorrect = undefined;
-      });
-    } else {
-      this.activeRoom.status = 'completed';
+    if (this.activeRoom.status === 'round-summary') {
+      this.advanceToNextRound();
     }
+  }
 
-    this.saveLocalRoomState(this.activeRoom);
-    this.broadcastMessage({ type: 'NEXT_ROUND', room: this.activeRoom });
-    this.broadcastRoomToPeers({ type: 'NEXT_ROUND', room: this.activeRoom });
-    this.notify();
+  public getRemainingSeconds(): number {
+    if (!this.activeRoom || this.activeRoom.status !== 'playing' || !this.activeRoom.roundDeadline) {
+      return 0;
+    }
+    const diff = this.activeRoom.roundDeadline - Date.now();
+    return Math.max(0, Math.ceil(diff / 1000));
+  }
+
+  public getResultsCountdownSeconds(): number {
+    if (!this.activeRoom || this.activeRoom.status !== 'round-summary' || !this.activeRoom.roundResultsUntil) {
+      return 0;
+    }
+    const diff = this.activeRoom.roundResultsUntil - Date.now();
+    return Math.max(0, Math.ceil(diff / 1000));
   }
 
   public getCurrentTrack(): Track | undefined {
@@ -1037,6 +1263,7 @@ class MultiplayerEngineService {
     }
 
     this.stopSyncPolling();
+    this.stopAuthoritativeRoundLoop();
     this.cleanupGuestPeer();
     this.cleanupHostPeer();
 
