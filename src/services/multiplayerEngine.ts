@@ -9,6 +9,86 @@ class MultiplayerEngineService {
   private roomListeners: Set<RoomListener> = new Set();
   private pollInterval: number | null = null;
   private heartbeatInterval: number | null = null;
+  private broadcastChannel: BroadcastChannel | null = null;
+
+  constructor() {
+    this.initBroadcastSync();
+  }
+
+  private initBroadcastSync() {
+    if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+      try {
+        this.broadcastChannel = new BroadcastChannel('songverse_multiplayer_bus');
+        this.broadcastChannel.onmessage = (event) => {
+          this.handleBroadcastMessage(event.data);
+        };
+      } catch {
+        // Fallback below
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (e) => {
+        if (e.key && e.key.startsWith('songverse_room_state_') && e.newValue) {
+          try {
+            const room: MultiplayerRoom = JSON.parse(e.newValue);
+            if (this.activeRoom && this.activeRoom.roomCode === room.roomCode) {
+              this.activeRoom = room;
+              this.notify();
+            }
+          } catch {}
+        }
+      });
+    }
+  }
+
+  private broadcastMessage(data: any) {
+    try {
+      if (this.broadcastChannel) {
+        this.broadcastChannel.postMessage(data);
+      }
+    } catch {}
+  }
+
+  private handleBroadcastMessage(data: any) {
+    if (!data) return;
+    if (data.type === 'ROOM_CLOSED' && this.activeRoom?.roomCode === data.roomCode) {
+      this.activeRoom = null;
+      this.hostToken = null;
+      this.notify();
+      return;
+    }
+    if (data.room && this.activeRoom && this.activeRoom.roomCode === data.room.roomCode) {
+      this.activeRoom = data.room;
+      this.notify();
+    }
+  }
+
+  private getLocalRoomState(code: string): MultiplayerRoom | null {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = window.localStorage.getItem(`songverse_room_state_${code}`);
+        if (raw) return JSON.parse(raw);
+      }
+    } catch {}
+    return null;
+  }
+
+  private saveLocalRoomState(room: MultiplayerRoom) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(`songverse_room_state_${room.roomCode}`, JSON.stringify(room));
+      }
+    } catch {}
+  }
+
+  private removeLocalRoomState(code: string) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(`songverse_room_state_${code}`);
+      }
+    } catch {}
+  }
 
   public subscribeRoom(listener: RoomListener): () => void {
     this.roomListeners.add(listener);
@@ -81,6 +161,8 @@ class MultiplayerEngineService {
           roundStartedAt: 0,
           createdAt: Date.now()
         };
+        this.saveLocalRoomState(this.activeRoom);
+        this.broadcastMessage({ type: 'ROOM_CREATED', room: this.activeRoom });
         this.startSyncPolling(data.roomCode, hostPlayerId);
         this.notify();
         return this.activeRoom;
@@ -117,6 +199,8 @@ class MultiplayerEngineService {
       createdAt: Date.now()
     };
 
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'ROOM_CREATED', room: this.activeRoom });
     this.notify();
     return this.activeRoom;
   }
@@ -127,7 +211,7 @@ class MultiplayerEngineService {
   public async joinRoom(roomCode: string, playerName: string, playerId: string): Promise<MultiplayerRoom> {
     const cleanCode = String(roomCode).trim().padStart(6, '0');
 
-    // Try server-side room join
+    // 1. Try server-side room join first
     try {
       const res = await fetch('/api/multiplayer/rooms/join', {
         method: 'POST',
@@ -151,29 +235,34 @@ class MultiplayerEngineService {
           roundStartedAt: 0,
           createdAt: Date.now()
         };
+        this.saveLocalRoomState(this.activeRoom);
+        this.broadcastMessage({ type: 'PLAYER_JOINED', room: this.activeRoom });
         this.startSyncPolling(data.roomCode, playerId);
         this.notify();
         return this.activeRoom;
       } else {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || `Failed to join room ${cleanCode}`);
+        if (errData.error === 'ROOM_FULL' || errData.error === 'ACCESS_REVOKED') {
+          throw new Error(errData.message);
+        }
       }
     } catch (err: any) {
-      if (err.message && (err.message.includes('capacity') || err.message.includes('revoked') || err.message.includes('exist'))) {
+      if (err.message && (err.message.includes('capacity') || err.message.includes('revoked'))) {
         throw err;
       }
     }
 
-    // Local in-memory join (only for same-client multi-session testing where the room already exists locally)
-    if (this.activeRoom && this.activeRoom.roomCode === cleanCode) {
-      if (this.activeRoom.players.length >= 20) {
+    // 2. Shared storage join (for multi-tab / multi-window preview & offline)
+    const localRoom = this.getLocalRoomState(cleanCode) || (this.activeRoom?.roomCode === cleanCode ? this.activeRoom : null);
+    if (localRoom) {
+      if (localRoom.players.length >= 20) {
         throw new Error('This room has reached the maximum capacity of 20 participants.');
       }
-      const existing = this.activeRoom.players.find(p => p.id === playerId);
+      const existing = localRoom.players.find(p => p.id === playerId);
       if (!existing) {
-        this.activeRoom.players.push({
+        localRoom.players.push({
           id: playerId,
-          displayName: playerName || 'Player',
+          displayName: (playerName || 'Player').trim().slice(0, 30),
           avatarSeed: 'p_' + playerId.slice(0, 4),
           isReady: false,
           isHost: false,
@@ -182,6 +271,9 @@ class MultiplayerEngineService {
           hasGuessedThisRound: false
         });
       }
+      this.activeRoom = localRoom;
+      this.saveLocalRoomState(this.activeRoom);
+      this.broadcastMessage({ type: 'PLAYER_JOINED', room: this.activeRoom });
       this.notify();
       return this.activeRoom;
     }
@@ -223,13 +315,21 @@ class MultiplayerEngineService {
             if (data.trackIds && data.trackIds.length > 0) {
               this.activeRoom.trackIds = data.trackIds;
             }
+            this.saveLocalRoomState(this.activeRoom);
             this.notify();
           }
         } else if (res.status === 404 || res.status === 403) {
-          this.leaveRoom();
+          const localState = this.getLocalRoomState(code);
+          if (!localState) {
+            this.leaveRoom();
+          }
         }
       } catch {
-        // Network blip
+        const localState = this.getLocalRoomState(code);
+        if (localState && this.activeRoom && this.activeRoom.roomCode === code) {
+          this.activeRoom = localState;
+          this.notify();
+        }
       }
     }, 2500);
   }
@@ -263,9 +363,22 @@ class MultiplayerEngineService {
       }
     }
 
+    if (!this.activeRoom.trackIds || this.activeRoom.trackIds.length === 0) {
+      const availableTracks = musicCatalogue.getAvailableTracks();
+      const shuffled = [...availableTracks].sort(() => 0.5 - Math.random());
+      this.activeRoom.trackIds = shuffled.slice(0, 3).map(t => t.id);
+    }
+
     this.activeRoom.status = 'playing';
     this.activeRoom.roundStartedAt = Date.now();
     this.activeRoom.currentRoundIndex = 0;
+    this.activeRoom.players.forEach(p => {
+      p.currentLevel = 1;
+      p.hasGuessedThisRound = false;
+    });
+
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'MATCH_STARTED', room: this.activeRoom });
     this.notify();
   }
 
@@ -283,6 +396,8 @@ class MultiplayerEngineService {
       });
       if (res.ok) {
         this.activeRoom.players = this.activeRoom.players.filter(p => p.id !== targetPlayerId);
+        this.saveLocalRoomState(this.activeRoom);
+        this.broadcastMessage({ type: 'PLAYER_UPDATE', room: this.activeRoom });
         this.notify();
         return true;
       }
@@ -291,6 +406,8 @@ class MultiplayerEngineService {
     }
 
     this.activeRoom.players = this.activeRoom.players.filter(p => p.id !== targetPlayerId);
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'PLAYER_UPDATE', room: this.activeRoom });
     this.notify();
     return true;
   }
@@ -300,9 +417,10 @@ class MultiplayerEngineService {
    */
   public async closeRoom(): Promise<void> {
     if (!this.activeRoom) return;
+    const code = this.activeRoom.roomCode;
     if (this.hostToken) {
       try {
-        await fetch(`/api/multiplayer/rooms/${this.activeRoom.roomCode}/host/close`, {
+        await fetch(`/api/multiplayer/rooms/${code}/host/close`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ hostToken: this.hostToken })
@@ -311,6 +429,8 @@ class MultiplayerEngineService {
         // Fallback
       }
     }
+    this.removeLocalRoomState(code);
+    this.broadcastMessage({ type: 'ROOM_CLOSED', roomCode: code });
     this.leaveRoom();
   }
 
@@ -328,6 +448,8 @@ class MultiplayerEngineService {
     } catch {
       // Fallback
     }
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'PLAYER_UPDATE', room: this.activeRoom });
   }
 
   public toggleReady(playerId: string) {
@@ -335,6 +457,8 @@ class MultiplayerEngineService {
     const player = this.activeRoom.players.find(p => p.id === playerId);
     if (player) {
       player.isReady = !player.isReady;
+      this.saveLocalRoomState(this.activeRoom);
+      this.broadcastMessage({ type: 'PLAYER_UPDATE', room: this.activeRoom });
       this.notify();
     }
   }
@@ -344,7 +468,6 @@ class MultiplayerEngineService {
     const player = this.activeRoom.players.find(p => p.id === playerId);
     if (player && player.currentLevel < 4) {
       player.currentLevel = (player.currentLevel + 1) as 1 | 2 | 3 | 4;
-      this.notify();
     }
     if (this.activeRoom.roomCode) {
       try {
@@ -357,13 +480,15 @@ class MultiplayerEngineService {
           const data = await res.json();
           if (data.players && this.activeRoom) {
             this.activeRoom.players = data.players;
-            this.notify();
           }
         }
       } catch {
         // Handled locally
       }
     }
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'PLAYER_UPDATE', room: this.activeRoom });
+    this.notify();
     return player?.currentLevel || 1;
   }
 
@@ -390,8 +515,11 @@ class MultiplayerEngineService {
       player.hasGuessedThisRound = true;
       player.score += points;
       player.lastGuessCorrect = isCorrect;
-      this.notify();
     }
+
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'PLAYER_UPDATE', room: this.activeRoom });
+    this.notify();
   }
 
   public async nextRound(): Promise<void> {
@@ -409,6 +537,8 @@ class MultiplayerEngineService {
           this.activeRoom.status = data.status;
           this.activeRoom.currentRoundIndex = data.currentRoundIndex;
           if (data.players) this.activeRoom.players = data.players;
+          this.saveLocalRoomState(this.activeRoom);
+          this.broadcastMessage({ type: 'NEXT_ROUND', room: this.activeRoom });
           this.notify();
           return;
         }
@@ -426,6 +556,8 @@ class MultiplayerEngineService {
     } else {
       this.activeRoom.status = 'completed';
     }
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'NEXT_ROUND', room: this.activeRoom });
     this.notify();
   }
 
