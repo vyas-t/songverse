@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -22,12 +23,27 @@ import { AuthModal } from './components/auth/AuthModal';
 import { gameEngine } from './services/gameEngine';
 import { privacyConsent } from './services/privacyConsent';
 import { audioEngine } from './services/audioEngine';
+import { musicCatalogue } from './services/musicCatalogue';
+
+const DISCOVERY_LANGUAGES = [
+  'English',
+  'Telugu',
+  'Hindi',
+  'Tamil',
+  'Malayalam',
+  'Kannada',
+  'Bengali',
+  'Punjabi',
+  'Spanish',
+];
 
 export default function App() {
   const [currentView, setCurrentView] = useState<string>('landing');
   const [gameMode, setGameMode] = useState<GameMode>('classic');
   const [userProfile, setUserProfile] = useState(gameEngine.getUserProfile());
-  const [cookiePrefs, setCookiePrefs] = useState<CookiePreferences>(privacyConsent.getPreferences());
+  const [cookiePrefs, setCookiePrefs] = useState<CookiePreferences>(
+    privacyConsent.getPreferences()
+  );
 
   // Modals state
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -36,12 +52,45 @@ export default function App() {
   const [cookieModalOpen, setCookieModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
 
-
+  // Subscribe to cookie preference updates.
   useEffect(() => {
     const unsubCookies = privacyConsent.subscribe((prefs) => {
       setCookiePrefs(prefs);
     });
+
     return () => unsubCookies();
+  }, []);
+
+  // Automatically discover songs when the app starts.
+  useEffect(() => {
+    let cancelled = false;
+
+    const discoverSongs = async () => {
+      try {
+        const addedCount = await musicCatalogue.autoDiscoverSongs(
+          DISCOVERY_LANGUAGES
+        );
+
+        if (!cancelled) {
+          console.info(
+            `SongVerse startup discovery finished. Added ${addedCount} new tracks.`
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            'SongVerse startup music discovery failed:',
+            error
+          );
+        }
+      }
+    };
+
+    void discoverSongs();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const refreshProfile = () => {
@@ -50,20 +99,31 @@ export default function App() {
 
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('songverse_preferred_languages_v1');
+      const saved = localStorage.getItem(
+        'songverse_preferred_languages_v1'
+      );
+
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       }
     } catch {
-      // Fallback
+      // Use the default language if local storage is unavailable.
     }
+
     return ['English'];
   });
 
   const handleNavigate = (view: string, mode?: GameMode) => {
     audioEngine.stop();
-    if (mode) setGameMode(mode);
+
+    if (mode) {
+      setGameMode(mode);
+    }
+
     setCurrentView(view);
     refreshProfile();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -92,7 +152,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF9F6] dark:bg-sv-navy text-slate-900 dark:text-slate-100 font-sans selection:bg-sv-red/20 selection:text-sv-red transition-colors">
-      
+
       {/* Top 3-Zone Navigation */}
       <Navbar
         currentView={currentView}
@@ -176,7 +236,6 @@ export default function App() {
         onSuccess={() => refreshProfile()}
       />
 
-
       {/* Cookie Consent Banner & Modal */}
       <CookieBanner
         preferences={cookiePrefs}
@@ -201,7 +260,7 @@ export default function App() {
         />
       )}
 
-      {/* Administration & 18-Test Runner Modal */}
+      {/* Administration & Test Runner Modal */}
       {adminModalOpen && (
         <AdminPanel
           onClose={() => {
@@ -210,7 +269,6 @@ export default function App() {
           }}
         />
       )}
-
     </div>
   );
 }
