@@ -15,13 +15,46 @@ async function getPeerClass(): Promise<any> {
   if (typeof window === 'undefined' || typeof window.RTCPeerConnection === 'undefined') {
     return null;
   }
-  try {
-    const mod: any = await import('peerjs');
-    return mod.default?.Peer || mod.default || mod.Peer;
-  } catch (err) {
-    console.warn('[MultiplayerEngine] Could not load PeerJS:', err);
-    return null;
+  if ((window as any).Peer) {
+    return (window as any).Peer;
   }
+
+  return new Promise((resolve) => {
+    if (typeof document === 'undefined') {
+      return resolve(null);
+    }
+    const existing = document.querySelector('script[data-peerjs]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve((window as any).Peer || null));
+      existing.addEventListener('error', () => resolve(null));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.setAttribute('data-peerjs', 'true');
+    script.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+    script.async = true;
+
+    const timeout = setTimeout(() => {
+      resolve((window as any).Peer || null);
+    }, 4000);
+
+    script.onload = () => {
+      clearTimeout(timeout);
+      resolve((window as any).Peer || null);
+    };
+
+    script.onerror = () => {
+      clearTimeout(timeout);
+      const fallback = document.createElement('script');
+      fallback.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+      fallback.onload = () => resolve((window as any).Peer || null);
+      fallback.onerror = () => resolve(null);
+      document.head.appendChild(fallback);
+    };
+
+    document.head.appendChild(script);
+  });
 }
 
 class MultiplayerEngineService {
