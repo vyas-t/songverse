@@ -203,6 +203,7 @@ export interface MultiplayerPlayer {
   currentLevel: GameLevelNumber;
   hasGuessedThisRound: boolean;
   lastGuessCorrect?: boolean;
+  status?: 'connected' | 'idle' | 'disconnected';
 }
 
 export interface MultiplayerRoom {

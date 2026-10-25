@@ -529,7 +529,9 @@ export async function runAutomatedTestSuite(): Promise<AutomatedTestResult[]> {
           passed ? `Room ${room.roomCode} initialized with validated host authority.` : 'Failed room authorization.',
           Math.round(performance.now() - start)
         );
+        multiplayerEngine.leaveRoom();
       } catch (err: unknown) {
+        multiplayerEngine.leaveRoom();
         record(17, 'Multiplayer authorization', 'Enforced', false, String(err), Math.round(performance.now() - start));
       }
     }

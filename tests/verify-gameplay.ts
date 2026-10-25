@@ -41,6 +41,7 @@ async function main() {
   if (passedCount !== results.length) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 main().catch(err => {
