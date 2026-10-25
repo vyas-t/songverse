@@ -1,4 +1,4 @@
-```typescript
+
 /** Cloudflare Pages Function: GET /api/music/search */
 type Track = Record<string, unknown>;
 
@@ -151,4 +151,4 @@ function json(
     },
   });
 }
-```
+
