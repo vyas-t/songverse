@@ -16,9 +16,7 @@ import {
 } from 'lucide-react';
 import { GameMode } from '../../types';
 import { GAME_LEVELS } from '../../config/gameConfig';
-import { musicCatalogue } from '../../services/musicCatalogue';
 import { audioEngine } from '../../services/audioEngine';
-import { LiveMusicAutocomplete, AutocompleteTrackResult } from '../common/LiveMusicAutocomplete';
 
 interface LandingPageProps {
   onStartPlay: (mode?: GameMode) => void;
@@ -99,7 +97,6 @@ const FLOATING_ARTISTS_RIGHT = [
 export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigate }) => {
   const [demoLevel, setDemoLevel] = useState<1 | 2 | 3 | 4>(1);
   const [isPlayingDemo, setIsPlayingDemo] = useState(false);
-  const [selectedDemoTrack, setSelectedDemoTrack] = useState<AutocompleteTrackResult | null>(null);
 
   // Cleanly stop any active demo playback when LandingPage unmounts
   useEffect(() => {
@@ -117,7 +114,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
     }
 
     setIsPlayingDemo(true);
-    const audioTrack = selectedDemoTrack || {
+    const audioTrack = {
       id: 'itunes_demo_blinding',
       title: 'Blinding Lights',
       artist: 'The Weeknd',
@@ -134,18 +131,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
       // Audio engine error handled
     } finally {
       setIsPlayingDemo(false);
-    }
-  };
-
-  const handleAutocompletePick = (track: AutocompleteTrackResult) => {
-    setSelectedDemoTrack(track);
-    // Instant audition
-    if (track.audioUrl) {
-      audioEngine.playClip({
-        ...track,
-        durationSeconds: 210,
-        clipStartSeconds: 15
-      } as any, 2).catch(() => {});
     }
   };
 
@@ -230,17 +215,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
         <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-xl mx-auto leading-relaxed">
           Listen to razor-thin clips from 1s to 10s. Guess the song before the groove ends to earn up to 100 points.
         </p>
-
-        {/* Prominent Rounded Live Autocomplete Input */}
-        <div className="max-w-xl mx-auto space-y-2">
-          <LiveMusicAutocomplete
-            onSelectTrack={handleAutocompletePick}
-            placeholder="Type any song or artist (e.g. The Weeknd, Kesariya, Shape of You)..."
-          />
-          <p className="text-[11px] text-slate-400 dark:text-slate-400 text-center">
-            Live autocomplete powered by real Apple iTunes API with 30s audio auditions
-          </p>
-        </div>
 
         {/* Primary Play CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
