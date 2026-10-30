@@ -44,6 +44,7 @@ interface MultiplayerViewProps {
 
 export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, onNavigateHome }) => {
   const [profile, setProfile] = useState(gameEngine.getUserProfile());
+  const [nameInput, setNameInput] = useState(profile.displayName || '');
   const [room, setRoom] = useState<MultiplayerRoom | null>(multiplayerEngine.getActiveRoom());
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
@@ -127,12 +128,44 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
     setLastGuessFeedback(null);
   }, [currentRoundIndex, roomStatus]);
 
+  // Refresh user profile and name input on mount
+  useEffect(() => {
+    const fresh = gameEngine.getUserProfile();
+    setProfile(fresh);
+    setNameInput(fresh.displayName || '');
+  }, []);
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.slice(0, 20);
+    setNameInput(rawValue);
+    const updated = gameEngine.updateUserProfile({ displayName: rawValue });
+    setProfile(updated);
+  };
+
+  const handleNameBlur = () => {
+    const trimmed = nameInput.trim();
+    const finalName = trimmed || `Guest_${profile.id.slice(-4).toUpperCase()}`;
+    setNameInput(finalName);
+    const updated = gameEngine.updateUserProfile({ displayName: finalName });
+    setProfile(updated);
+  };
+
+  const handleClearName = () => {
+    setNameInput('');
+    const updated = gameEngine.updateUserProfile({ displayName: '' });
+    setProfile(updated);
+  };
+
   const handleCreateRoom = async () => {
     setIsCreating(true);
     setErrorMessage(null);
+    const effectiveName = nameInput.trim() || profile.displayName.trim() || `Guest_${profile.id.slice(-4).toUpperCase()}`;
+    const updated = gameEngine.updateUserProfile({ displayName: effectiveName });
+    setProfile(updated);
+    setNameInput(effectiveName);
     try {
       const newRoom = await multiplayerEngine.createRoom(
-        profile.displayName,
+        effectiveName,
         profile.id,
         { language: roomLanguage, mixLanguages: roomMixLanguages, totalRounds: selectedRounds }
       );
@@ -158,9 +191,13 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
 
     setIsJoining(true);
     setErrorMessage(null);
+    const effectiveName = nameInput.trim() || profile.displayName.trim() || `Guest_${profile.id.slice(-4).toUpperCase()}`;
+    const updated = gameEngine.updateUserProfile({ displayName: effectiveName });
+    setProfile(updated);
+    setNameInput(effectiveName);
     try {
       const paddedCode = clean.padStart(6, '0');
-      const joined = await multiplayerEngine.joinRoom(paddedCode, profile.displayName, profile.id);
+      const joined = await multiplayerEngine.joinRoom(paddedCode, effectiveName, profile.id);
       setRoom(joined);
       setJoinCodeInput('');
     } catch (err: any) {
@@ -315,7 +352,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-white/95 dark:bg-sv-burgundy-deep/90 rounded-3xl border border-slate-200 dark:border-sv-burgundy shadow-sm">
             <div className="flex items-center gap-3.5 w-full sm:w-auto">
               <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sv-red via-sv-red-orange to-sv-amber flex items-center justify-center text-white font-black text-sm uppercase shadow-sm shadow-sv-red/25">
-                {profile.displayName.slice(0, 2)}
+                {(nameInput.trim() || profile.displayName.trim() || 'Guest').slice(0, 2)}
               </div>
               <div>
                 <span className="text-[10px] font-bold text-sv-red dark:text-sv-warm-orange uppercase tracking-wider block font-mono">
@@ -326,21 +363,27 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex items-center w-full sm:w-auto">
               <input
                 type="text"
                 maxLength={20}
-                value={profile.displayName}
-                onChange={(e) => {
-                  const val = e.target.value.trim().slice(0, 20);
-                  if (val) {
-                    const upd = gameEngine.updateUserProfile({ displayName: val });
-                    setProfile(upd);
-                  }
-                }}
-                className="w-full sm:w-52 px-4 py-2.5 text-xs font-bold bg-slate-50 dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:border-sv-red focus:ring-2 focus:ring-sv-red/10"
+                value={nameInput}
+                onChange={handleNameChange}
+                onBlur={handleNameBlur}
+                className="w-full sm:w-56 pl-4 pr-9 py-2.5 text-xs font-bold bg-slate-50 dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:border-sv-red focus:ring-2 focus:ring-sv-red/10"
                 placeholder="Enter player name..."
+                aria-label="Player Display Name"
               />
+              {nameInput.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearName}
+                  className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+                  title="Clear name"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -477,7 +520,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
               </div>
 
               <div className="p-3.5 bg-slate-50 dark:bg-sv-midnight rounded-2xl border border-slate-200 dark:border-sv-burgundy text-xs text-slate-600 dark:text-slate-300">
-                Playing as: <strong className="text-slate-900 dark:text-white font-bold">{profile.displayName}</strong>
+                Playing as: <strong className="text-slate-900 dark:text-white font-bold">{nameInput.trim() || profile.displayName.trim() || 'Guest'}</strong>
               </div>
 
               <button
