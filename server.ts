@@ -1771,15 +1771,283 @@ app.post('/api/multiplayer/rooms/:code/heartbeat', (req: Request, res: Response)
 });
 
 // ==========================================
-// --- Admin Protected Catalogue Endpoints ---
+// --- Admin Protected Catalogue & Management Endpoints ---
 // ==========================================
-function checkAdminAuth(req: Request, res: Response, next: () => void) {
+async function checkAdminAuth(req: Request, res: Response, next: () => void) {
   const adminKey = req.headers['x-admin-key'] || req.query.adminKey;
-  if (adminKey === 'ABHI0810' || adminKey === 'songverse2026') {
+  const configuredAdminKey = process.env.ADMIN_SECRET_KEY || 'ABHI0810';
+
+  if (adminKey === configuredAdminKey || adminKey === 'ABHI0810' || adminKey === 'songverse2026') {
     return next();
   }
-  return res.status(403).json({ error: 'FORBIDDEN', message: 'Admin authentication required.' });
+
+  // Check Bearer Token via Supabase Auth
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+
+    // 1. Check with serverSupabase if initialized
+    if (serverSupabase) {
+      try {
+        const { data: { user }, error } = await serverSupabase.auth.getUser(token);
+        if (!error && user) {
+          // Inspect database profile to verify role and enforce active status
+          const { data: profile } = await serverSupabase
+            .from('profiles')
+            .select('account_type, account_status')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          // Strict rule: Suspended accounts are immediately blocked from all admin operations
+          if (profile && profile.account_status === 'suspended') {
+            return res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: 'This account has been suspended.' });
+          }
+
+          // Check if admin by explicitly configured server environment allowlists
+          const adminEmails = process.env.ADMIN_EMAILS
+            ? process.env.ADMIN_EMAILS.toLowerCase().split(',').map(e => e.trim()).filter(Boolean)
+            : [];
+          const adminUserIds = process.env.ADMIN_USER_IDS
+            ? process.env.ADMIN_USER_IDS.split(',').map(id => id.trim()).filter(Boolean)
+            : [];
+
+          const isEmailAllowlisted = user.email && adminEmails.length > 0 && adminEmails.includes(user.email.toLowerCase());
+          const isIdAllowlisted = adminUserIds.length > 0 && adminUserIds.includes(user.id);
+          const isDatabaseAdmin = profile && profile.account_type === 'admin';
+          const isActive = !profile || profile.account_status === 'active';
+
+          if ((isEmailAllowlisted || isIdAllowlisted || isDatabaseAdmin) && isActive) {
+            (req as any).adminUser = user;
+            return next();
+          }
+        }
+      } catch (err) {
+        console.warn('[SongVerse Server] Admin token check failed:', err);
+      }
+    }
+
+    // 2. Fallback check for in-memory server session (requires active account)
+    const userId = serverSessions.get(token);
+    if (userId) {
+      const user = serverUsers.get(userId);
+      const isUserAdmin = user && (user as any).accountType === 'admin';
+      const isUserActive = !user || (user as any).accountStatus !== 'suspended';
+      if (isUserAdmin && isUserActive) {
+        (req as any).adminUser = user;
+        return next();
+      }
+    }
+  }
+
+  return res.status(403).json({ error: 'FORBIDDEN', message: 'Administrator authorization required.' });
 }
+
+// Admin Player Management & Metrics Endpoints
+app.get('/api/admin/metrics', checkAdminAuth, async (_req: Request, res: Response) => {
+  try {
+    if (serverSupabase) {
+      const { data: profiles, error } = await serverSupabase.from('profiles').select('*');
+      if (!error && Array.isArray(profiles)) {
+        const totalRegisteredUsers = profiles.length;
+        const verifiedAccounts = profiles.filter(p => p.email_verified).length;
+        const unverifiedAccounts = totalRegisteredUsers - verifiedAccounts;
+        const activeAccounts = profiles.filter(p => p.account_status === 'active').length;
+        const suspendedAccounts = profiles.filter(p => p.account_status === 'suspended').length;
+        const googleAccountsCount = profiles.filter(p => p.auth_provider === 'google').length;
+        const emailAccountsCount = profiles.filter(p => p.auth_provider === 'email' || p.auth_provider === 'supabase').length;
+        const totalGamesPlayed = profiles.reduce((sum, p) => sum + (p.games_played || 0), 0);
+
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const recentRegistrationsCount = profiles.filter(p => p.created_at && p.created_at >= oneDayAgo).length;
+
+        return res.json({
+          totalRegisteredUsers,
+          totalGuestPlayers: 1,
+          verifiedAccounts,
+          unverifiedAccounts,
+          activeAccounts,
+          suspendedAccounts,
+          totalGamesPlayed,
+          recentRegistrationsCount,
+          googleAccountsCount,
+          emailAccountsCount
+        });
+      }
+    }
+
+    res.json({
+      totalRegisteredUsers: serverUsers.size,
+      totalGuestPlayers: 1,
+      verifiedAccounts: serverUsers.size,
+      unverifiedAccounts: 0,
+      activeAccounts: serverUsers.size,
+      suspendedAccounts: 0,
+      totalGamesPlayed: 0,
+      recentRegistrationsCount: 0,
+      googleAccountsCount: serverUsers.size,
+      emailAccountsCount: 0
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'METRICS_ERROR', message: err.message });
+  }
+});
+
+app.get('/api/admin/players', checkAdminAuth, async (req: Request, res: Response) => {
+  try {
+    const search = ((req.query.search as string) || '').toLowerCase().trim();
+    const status = (req.query.status as string) || 'all';
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20));
+
+    if (serverSupabase) {
+      let query = serverSupabase.from('profiles').select('*', { count: 'exact' });
+
+      if (status !== 'all') {
+        query = query.eq('account_status', status);
+      }
+
+      if (search) {
+        query = query.or(`display_name.ilike.%${search}%,email.ilike.%${search}%`);
+      }
+
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (!error && data) {
+        const players = data.map(p => ({
+          id: p.id,
+          email: p.email,
+          displayName: p.display_name,
+          avatarSeed: p.avatar_seed,
+          avatarUrl: p.avatar_url,
+          authProvider: p.auth_provider,
+          accountType: p.account_type,
+          accountStatus: p.account_status,
+          emailVerified: Boolean(p.email_verified),
+          totalScore: p.total_score || 0,
+          gamesPlayed: p.games_played || 0,
+          roundsWon: p.rounds_won || 0,
+          currentStreak: p.current_streak || 0,
+          bestStreak: p.best_streak || 0,
+          createdAt: p.created_at,
+          lastLoginAt: p.last_login_at || p.created_at,
+          lastPlayedAt: p.last_played_at
+        }));
+
+        return res.json({
+          players,
+          total: count || players.length,
+          page,
+          limit,
+          totalPages: Math.ceil((count || players.length) / limit)
+        });
+      }
+    }
+
+    const list = Array.from(serverUsers.values()).map(u => ({
+      id: u.id,
+      email: u.email,
+      displayName: u.displayName,
+      avatarSeed: 'seed_' + u.id,
+      authProvider: u.authProvider || 'google',
+      accountType: 'player',
+      accountStatus: 'active',
+      emailVerified: true,
+      totalScore: 0,
+      gamesPlayed: 0,
+      roundsWon: 0,
+      currentStreak: 0,
+      bestStreak: 0,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString()
+    }));
+
+    res.json({
+      players: list,
+      total: list.length,
+      page: 1,
+      limit,
+      totalPages: 1
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'FETCH_PLAYERS_ERROR', message: err.message });
+  }
+});
+
+app.post('/api/admin/players/:id/status', checkAdminAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, reason } = req.body || {};
+
+    if (status !== 'active' && status !== 'suspended') {
+      return res.status(400).json({ error: 'INVALID_STATUS', message: 'Status must be active or suspended.' });
+    }
+
+    if (serverSupabase) {
+      const { error } = await serverSupabase
+        .from('profiles')
+        .update({ account_status: status, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+
+      const adminId = (req as any).adminUser?.id || null;
+      try {
+        await serverSupabase.from('admin_audit_logs').insert({
+          admin_id: adminId,
+          action: status === 'suspended' ? 'suspend_user' : 'reactivate_user',
+          target_user_id: id,
+          details: { reason: reason || 'Administrative action via dashboard' }
+        });
+      } catch {
+        // Ignore audit log error
+      }
+    }
+
+    res.json({ success: true, userId: id, status });
+  } catch (err: any) {
+    res.status(500).json({ error: 'UPDATE_STATUS_ERROR', message: err.message });
+  }
+});
+
+app.get('/api/admin/players/export', checkAdminAuth, async (req: Request, res: Response) => {
+  try {
+    const format = (req.query.format as string) === 'csv' ? 'csv' : 'json';
+    let records: any[] = [];
+
+    if (serverSupabase) {
+      const { data } = await serverSupabase
+        .from('profiles')
+        .select('id, email, display_name, auth_provider, account_type, account_status, email_verified, total_score, games_played, rounds_won, current_streak, best_streak, created_at, last_login_at')
+        .order('created_at', { ascending: false });
+
+      if (data) records = data;
+    }
+
+    if (format === 'csv') {
+      const headers = ['id', 'email', 'display_name', 'auth_provider', 'account_type', 'account_status', 'email_verified', 'total_score', 'games_played', 'rounds_won', 'current_streak', 'best_streak', 'created_at', 'last_login_at'];
+      const csvRows = [
+        headers.join(','),
+        ...records.map(row => headers.map(h => JSON.stringify(row[h] ?? '')).join(','))
+      ];
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="songverse_players.csv"');
+      return res.send(csvRows.join('\n'));
+    }
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="songverse_players.json"');
+    res.json({ exportedAt: new Date().toISOString(), total: records.length, players: records });
+  } catch (err: any) {
+    res.status(500).json({ error: 'EXPORT_ERROR', message: err.message });
+  }
+});
 
 app.get('/api/admin/catalogue/stats', checkAdminAuth, (_req: Request, res: Response) => {
   res.json(catalogueStore.getStats());

@@ -132,32 +132,73 @@ export interface UserProfile {
   id: string;
   displayName: string;
   avatarSeed: string;
+  avatarUrl?: string;
   isGuest: boolean;
-  authProvider?: 'guest' | 'google' | 'apple';
+  authProvider?: 'guest' | 'google' | 'apple' | 'email' | 'supabase';
+  accountType?: 'player' | 'admin';
+  accountStatus?: 'active' | 'suspended';
   email?: string;
+  emailVerified?: boolean;
   preferredLanguages?: string[];
+  preferredLanguage?: string;
   linkedAt?: number;
   gamesPlayed: number;
   roundsPlayed: number;
   roundsWon: number;
+  gamesWon?: number;
   accuracy: number;
   totalScore: number;
   bestScore: number;
   currentStreak: number;
   bestStreak: number;
+  highestStreak?: number;
   favoriteGenres: Record<string, number>;
   unlockedAchievements: string[];
   createdAt: number;
   lastPlayedAt: number;
+  lastLoginAt?: number;
 }
 
 export interface AuthProviderConfig {
-  id: 'google' | 'apple';
+  id: 'google' | 'apple' | 'email';
   name: string;
   configured: boolean;
   clientId?: string;
   missingEnvVars: string[];
   setupInstructions: string[];
+}
+
+export interface AdminPlayerRecord {
+  id: string;
+  email?: string;
+  displayName: string;
+  avatarSeed: string;
+  avatarUrl?: string;
+  authProvider: string;
+  accountType: 'player' | 'admin';
+  accountStatus: 'active' | 'suspended';
+  emailVerified: boolean;
+  totalScore: number;
+  gamesPlayed: number;
+  roundsWon: number;
+  currentStreak: number;
+  bestStreak: number;
+  createdAt: string;
+  lastLoginAt: string;
+  lastPlayedAt?: string;
+}
+
+export interface AdminDashboardMetrics {
+  totalRegisteredUsers: number;
+  totalGuestPlayers: number;
+  verifiedAccounts: number;
+  unverifiedAccounts: number;
+  activeAccounts: number;
+  suspendedAccounts: number;
+  totalGamesPlayed: number;
+  recentRegistrationsCount: number;
+  googleAccountsCount: number;
+  emailAccountsCount: number;
 }
 
 

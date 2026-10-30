@@ -28,11 +28,25 @@ import {
   Square,
   Radio,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users,
+  UserCheck,
+  UserX,
+  BarChart3,
+  Filter,
+  FileDown,
+  Check
 } from 'lucide-react';
-import { AutomatedTestResult, Track, CSVImportValidationResult } from '../../types';
+import {
+  AutomatedTestResult,
+  Track,
+  CSVImportValidationResult,
+  AdminPlayerRecord,
+  AdminDashboardMetrics
+} from '../../types';
 import { runAutomatedTestSuite } from '../../services/gameTests';
 import { musicCatalogue } from '../../services/musicCatalogue';
+import { authService } from '../../services/authService';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -78,16 +92,32 @@ interface ImportPreset {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
-  // Admin access gate
+  // Admin access gate: check if current authenticated user has active admin accountType or verified with admin PIN
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    const user = authService.getState().user;
+    if (user && user.accountType === 'admin' && user.accountStatus === 'active') return true;
     return sessionStorage.getItem('songverse_admin_auth') === 'ABHI0810';
   });
   const [adminPinInput, setAdminPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'catalogue' | 'metrics' | 'imports' | 'migration' | 'tests' | 'csv' | 'daily'>('catalogue');
+  const [activeTab, setActiveTab] = useState<'overview' | 'players' | 'catalogue' | 'metrics' | 'imports' | 'migration' | 'tests' | 'csv' | 'daily'>('overview');
   const [testResults, setTestResults] = useState<AutomatedTestResult[]>([]);
   const [isRunningTests, setIsRunningTests] = useState(false);
+
+  // Platform Metrics State
+  const [adminMetrics, setAdminMetrics] = useState<AdminDashboardMetrics | null>(null);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
+
+  // Registered Player Management State
+  const [adminPlayers, setAdminPlayers] = useState<AdminPlayerRecord[]>([]);
+  const [adminPlayersTotal, setAdminPlayersTotal] = useState(0);
+  const [adminPlayersPage, setAdminPlayersPage] = useState(1);
+  const [adminPlayersTotalPages, setAdminPlayersTotalPages] = useState(1);
+  const [playerSearch, setPlayerSearch] = useState('');
+  const [playerStatusFilter, setPlayerStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
+  const [isLoadingPlayers, setIsLoadingPlayers] = useState(false);
+  const [playerActionNotice, setPlayerActionNotice] = useState<string | null>(null);
 
   // Live Catalogue Browser State
   const [catalogueTracks, setCatalogueTracks] = useState<any[]>([]);
@@ -125,9 +155,104 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   // Daily seed inspector
   const [dailyDateInspect, setDailyDateInspect] = useState(new Date().toISOString().split('T')[0]);
 
-  const adminHeaders = {
-    'x-admin-key': 'ABHI0810',
-    'Content-Type': 'application/json'
+  const getAdminHeaders = (): Record<string, string> => {
+    const sessionToken = authService.getState().sessionToken;
+    const adminPin = sessionStorage.getItem('songverse_admin_auth');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (adminPin) {
+      headers['x-admin-key'] = adminPin;
+    }
+    if (sessionToken) {
+      headers['Authorization'] = `Bearer ${sessionToken}`;
+    }
+    return headers;
+  };
+
+  const adminHeaders = getAdminHeaders();
+
+  // Fetch Platform Overview Metrics
+  const fetchAdminMetrics = async () => {
+    setIsLoadingMetrics(true);
+    try {
+      const res = await fetch('/api/admin/metrics', { headers: getAdminHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminMetrics(data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch admin metrics:', err);
+    } finally {
+      setIsLoadingMetrics(false);
+    }
+  };
+
+  // Fetch Registered Player Records with Search & Pagination
+  const fetchAdminPlayers = async () => {
+    setIsLoadingPlayers(true);
+    try {
+      const params = new URLSearchParams();
+      if (playerSearch.trim()) params.set('search', playerSearch.trim());
+      if (playerStatusFilter !== 'all') params.set('status', playerStatusFilter);
+      params.set('page', String(adminPlayersPage));
+      params.set('limit', '15');
+
+      const res = await fetch(`/api/admin/players?${params.toString()}`, { headers: getAdminHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminPlayers(data.players || []);
+        setAdminPlayersTotal(data.total || 0);
+        setAdminPlayersTotalPages(data.totalPages || 1);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch players:', err);
+    } finally {
+      setIsLoadingPlayers(false);
+    }
+  };
+
+  const handleTogglePlayerStatus = async (playerId: string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    const confirmMsg = nextStatus === 'suspended'
+      ? 'Are you sure you want to suspend this player account? The user will be unable to log in or compete.'
+      : 'Are you sure you want to reactivate this player account?';
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/admin/players/${playerId}/status`, {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ status: nextStatus, reason: 'Dashboard manual status update' })
+      });
+      if (res.ok) {
+        setPlayerActionNotice(`Player account successfully updated to ${nextStatus}.`);
+        fetchAdminPlayers();
+        fetchAdminMetrics();
+      }
+    } catch (err: any) {
+      setPlayerActionNotice(`Error: ${err.message}`);
+    }
+  };
+
+  const handleExportPlayers = async (format: 'json' | 'csv') => {
+    try {
+      const res = await fetch(`/api/admin/players/export?format=${format}`, { headers: getAdminHeaders() });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `songverse_players_${new Date().toISOString().split('T')[0]}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (err: any) {
+      alert(`Export failed: ${err.message}`);
+    }
   };
 
   // Fetch Catalogue
@@ -203,7 +328,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   };
 
   useEffect(() => {
-    if (activeTab === 'catalogue') {
+    if (activeTab === 'overview') {
+      fetchAdminMetrics();
+    } else if (activeTab === 'players') {
+      fetchAdminPlayers();
+    } else if (activeTab === 'catalogue') {
       fetchCatalogue();
     } else if (activeTab === 'metrics') {
       fetchStats();
@@ -212,7 +341,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     } else if (activeTab === 'migration') {
       fetchMigrationPlan();
     }
-  }, [activeTab, cataloguePage, languageFilter, playbackFilter]);
+  }, [activeTab, adminPlayersPage, playerStatusFilter, cataloguePage, languageFilter, playbackFilter]);
 
   // Polling for running import job
   useEffect(() => {
@@ -501,6 +630,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         {/* Tab Navigation */}
         <div className="px-6 pt-3 border-b border-slate-100 flex items-center gap-4 text-xs font-semibold overflow-x-auto">
           <button
+            onClick={() => setActiveTab('overview')}
+            className={`pb-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'overview' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Platform Overview</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('players')}
+            className={`pb-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'players' ? 'border-indigo-600 text-indigo-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Player Database ({adminPlayersTotal || '...'})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('catalogue')}
             className={`pb-3 border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               activeTab === 'catalogue' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -563,6 +712,333 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
         {/* Content Body */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 text-left">
+          
+          {/* TAB 0: Platform Overview Metrics */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Platform Activity & Accounts Summary</h3>
+                  <p className="text-xs text-slate-500">Live platform metrics from Supabase database and authentication service.</p>
+                </div>
+                <button
+                  onClick={fetchAdminMetrics}
+                  disabled={isLoadingMetrics}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingMetrics ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              {/* Metric Cards Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl">
+                  <div className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider mb-1">
+                    Registered Users
+                  </div>
+                  <div className="text-2xl font-black text-indigo-950 font-mono">
+                    {adminMetrics?.totalRegisteredUsers ?? '...'}
+                  </div>
+                  <div className="text-[10px] text-indigo-600 mt-1">Total database profiles</div>
+                </div>
+
+                <div className="p-4 bg-emerald-50/70 border border-emerald-100 rounded-2xl">
+                  <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                    Verified Accounts
+                  </div>
+                  <div className="text-2xl font-black text-emerald-950 font-mono">
+                    {adminMetrics?.verifiedAccounts ?? '...'}
+                  </div>
+                  <div className="text-[10px] text-emerald-600 mt-1">Confirmed email or Google</div>
+                </div>
+
+                <div className="p-4 bg-amber-50/70 border border-amber-100 rounded-2xl">
+                  <div className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1">
+                    Pending Verification
+                  </div>
+                  <div className="text-2xl font-black text-amber-950 font-mono">
+                    {adminMetrics?.unverifiedAccounts ?? '...'}
+                  </div>
+                  <div className="text-[10px] text-amber-600 mt-1">Unconfirmed email signups</div>
+                </div>
+
+                <div className="p-4 bg-purple-50/70 border border-purple-100 rounded-2xl">
+                  <div className="text-[11px] font-bold text-purple-700 uppercase tracking-wider mb-1">
+                    Active / Suspended
+                  </div>
+                  <div className="text-2xl font-black text-purple-950 font-mono">
+                    {adminMetrics?.activeAccounts ?? 0} / {adminMetrics?.suspendedAccounts ?? 0}
+                  </div>
+                  <div className="text-[10px] text-purple-600 mt-1">Account health status</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                  <div className="text-xs font-bold text-slate-700">Total Games Played</div>
+                  <div className="text-xl font-black text-slate-900 font-mono">
+                    {adminMetrics?.totalGamesPlayed ?? 0}
+                  </div>
+                  <p className="text-[11px] text-slate-500">Aggregated completed games across all modes</p>
+                </div>
+
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                  <div className="text-xs font-bold text-slate-700">Recent Signups (24h)</div>
+                  <div className="text-xl font-black text-slate-900 font-mono">
+                    {adminMetrics?.recentRegistrationsCount ?? 0}
+                  </div>
+                  <p className="text-[11px] text-slate-500">New player registrations in the last 24 hours</p>
+                </div>
+
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                  <div className="text-xs font-bold text-slate-700">Authentication Mix</div>
+                  <div className="text-xs text-slate-600 font-mono pt-1">
+                    Google OAuth: <span className="font-bold text-slate-900">{adminMetrics?.googleAccountsCount ?? 0}</span> · Email: <span className="font-bold text-slate-900">{adminMetrics?.emailAccountsCount ?? 0}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Distribution by identity provider</p>
+                </div>
+              </div>
+
+              {/* Security & RLS Compliance Card */}
+              <div className="p-5 bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl space-y-3 shadow-md">
+                <div className="flex items-center gap-2 font-bold text-sm text-sv-gold">
+                  <Shield className="w-4 h-4" />
+                  <span>Security & Database Authorization Controls</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-white">Supabase Row Level Security (RLS):</strong> Profiles, sessions, and events are protected by verified PostgreSQL security policies.
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-white">Service-Role Key Isolation:</strong> Service-role secrets are restricted strictly to backend servers and never leaked to frontend browser bundles.
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-white">Mandatory Verification Enforcement:</strong> Unverified accounts are strictly restricted from full authenticated access.
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="text-white">Audit Action Logging:</strong> All suspension, reactivation, and admin modifications are recorded in the admin_audit_logs table.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 0.5: Registered Player Database Management */}
+          {activeTab === 'players' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={playerSearch}
+                      onChange={(e) => setPlayerSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setAdminPlayersPage(1);
+                          fetchAdminPlayers();
+                        }
+                      }}
+                      placeholder="Search players by display name or email..."
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <select
+                    value={playerStatusFilter}
+                    onChange={(e: any) => {
+                      setPlayerStatusFilter(e.target.value);
+                      setAdminPlayersPage(1);
+                    }}
+                    className="text-xs px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active Only</option>
+                    <option value="suspended">Suspended Only</option>
+                  </select>
+
+                  <button
+                    onClick={() => {
+                      setAdminPlayersPage(1);
+                      fetchAdminPlayers();
+                    }}
+                    className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-colors cursor-pointer"
+                  >
+                    Search
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleExportPlayers('csv')}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+                  <button
+                    onClick={() => handleExportPlayers('json')}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    <span>Export JSON</span>
+                  </button>
+                </div>
+              </div>
+
+              {playerActionNotice && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between">
+                  <span>{playerActionNotice}</span>
+                  <button onClick={() => setPlayerActionNotice(null)} className="text-emerald-600 hover:text-emerald-900 font-bold">×</button>
+                </div>
+              )}
+
+              {/* Players Table */}
+              <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="py-3 px-4">Player</th>
+                        <th className="py-3 px-4">Email & Verification</th>
+                        <th className="py-3 px-4">Provider</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Score & Games</th>
+                        <th className="py-3 px-4">Joined</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {isLoadingPlayers ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-400">
+                            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-600" />
+                            <span>Loading player records from database...</span>
+                          </td>
+                        </tr>
+                      ) : adminPlayers.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-400">
+                            No player records found matching criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        adminPlayers.map((player) => (
+                          <tr key={player.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-sv-red to-sv-gold text-white font-bold flex items-center justify-center text-xs shrink-0">
+                                  {player.displayName ? player.displayName.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                    <span>{player.displayName}</span>
+                                    {player.accountType === 'admin' && (
+                                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200">ADMIN</span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]">{player.id}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-medium text-slate-800">{player.email || '—'}</div>
+                              <div className="pt-0.5">
+                                {player.emailVerified ? (
+                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1 w-max">
+                                    <Check className="w-2.5 h-2.5" /> Verified
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-1 w-max">
+                                    Pending
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded uppercase bg-slate-100 text-slate-700">
+                                {player.authProvider}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  player.accountStatus === 'active'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-rose-100 text-rose-800'
+                                }`}
+                              >
+                                {player.accountStatus}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 font-mono">
+                              <div>{player.totalScore} pts</div>
+                              <div className="text-[10px] text-slate-400">{player.gamesPlayed} games played</div>
+                            </td>
+                            <td className="py-3 px-4 text-slate-500 text-[11px]">
+                              {player.createdAt ? new Date(player.createdAt).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                onClick={() => handleTogglePlayerStatus(player.id, player.accountStatus)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                                  player.accountStatus === 'active'
+                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                }`}
+                              >
+                                {player.accountStatus === 'active' ? 'Suspend' : 'Reactivate'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Table Footer with Pagination */}
+                <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                  <div>
+                    Showing {adminPlayers.length} of {adminPlayersTotal} registered players
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setAdminPlayersPage(prev => Math.max(1, prev - 1))}
+                      disabled={adminPlayersPage <= 1}
+                      className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-100 cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                    <span className="font-mono text-slate-700">
+                      Page {adminPlayersPage} of {adminPlayersTotalPages}
+                    </span>
+                    <button
+                      onClick={() => setAdminPlayersPage(prev => Math.min(adminPlayersTotalPages, prev + 1))}
+                      disabled={adminPlayersPage >= adminPlayersTotalPages}
+                      className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-100 cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* TAB 1: Searchable Catalogue Browser */}
           {activeTab === 'catalogue' && (

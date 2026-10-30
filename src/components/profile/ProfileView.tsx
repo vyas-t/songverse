@@ -63,11 +63,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
   const completedGames = gameEngine.getCompletedGames();
 
-  const handleSaveName = (e: React.FormEvent) => {
+  const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameInput.trim()) return;
-    const updated = gameEngine.updateUserProfile({ displayName: nameInput.trim() });
-    setProfile(updated);
+    try {
+      const updated = await authService.updateDisplayName(nameInput.trim());
+      setProfile(updated);
+    } catch {
+      const updated = gameEngine.updateUserProfile({ displayName: nameInput.trim() });
+      setProfile(updated);
+    }
     setIsEditingName(false);
   };
 
@@ -207,22 +212,61 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                 </div>
               )}
 
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Player ID: <span className="font-mono">{profile.id}</span> ·{' '}
-                <span className={profile.isGuest ? 'text-amber-700 dark:text-sv-gold font-medium' : 'text-emerald-700 dark:text-emerald-400 font-medium'}>
-                  {profile.isGuest ? 'Guest Account' : `Verified ${profile.authProvider === 'apple' ? 'Apple' : 'Google'} Account`}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span>Player ID: <span className="font-mono">{profile.id}</span></span>
+                <span>·</span>
+                <span className={profile.isGuest ? 'text-amber-700 dark:text-sv-gold font-bold' : 'text-emerald-700 dark:text-emerald-400 font-bold'}>
+                  {profile.isGuest
+                    ? 'Guest Account'
+                    : `${profile.authProvider === 'google' ? 'Google' : profile.authProvider === 'email' ? 'Email' : 'Verified'} Account`}
                 </span>
-                {profile.email && ` (${profile.email})`}
-              </p>
+                {profile.email && <span className="text-slate-400 font-mono">({profile.email})</span>}
+              </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <div className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded font-medium">
-                  {profile.isGuest ? 'Local Sandbox Protected' : 'Server Account Synced'}
-                </div>
+              {/* Account Badges Strip */}
+              <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                {profile.isGuest ? (
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <Shield className="w-3 h-3 text-amber-600" />
+                    <span>Local Guest Mode</span>
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>{profile.emailVerified ? 'Verified Email' : 'Email Active'}</span>
+                    </span>
+
+                    {profile.accountType === 'admin' && (
+                      <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Lock className="w-3 h-3 text-purple-600" />
+                        <span>Administrator</span>
+                      </span>
+                    )}
+                  </>
+                )}
+
+                {/* Account Actions */}
+                {!profile.isGuest && profile.email && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await authService.requestPasswordReset(profile.email!);
+                        alert(`Password reset link dispatched to ${profile.email}`);
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to dispatch reset link');
+                      }
+                    }}
+                    className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded border border-slate-200 dark:border-sv-burgundy hover:bg-slate-50 dark:hover:bg-sv-navy"
+                  >
+                    <span>Change Password</span>
+                  </button>
+                )}
+
                 {!profile.isGuest && (
                   <button
                     onClick={handleSignOut}
-                    className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded border border-slate-200 dark:border-sv-burgundy hover:bg-slate-50 dark:hover:bg-sv-navy"
+                    className="text-[10px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                   >
                     <LogOut className="w-3 h-3" />
                     <span>Sign Out</span>
