@@ -193,6 +193,16 @@ export interface DailyChallenge {
   totalRounds: number;
 }
 
+export interface PlayerGuessEvent {
+  playerId: string;
+  playerName: string;
+  roundIndex: number;
+  guessTitle: string;
+  isCorrect: boolean;
+  points: number;
+  timestamp: number;
+}
+
 export interface MultiplayerPlayer {
   id: string;
   displayName: string;
@@ -203,6 +213,9 @@ export interface MultiplayerPlayer {
   currentLevel: GameLevelNumber;
   hasGuessedThisRound: boolean;
   lastGuessCorrect?: boolean;
+  lastGuessTitle?: string;
+  lastGuessTrackId?: string;
+  lastGuessPoints?: number;
   status?: 'connected' | 'idle' | 'disconnected';
 }
 
@@ -222,6 +235,7 @@ export interface MultiplayerRoom {
   roundResultsUntil?: number;
   roundEndReason?: 'timeout' | 'two_players_guessed' | 'all_guessed' | 'completed';
   targetTrackRevealed?: Track;
+  recentGuesses?: PlayerGuessEvent[];
 }
 
 export interface CookiePreferences {

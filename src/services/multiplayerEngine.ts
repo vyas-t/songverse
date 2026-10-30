@@ -1,4 +1,4 @@
-import { MultiplayerRoom, MultiplayerPlayer, Track } from '../types';
+import { MultiplayerRoom, MultiplayerPlayer, Track, PlayerGuessEvent } from '../types';
 import { musicCatalogue } from './musicCatalogue';
 
 type RoomListener = (room: MultiplayerRoom) => void;
@@ -356,8 +356,35 @@ class MultiplayerEngineService {
         if (!this.activeRoom || this.activeRoom.status !== 'playing') return;
         if (this.activeRoom.roundDeadline && Date.now() >= this.activeRoom.roundDeadline) return;
 
+        // Reject stale round guess
+        if (data.roundIndex !== undefined && data.roundIndex !== this.activeRoom.currentRoundIndex) {
+          console.warn('[MultiplayerEngine] Stale round guess rejected:', data.roundIndex, 'current:', this.activeRoom.currentRoundIndex);
+          return;
+        }
+
         const player = this.activeRoom.players.find(p => p.id === data.playerId);
-        if (!player) return;
+        if (!player || player.hasGuessedThisRound) return;
+
+        // Verify connection ownership to prevent impersonation
+        const expectedConn = this.guestConnections.get(data.playerId);
+        if (expectedConn && conn && expectedConn !== conn) {
+          console.warn('[MultiplayerEngine] Impersonation attempt rejected for player:', data.playerId);
+          return;
+        }
+
+        const level = (player.currentLevel || 1) as number;
+        const currentTrack = this.getCurrentTrack();
+        const normalize = (s: string) => (s || '').toLowerCase().replace(/[^\w]/g, '');
+        const isCorrect = Boolean(
+          currentTrack && (
+            (data.guessTrackId && currentTrack.id === data.guessTrackId) ||
+            (data.guessTrackId && currentTrack.providerTrackId === data.guessTrackId) ||
+            (data.guessTitle && normalize(data.guessTitle) === normalize(currentTrack.title))
+          )
+        );
+
+        const pointsMap: Record<number, number> = { 1: 100, 2: 70, 3: 40, 4: 20 };
+        const points = isCorrect ? (pointsMap[level] || 20) : 0;
 
         // Track distinct player identities who submitted a guess this round
         if (!this.activeRoom.roundGuessedPlayerIds) {
@@ -367,14 +394,31 @@ class MultiplayerEngineService {
           this.activeRoom.roundGuessedPlayerIds.push(data.playerId);
         }
 
-        if (!player.hasGuessedThisRound) {
-          player.hasGuessedThisRound = true;
-          player.score += data.points || 0;
-          player.lastGuessCorrect = Boolean(data.isCorrect);
+        player.hasGuessedThisRound = true;
+        player.score += points;
+        player.lastGuessCorrect = isCorrect;
+        player.lastGuessTitle = data.guessTitle || (isCorrect ? currentTrack?.title : 'Skipped / Unknown') || 'Unknown';
+        player.lastGuessPoints = points;
+        player.lastGuessTrackId = data.guessTrackId;
+
+        const guessEvent: PlayerGuessEvent = {
+          playerId: data.playerId,
+          playerName: player.displayName,
+          roundIndex: this.activeRoom.currentRoundIndex,
+          guessTitle: player.lastGuessTitle || 'Skipped / Unknown',
+          isCorrect,
+          points,
+          timestamp: Date.now()
+        };
+
+        if (!this.activeRoom.recentGuesses) {
+          this.activeRoom.recentGuesses = [];
         }
+        this.activeRoom.recentGuesses.push(guessEvent);
 
         this.saveLocalRoomState(this.activeRoom);
-        this.broadcastRoomToPeers();
+        this.broadcastMessage({ type: 'GUESS_SUBMITTED', guess: guessEvent, room: this.activeRoom });
+        this.broadcastRoomToPeers({ type: 'GUESS_SUBMITTED', guess: guessEvent, room: this.activeRoom });
         this.notify();
 
         // End round early when at least TWO distinct players have submitted a guess
@@ -729,7 +773,8 @@ class MultiplayerEngineService {
       data.type === 'ROUND_ENDED' ||
       data.type === 'MATCH_COMPLETED' ||
       data.type === 'ROOM_SETTINGS_UPDATED' ||
-      data.type === 'PLAYER_UPDATE'
+      data.type === 'PLAYER_UPDATE' ||
+      data.type === 'GUESS_SUBMITTED'
     ) {
       if (data.room) {
         this.activeRoom = data.room;
@@ -922,6 +967,7 @@ class MultiplayerEngineService {
       this.activeRoom.roundEndReason = undefined;
       this.activeRoom.roundResultsUntil = undefined;
       this.activeRoom.targetTrackRevealed = undefined;
+      this.activeRoom.recentGuesses = [];
 
       const nextId = this.activeRoom.trackIds[this.activeRoom.currentRoundIndex];
       this.activeRoom.currentTrack = musicCatalogue.getTrackById(nextId);
@@ -930,6 +976,9 @@ class MultiplayerEngineService {
         p.hasGuessedThisRound = false;
         p.currentLevel = 1;
         p.lastGuessCorrect = undefined;
+        p.lastGuessTitle = undefined;
+        p.lastGuessPoints = undefined;
+        p.lastGuessTrackId = undefined;
       });
 
       this.saveLocalRoomState(this.activeRoom);
@@ -984,11 +1033,15 @@ class MultiplayerEngineService {
     this.activeRoom.roundEndReason = undefined;
     this.activeRoom.roundResultsUntil = undefined;
     this.activeRoom.targetTrackRevealed = undefined;
+    this.activeRoom.recentGuesses = [];
 
     this.activeRoom.players.forEach(p => {
       p.currentLevel = 1;
       p.hasGuessedThisRound = false;
       p.lastGuessCorrect = undefined;
+      p.lastGuessTitle = undefined;
+      p.lastGuessPoints = undefined;
+      p.lastGuessTrackId = undefined;
     });
 
     this.saveLocalRoomState(this.activeRoom);
@@ -1127,9 +1180,11 @@ class MultiplayerEngineService {
     if (this.activeRoom.roundDeadline && Date.now() >= this.activeRoom.roundDeadline) return;
 
     const player = this.activeRoom.players.find(p => p.id === playerId);
-    if (!player) return;
+    if (!player || player.hasGuessedThisRound) return;
 
     const level = player.currentLevel || 1;
+    const currentTrack = this.getCurrentTrack();
+    const resolvedTitle = (guessTitle || (isCorrect ? currentTrack?.title : 'Skipped / Unknown')) || 'Unknown';
 
     // Track distinct player identities who submitted a guess this round
     if (!this.activeRoom.roundGuessedPlayerIds) {
@@ -1147,8 +1202,9 @@ class MultiplayerEngineService {
         isCorrect,
         points,
         guessTrackId,
-        guessTitle,
-        level
+        guessTitle: resolvedTitle,
+        level,
+        roundIndex: this.activeRoom.currentRoundIndex
       });
     }
 
@@ -1159,7 +1215,7 @@ class MultiplayerEngineService {
         body: JSON.stringify({
           playerId,
           guessTrackId: guessTrackId || (isCorrect ? 'correct' : 'wrong'),
-          title: guessTitle,
+          title: resolvedTitle,
           level,
           points,
           isCorrect
@@ -1167,15 +1223,31 @@ class MultiplayerEngineService {
       }).catch(() => {});
     }
 
-    if (!player.hasGuessedThisRound) {
-      player.hasGuessedThisRound = true;
-      player.score += points;
-      player.lastGuessCorrect = isCorrect;
+    player.hasGuessedThisRound = true;
+    player.score += points;
+    player.lastGuessCorrect = isCorrect;
+    player.lastGuessTitle = resolvedTitle;
+    player.lastGuessPoints = points;
+    player.lastGuessTrackId = guessTrackId;
+
+    const guessEvent: PlayerGuessEvent = {
+      playerId,
+      playerName: player.displayName,
+      roundIndex: this.activeRoom.currentRoundIndex,
+      guessTitle: resolvedTitle,
+      isCorrect,
+      points,
+      timestamp: Date.now()
+    };
+
+    if (!this.activeRoom.recentGuesses) {
+      this.activeRoom.recentGuesses = [];
     }
+    this.activeRoom.recentGuesses.push(guessEvent);
 
     this.saveLocalRoomState(this.activeRoom);
-    this.broadcastMessage({ type: 'PLAYER_UPDATE', room: this.activeRoom });
-    this.broadcastRoomToPeers();
+    this.broadcastMessage({ type: 'GUESS_SUBMITTED', guess: guessEvent, room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'GUESS_SUBMITTED', guess: guessEvent, room: this.activeRoom });
     this.notify();
 
     // End round early when at least TWO distinct players have submitted a guess

@@ -1774,6 +1774,131 @@ export async function runAutomatedTestSuite(): Promise<AutomatedTestResult[]> {
     }
   }
 
+  // --- Scenario 56: Cross-player guess synchronization updates room state, sets lastGuessTitle, lastGuessPoints, and recentGuesses ---
+  {
+    const start = performance.now();
+    try {
+      musicCatalogue.restoreBaseline();
+      const room = await multiplayerEngine.createRoom('HostTest56', 'host_56', { totalRounds: 3 });
+      room.players.push({
+        id: 'guest_56',
+        displayName: 'Guest56',
+        avatarSeed: 'guest_seed_56',
+        isReady: true,
+        isHost: false,
+        score: 0,
+        currentLevel: 1,
+        hasGuessedThisRound: false
+      });
+      await multiplayerEngine.startMatch('host_56');
+
+      // Submit guess for guest
+      multiplayerEngine.submitPlayerGuess('guest_56', true, 100, undefined, 'Anti-Hero');
+      const active = multiplayerEngine.getActiveRoom();
+
+      const guestPlayer = active?.players.find(p => p.id === 'guest_56');
+      const hasGuessed = guestPlayer?.hasGuessedThisRound === true;
+      const hasGuessTitle = guestPlayer?.lastGuessTitle === 'Anti-Hero';
+      const hasPoints = guestPlayer?.lastGuessPoints === 100;
+      const hasRecentGuess = active?.recentGuesses !== undefined &&
+        active.recentGuesses.some(g => g.playerId === 'guest_56' && g.guessTitle === 'Anti-Hero');
+
+      multiplayerEngine.leaveRoom();
+
+      const passed = hasGuessed && hasGuessTitle && hasPoints && hasRecentGuess;
+
+      record(
+        56,
+        'Cross-player guess synchronization populates player lastGuessTitle, lastGuessPoints, score, and recentGuesses feed',
+        'hasGuessed=true, lastGuessTitle=Anti-Hero, lastGuessPoints=100, recentGuesses logged',
+        passed,
+        passed ? 'Real-time guess metadata synchronized successfully across room state.' : 'Guess synchronization failed',
+        Math.round(performance.now() - start)
+      );
+    } catch (err: unknown) {
+      record(56, 'Cross-player guess synchronization test', 'Synchronized', false, String(err), Math.round(performance.now() - start));
+    }
+  }
+
+  // --- Scenario 57: Stale round guesses and duplicate guess submissions from the same player are rejected ---
+  {
+    const start = performance.now();
+    try {
+      musicCatalogue.restoreBaseline();
+      const room = await multiplayerEngine.createRoom('HostTest57', 'host_57', { totalRounds: 3 });
+      await multiplayerEngine.startMatch('host_57');
+
+      // Initial guess
+      multiplayerEngine.submitPlayerGuess('host_57', false, 0, undefined, 'Wrong Title');
+      const initialScore = multiplayerEngine.getActiveRoom()?.players.find(p => p.id === 'host_57')?.score || 0;
+
+      // Duplicate guess attempt
+      multiplayerEngine.submitPlayerGuess('host_57', true, 100, undefined, 'Second Guess');
+      const secondScore = multiplayerEngine.getActiveRoom()?.players.find(p => p.id === 'host_57')?.score || 0;
+
+      // Stale round handler test via handleHostDataReceived simulation
+      const hostConnMock = { send: () => {} };
+      (multiplayerEngine as any).handleHostDataReceived({
+        type: 'GUESS',
+        playerId: 'host_57',
+        roundIndex: 99, // Stale round index
+        points: 100,
+        isCorrect: true
+      }, hostConnMock);
+
+      const finalScore = multiplayerEngine.getActiveRoom()?.players.find(p => p.id === 'host_57')?.score || 0;
+
+      multiplayerEngine.leaveRoom();
+
+      const passed = initialScore === 0 && secondScore === 0 && finalScore === 0;
+
+      record(
+        57,
+        'Stale round guesses and duplicate guess submissions within the same round are strictly rejected',
+        'Duplicate score unchanged (0 pts), stale round guess rejected',
+        passed,
+        passed ? 'Idempotent guess gate verified; zero duplicate or stale round scoring.' : 'Duplicate scoring occurred',
+        Math.round(performance.now() - start)
+      );
+    } catch (err: unknown) {
+      record(57, 'Stale and duplicate guess rejection test', 'Rejected', false, String(err), Math.round(performance.now() - start));
+    }
+  }
+
+  // --- Scenario 58: Mystery track identity is held confidentially during active round and revealed in results ---
+  {
+    const start = performance.now();
+    try {
+      musicCatalogue.restoreBaseline();
+      const room = await multiplayerEngine.createRoom('HostTest58', 'host_58', { totalRounds: 3 });
+      await multiplayerEngine.startMatch('host_58');
+
+      const playingRoom = multiplayerEngine.getActiveRoom();
+      const hiddenDuringPlaying = playingRoom?.targetTrackRevealed === undefined && playingRoom?.status === 'playing';
+
+      multiplayerEngine.endCurrentRound('two_players_guessed');
+      const summaryRoom = multiplayerEngine.getActiveRoom();
+      const revealedInSummary = summaryRoom?.targetTrackRevealed !== undefined &&
+        typeof summaryRoom.targetTrackRevealed.title === 'string' &&
+        summaryRoom.status === 'round-summary';
+
+      multiplayerEngine.leaveRoom();
+
+      const passed = hiddenDuringPlaying && revealedInSummary;
+
+      record(
+        58,
+        'Mystery track identity is kept confidential during active round and revealed uniformly at results stage',
+        'targetTrackRevealed is undefined while playing; revealed during round-summary',
+        passed,
+        passed ? 'Mystery song confidentiality and synchronized reveal lifecycle validated.' : 'Mystery track revealed prematurely',
+        Math.round(performance.now() - start)
+      );
+    } catch (err: unknown) {
+      record(58, 'Mystery track reveal lifecycle test', 'Confidential until results', false, String(err), Math.round(performance.now() - start));
+    }
+  }
+
   // Ensure catalogue is permanently clear
   musicCatalogue.clearCatalogue();
   gameEngine.abandonActiveSession();

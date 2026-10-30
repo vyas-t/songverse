@@ -647,9 +647,16 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                           </p>
                           {p.isHost && <Crown className="w-3 h-3 text-sv-gold shrink-0" />}
                         </div>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                          Score: {p.score || 0} pts
-                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                            Score: {p.score || 0} pts
+                          </span>
+                          {room.status === 'playing' && p.hasGuessedThisRound && (
+                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-1.5 py-0.2 rounded-full flex items-center gap-0.5">
+                              <Check className="w-2.5 h-2.5" /> Guessed
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -722,6 +729,24 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                   </span>
                 </div>
               </div>
+
+              {/* Realtime Synchronized Guess Activity Banner during Active Play */}
+              {room.recentGuesses && room.recentGuesses.length > 0 && (
+                <div className="p-2.5 bg-slate-50 dark:bg-sv-navy/70 border border-slate-200 dark:border-sv-burgundy rounded-xl flex items-center justify-between gap-2 text-xs animate-in fade-in">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                    <span className="font-bold text-slate-700 dark:text-slate-200 shrink-0">
+                      Live Guess:
+                    </span>
+                    <span className="text-slate-600 dark:text-slate-300 truncate">
+                      <strong>{room.recentGuesses[room.recentGuesses.length - 1].playerName}</strong> submitted a guess!
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                    Round {room.currentRoundIndex + 1}
+                  </span>
+                </div>
+              )}
 
               {/* Audio Playback Error Banner with Retry */}
               {audioError && (
@@ -993,11 +1018,11 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                         <div className="flex items-center gap-2">
                           {p.lastGuessCorrect ? (
                             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
-                              Correct
+                              Correct (+{p.lastGuessPoints || 0} pts)
                             </span>
                           ) : p.hasGuessedThisRound ? (
-                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">
-                              Guessed
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded max-w-[140px] truncate" title={p.lastGuessTitle || 'Wrong'}>
+                              Guessed: {p.lastGuessTitle || 'Wrong'}
                             </span>
                           ) : (
                             <span className="text-[10px] text-slate-400 font-medium">

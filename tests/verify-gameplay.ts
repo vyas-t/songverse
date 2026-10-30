@@ -20,7 +20,7 @@ import { runAutomatedTestSuite } from '../src/services/gameTests';
 
 async function main() {
   console.log('====================================================');
-  console.log('  SONGVERSE — 55-SCENARIO AUTOMATED TEST SUITE');
+  console.log('  SONGVERSE — 58-SCENARIO AUTOMATED TEST SUITE');
   console.log('====================================================\n');
 
   const results = await runAutomatedTestSuite();
