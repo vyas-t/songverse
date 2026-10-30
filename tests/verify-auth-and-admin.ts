@@ -5,7 +5,7 @@
  * SongVerse Complete Authentication, Player Database & Admin Dashboard Test Suite
  */
 
-import { authService } from '../src/services/authService';
+import { authService, getAuthRedirectUri } from '../src/services/authService';
 import { gameEngine } from '../src/services/gameEngine';
 
 async function runAuthAndAdminTests() {
@@ -224,6 +224,27 @@ async function runAuthAndAdminTests() {
     // Safe assignment query requires verified email
     const safePromotionPermitted = userToPromote.email_verified === true;
     assert(!safePromotionPermitted, 'Unverified accounts are prevented from initial administrator assignment');
+  }
+
+  // 18. Verification Email Canonical Redirect Resolver
+  {
+    const callbackUri = getAuthRedirectUri('/auth/callback');
+    assert(
+      callbackUri === 'https://songverse.pages.dev/auth/callback',
+      'Canonical redirect URL resolves to production domain https://songverse.pages.dev/auth/callback',
+      `Resolved URI: ${callbackUri}`
+    );
+  }
+
+  // 19. Localhost Exclusion Guarantee
+  {
+    const callbackUri = getAuthRedirectUri('/auth/callback');
+    const hasLocalhost = callbackUri.includes('localhost') || callbackUri.includes('127.0.0.1');
+    assert(
+      !hasLocalhost,
+      'Verification email links strictly exclude localhost and 127.0.0.1 to guarantee mobile device deliverability',
+      `Verified URI does not contain localhost: ${callbackUri}`
+    );
   }
 
   console.log('----------------------------------------------------');

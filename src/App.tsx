@@ -24,6 +24,7 @@ import { gameEngine } from './services/gameEngine';
 import { privacyConsent } from './services/privacyConsent';
 import { audioEngine } from './services/audioEngine';
 import { musicCatalogue } from './services/musicCatalogue';
+import { authService } from './services/authService';
 
 const DISCOVERY_LANGUAGES = [
   'English',
@@ -59,6 +60,18 @@ export default function App() {
     });
 
     return () => unsubCookies();
+  }, []);
+
+  // Subscribe to authentication state updates (e.g. auto-open modal on email confirmation success or password reset)
+  useEffect(() => {
+    const unsubAuth = authService.subscribe((state) => {
+      if (state.authView === 'verified_success' || state.authView === 'reset_password') {
+        setAuthModalOpen(true);
+      }
+      refreshProfile();
+    });
+
+    return () => unsubAuth();
   }, []);
 
   const refreshProfile = () => {

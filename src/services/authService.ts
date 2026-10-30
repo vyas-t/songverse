@@ -33,7 +33,7 @@ const safeStorage = {
   getItem: (key: string): string | null => {
     try {
       if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-        return safeStorage.getItem(key);
+        return localStorage.getItem(key);
       }
     } catch {}
     return null;
@@ -41,18 +41,57 @@ const safeStorage = {
   setItem: (key: string, value: string): void => {
     try {
       if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-        safeStorage.setItem(key, value);
+        localStorage.setItem(key, value);
       }
     } catch {}
   },
   removeItem: (key: string): void => {
     try {
       if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-        safeStorage.removeItem(key);
+        localStorage.removeItem(key);
       }
     } catch {}
   }
 };
+
+/**
+ * Canonical URL resolver for authentication callbacks, email verification, and OAuth redirects.
+ * Strictly guarantees that verification emails received on mobile phones or external devices
+ * point to the live SongVerse website (https://songverse.pages.dev) instead of localhost.
+ */
+export function getAuthRedirectUri(path: string = '/auth/callback'): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  // 1. Explicit override from environment variables if present and non-local
+  const customSiteUrl = (typeof import.meta !== 'undefined' && (import.meta as any).env)
+    ? ((import.meta as any).env.VITE_SITE_URL || (import.meta as any).env.VITE_APP_URL || (import.meta as any).env.APP_URL)
+    : undefined;
+
+  if (customSiteUrl && typeof customSiteUrl === 'string') {
+    const trimmed = customSiteUrl.trim().replace(/\/+$/, '');
+    if (trimmed && !trimmed.includes('MY_APP_URL') && !trimmed.includes('localhost') && !trimmed.includes('127.0.0.1')) {
+      return `${trimmed}${cleanPath}`;
+    }
+  }
+
+  // 2. Browser runtime: if running on a real public domain (e.g. songverse.pages.dev or custom domain)
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const hostname = window.location.hostname.toLowerCase();
+    const isLocal = hostname === 'localhost' || 
+                    hostname === '127.0.0.1' || 
+                    hostname === '0.0.0.0' || 
+                    hostname.endsWith('.local') ||
+                    hostname === '';
+
+    if (!isLocal && window.location.origin.startsWith('http')) {
+      return `${window.location.origin.replace(/\/+$/, '')}${cleanPath}`;
+    }
+  }
+
+  // 3. Fallback to production canonical URL so emails sent during local dev or testing
+  // always open reliably on user mobile devices.
+  return `https://songverse.pages.dev${cleanPath}`;
+}
 
 class AuthService {
   private sessionToken: string | null = null;
@@ -222,16 +261,58 @@ class AuthService {
       return;
     }
 
-    // Email verification confirmation detection
+    // OTP Token Hash or PKCE verification
+    try {
+      const searchParams = new URLSearchParams(search);
+      const tokenHash = searchParams.get('token_hash');
+      const tokenType = searchParams.get('type');
+      const authCode = searchParams.get('code');
+
+      if (tokenHash && tokenType && isSupabaseConfigured() && supabase) {
+        if (tokenType === 'recovery') {
+          supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }).then(({ error }) => {
+            if (!error) {
+              this.authView = 'reset_password';
+              this.notify();
+            }
+          });
+        } else {
+          supabase.auth.verifyOtp({ token_hash: tokenHash, type: tokenType as any }).then(async ({ data, error }) => {
+            if (!error && data.user) {
+              await this.syncProfileFromSupabaseUser(data.user);
+              this.authView = 'verified_success';
+              this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+              this.notify();
+            }
+          });
+        }
+        window.history.replaceState(null, '', '/');
+        return;
+      }
+
+      if (authCode && isSupabaseConfigured() && supabase) {
+        supabase.auth.exchangeCodeForSession(authCode).then(async ({ data, error }) => {
+          if (!error && data.user) {
+            await this.syncProfileFromSupabaseUser(data.user);
+            this.authView = 'verified_success';
+            this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+            this.notify();
+          }
+        });
+        window.history.replaceState(null, '', '/');
+        return;
+      }
+    } catch {}
+
+    // Email verification confirmation detection (hash fragment or callback route)
     if (
       hash.includes('type=signup') ||
       search.includes('type=signup') ||
       hash.includes('type=email_change') ||
       pathname.includes('auth/callback')
     ) {
-      // Clean up URL without reload
       try {
-        window.history.replaceState(null, '', window.location.pathname);
+        window.history.replaceState(null, '', '/');
       } catch {
         // Ignore history error
       }
@@ -370,9 +451,7 @@ class AuthService {
     }
 
     try {
-      const redirectUri = typeof window !== 'undefined'
-        ? `${window.location.origin}/auth/callback`
-        : undefined;
+      const redirectUri = getAuthRedirectUri('/auth/callback');
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -500,9 +579,7 @@ class AuthService {
         throw new Error('Supabase authentication is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.');
       }
 
-      const redirectUri = typeof window !== 'undefined'
-        ? `${window.location.origin}/auth/callback`
-        : undefined;
+      const redirectUri = getAuthRedirectUri('/auth/callback');
 
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -645,9 +722,7 @@ class AuthService {
     this.notify();
 
     try {
-      const redirectUri = typeof window !== 'undefined'
-        ? `${window.location.origin}/auth/callback`
-        : undefined;
+      const redirectUri = getAuthRedirectUri('/auth/callback');
 
       const { error } = await supabase.auth.resend({
         type: 'signup',
@@ -707,9 +782,7 @@ class AuthService {
         throw new Error('Supabase authentication is not configured.');
       }
 
-      const redirectUri = typeof window !== 'undefined'
-        ? `${window.location.origin}/auth/reset-password`
-        : undefined;
+      const redirectUri = getAuthRedirectUri('/auth/reset-password');
 
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: redirectUri

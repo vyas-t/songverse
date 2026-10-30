@@ -611,10 +611,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
             <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-left space-y-2 text-xs text-slate-600 dark:text-slate-300">
               <div className="font-bold text-slate-800 dark:text-slate-200">Next Steps:</div>
-              <ol className="list-decimal pl-4 space-y-1 text-[11px] leading-relaxed">
-                <li>Check your email inbox (and spam/junk folder).</li>
-                <li>Click the confirmation link to activate your account.</li>
-                <li>Return here to log in with your verified credentials.</li>
+              <ol className="list-decimal pl-4 space-y-1.5 text-[11px] leading-relaxed">
+                <li>Check your email inbox (or spam folder) on your phone or device.</li>
+                <li>Tap the prominent <strong className="text-sv-red dark:text-sv-gold font-bold">"Yes"</strong> button in the confirmation email.</li>
+                <li>Your account activates instantly and links directly to SongVerse.</li>
               </ol>
             </div>
 
@@ -676,9 +676,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 onSuccess();
                 onClose();
               }}
-              className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <span>Continue to SongVerse</span>
+              <span>Yes — Continue to SongVerse</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
