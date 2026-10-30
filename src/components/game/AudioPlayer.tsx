@@ -3,6 +3,7 @@ import { Play, RotateCcw, Volume2, VolumeX, Sparkles, Disc3, Radio } from 'lucid
 import { Track, GameLevelNumber } from '../../types';
 import { audioEngine } from '../../services/audioEngine';
 import { GAME_LEVELS } from '../../config/gameConfig';
+import { MusicVisualizer } from '../common/MusicVisualizer';
 
 interface AudioPlayerProps {
   track: Track;
@@ -123,35 +124,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </div>
         </div>
       ) : (
-        /* Dynamic Equalizer Visualizer Display */
-        <div className="h-32 sm:h-36 bg-slate-50/90 dark:bg-sv-midnight/80 border border-slate-200/70 dark:border-sv-burgundy rounded-2xl px-4 py-3 flex items-center justify-center gap-1.5 sm:gap-2 mb-5 shadow-inner relative overflow-hidden">
-          {waveformBars.map((amp, idx) => {
-            const barHeight = Math.max(14, Math.round(amp * 100));
-            const isActive = isPlaying;
-            return (
-              <div
-                key={idx}
-                className="flex-1 flex flex-col items-center justify-center h-full"
-              >
-                <div
-                  style={{ height: `${barHeight}%` }}
-                  className={`w-full rounded-full transition-all duration-75 ${
-                    isActive
-                      ? 'bg-gradient-to-t from-sv-red via-sv-red-orange to-sv-gold shadow-xs'
-                      : 'bg-slate-200 dark:bg-sv-burgundy/80'
-                  }`}
-                />
-              </div>
-            );
-          })}
-
-          {/* Subdued vinyl overlay effect while playing */}
-          {isPlaying && (
-            <div className="absolute right-4 bottom-3 flex items-center gap-1.5 text-[10px] font-mono font-bold text-sv-red dark:text-sv-gold bg-white/90 dark:bg-sv-midnight/90 px-2 py-0.5 rounded-lg border border-sv-red/20 shadow-xs">
-              <Radio className="w-3 h-3 text-sv-red animate-pulse" />
-              <span>LIVE AUDIO</span>
-            </div>
-          )}
+        /* Dynamic Audio-Reactive Equalizer Visualizer */
+        <div className="mb-5">
+          <MusicVisualizer
+            waveformBars={waveformBars}
+            isPlaying={isPlaying}
+            isLoading={isLoading}
+          />
         </div>
       )}
 

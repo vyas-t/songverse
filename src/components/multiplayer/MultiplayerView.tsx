@@ -36,6 +36,7 @@ import { gameEngine } from '../../services/gameEngine';
 import { audioEngine } from '../../services/audioEngine';
 import { GAME_LEVELS } from '../../config/gameConfig';
 import { SongSearchInput } from '../game/SongSearchInput';
+import { MusicVisualizer } from '../common/MusicVisualizer';
 
 interface MultiplayerViewProps {
   onOpenAuth?: () => void;
@@ -823,27 +824,12 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 </div>
               )}
 
-              {/* Waveform Visualizer Display */}
-              <div className="h-32 sm:h-36 bg-slate-50/90 dark:bg-sv-midnight/80 border border-slate-200/70 dark:border-sv-burgundy rounded-2xl px-4 py-3 flex items-center justify-center gap-1.5 sm:gap-2 shadow-inner">
-                {waveformBars.map((amp, idx) => {
-                  const barHeight = Math.max(14, Math.round(amp * 100));
-                  return (
-                    <div
-                      key={idx}
-                      className="flex-1 flex flex-col items-center justify-center h-full"
-                    >
-                      <div
-                        style={{ height: `${barHeight}%` }}
-                        className={`w-full rounded-full transition-all duration-75 ${
-                          isPlayingAudio
-                            ? 'bg-gradient-to-t from-sv-red via-sv-red-orange to-sv-gold shadow-xs'
-                            : 'bg-slate-200 dark:bg-sv-burgundy/80'
-                        }`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+              {/* Audio-Reactive Equalizer Visualizer */}
+              <MusicVisualizer
+                waveformBars={waveformBars}
+                isPlaying={isPlayingAudio}
+                isLoading={isLoadingAudio}
+              />
 
               {/* Progress Bar Track */}
               <div className="space-y-1.5">

@@ -300,6 +300,56 @@
   animation: sv-sunset-drift 18s ease-in-out infinite;
 }
 
+/* Music Visualizer Floating Audio Particles */
+@keyframes sv-particle-drift {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.85;
+  }
+  75% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-64px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+.animate-particle-drift {
+  animation: sv-particle-drift 2.8s ease-out infinite;
+}
+
+/* Visualizer Laser Scanner for Loading state */
+@keyframes sv-scan-beam {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-scan-beam {
+  animation: sv-scan-beam 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Idle harmonic pulse */
+@keyframes sv-idle-harmonic {
+  0%, 100% {
+    transform: scaleY(0.18);
+  }
+  50% {
+    transform: scaleY(0.32);
+  }
+}
+
+.animate-idle-harmonic {
+  animation: sv-idle-harmonic 3.2s ease-in-out infinite;
+}
+
 /* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
@@ -312,7 +362,10 @@
   .animate-float-medium,
   .animate-float-reverse,
   .sv-animated-sunset,
-  .animate-shimmer {
+  .animate-shimmer,
+  .animate-particle-drift,
+  .animate-scan-beam,
+  .animate-idle-harmonic {
     animation: none !important;
   }
   .sv-interactive-card:hover,
