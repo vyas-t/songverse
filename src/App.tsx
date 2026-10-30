@@ -119,7 +119,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF9F6] dark:bg-sv-navy text-slate-900 dark:text-slate-100 font-sans selection:bg-sv-red/20 selection:text-sv-red transition-colors">
+    <div className="min-h-screen flex flex-col bg-[#FAF8F5] dark:bg-sv-midnight text-slate-900 dark:text-slate-100 font-sans selection:bg-sv-red/20 selection:text-sv-red transition-colors duration-200">
 
       {/* Top 3-Zone Navigation */}
       <Navbar

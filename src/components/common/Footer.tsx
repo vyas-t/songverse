@@ -1,5 +1,5 @@
 import React from 'react';
-import { Music, ShieldCheck, Cookie, Cpu, Lock } from 'lucide-react';
+import { Music, ShieldCheck, Cookie, Cpu, Lock, Sparkles, Heart } from 'lucide-react';
 
 interface FooterProps {
   onOpenLegal: (tab?: string) => void;
@@ -13,32 +13,35 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenAdmin
 }) => {
   return (
-    <footer className="bg-sv-midnight text-slate-400 text-xs border-t border-sv-burgundy mt-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+    <footer className="bg-sv-midnight text-slate-400 text-xs border-t border-sv-burgundy/80 mt-24 relative overflow-hidden">
+      {/* Subtle bottom ambient glow */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-32 bg-gradient-to-t from-sv-burgundy/20 to-transparent blur-3xl pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
           
           {/* Col 1: Brand & Purpose */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-white font-bold text-base">
-              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-sv-red to-sv-orange flex items-center justify-center text-white shadow-xs">
-                <Music className="w-3.5 h-3.5" />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2.5 text-white font-black text-lg">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sv-red to-sv-orange flex items-center justify-center text-white shadow-md shadow-sv-red/30">
+                <Music className="w-4 h-4 fill-current" />
               </div>
-              <span>SongVerse</span>
+              <span className="tracking-tight">SongVerse</span>
             </div>
-            <p className="text-slate-400 leading-relaxed text-xs">
+            <p className="text-slate-400 leading-relaxed text-xs font-medium">
               A global, accessible song guessing trivia platform. Test your ear against 1s, 3s, 5s, and 10s audio excerpts across international genres and decades.
             </p>
-            <div className="text-[11px] text-slate-400">
-              Zero unlicensed commercial streaming scraping. Powered exclusively by authorized open music archives.
+            <div className="text-[11px] text-slate-500 font-mono">
+              Zero scraping. Exclusively cleared open music previews.
             </div>
           </div>
 
           {/* Col 2: Game Modes */}
           <div>
-            <h4 className="text-white font-semibold text-xs tracking-wide uppercase mb-3">
+            <h4 className="text-white font-black text-xs tracking-wider uppercase mb-4 font-mono">
               Gameplay
             </h4>
-            <ul className="space-y-2">
+            <ul className="space-y-2.5 font-medium">
               <li>
                 <span className="text-slate-400 hover:text-white transition-colors cursor-default">
                   Classic 4-Level Mode
@@ -64,10 +67,10 @@ export const Footer: React.FC<FooterProps> = ({
 
           {/* Col 3: Legal & Privacy Centre */}
           <div>
-            <h4 className="text-white font-semibold text-xs tracking-wide uppercase mb-3">
+            <h4 className="text-white font-black text-xs tracking-wider uppercase mb-4 font-mono">
               Legal & Privacy
             </h4>
-            <ul className="space-y-2">
+            <ul className="space-y-2.5 font-medium">
               <li>
                 <button
                   onClick={() => onOpenLegal('privacy')}
@@ -113,10 +116,10 @@ export const Footer: React.FC<FooterProps> = ({
 
           {/* Col 4: Trust & Transparency */}
           <div>
-            <h4 className="text-white font-semibold text-xs tracking-wide uppercase mb-3">
+            <h4 className="text-white font-black text-xs tracking-wider uppercase mb-4 font-mono">
               Preferences & System
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-2.5 font-medium">
               <button
                 onClick={onOpenCookies}
                 className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-slate-300"
@@ -136,10 +139,10 @@ export const Footer: React.FC<FooterProps> = ({
                 className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer text-slate-300"
               >
                 <Lock className="w-3.5 h-3.5 text-amber-400" />
-                Admin & 18-Test Runner (Private)
+                Admin Diagnostics (Private)
               </button>
             </div>
-            <p className="mt-4 text-[11px] text-slate-400 leading-normal">
+            <p className="mt-4 text-[11px] text-slate-500 leading-normal">
               Audio synthesized & streamed according to W3C Web Audio API standards.
             </p>
           </div>
@@ -147,24 +150,24 @@ export const Footer: React.FC<FooterProps> = ({
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400">
+        <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400">
           <div>
             © {new Date().getFullYear()} SongVerse Platform. All rights reserved. Non-commercial trivia implementation.
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => onOpenLegal('privacy')} className="hover:text-slate-300">
+            <button onClick={() => onOpenLegal('privacy')} className="hover:text-white cursor-pointer transition-colors">
               Privacy
             </button>
             <span>·</span>
-            <button onClick={() => onOpenLegal('terms')} className="hover:text-slate-300">
+            <button onClick={() => onOpenLegal('terms')} className="hover:text-white cursor-pointer transition-colors">
               Terms
             </button>
             <span>·</span>
-            <button onClick={onOpenCookies} className="hover:text-slate-300">
+            <button onClick={onOpenCookies} className="hover:text-white cursor-pointer transition-colors">
               Cookies
             </button>
             <span>·</span>
-            <button onClick={onOpenAdmin} className="text-sv-gold hover:text-sv-warm-orange">
+            <button onClick={onOpenAdmin} className="text-sv-gold hover:text-sv-warm-orange cursor-pointer transition-colors">
               Diagnostics
             </button>
           </div>

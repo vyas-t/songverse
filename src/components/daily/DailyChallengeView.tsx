@@ -44,24 +44,24 @@ export const DailyChallengeView: React.FC<DailyChallengeViewProps> = ({
       </div>
 
       {/* Main Challenge Card */}
-      <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-3xl p-8 sm:p-10 shadow-xs mb-10">
+      <div className="bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200/90 dark:border-sv-burgundy rounded-3xl p-8 sm:p-10 shadow-sm mb-10">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-sv-red dark:text-sv-warm-orange font-mono">
+              <span className="text-xs font-black uppercase tracking-wider text-sv-red dark:text-sv-warm-orange font-mono">
                 Challenge Ver. 2026.1 · 5 Tracks
               </span>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white">
                 Official Daily Round
               </h2>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
                 Rules: 4 levels per track (1s, 3s, 5s, 10s). You have 1 official attempt per day that counts toward your global daily leaderboard rank.
               </p>
             </div>
 
-            <div className="space-y-2 pt-2 text-xs text-slate-700 dark:text-slate-200">
+            <div className="space-y-2 pt-2 text-xs font-medium text-slate-700 dark:text-slate-200">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>Synchronized worldwide at 00:00 UTC</span>
@@ -78,24 +78,24 @@ export const DailyChallengeView: React.FC<DailyChallengeViewProps> = ({
           </div>
 
           {/* Action Box */}
-          <div className="bg-slate-50 dark:bg-sv-navy/70 border border-slate-200/80 dark:border-sv-burgundy rounded-2xl p-6 text-center space-y-4">
+          <div className="bg-slate-50/90 dark:bg-sv-midnight/80 border border-slate-200/80 dark:border-sv-burgundy rounded-3xl p-6 text-center space-y-4 shadow-xs">
             {dailyStatus.completed ? (
               <div className="space-y-3">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
-                  <CheckCircle2 className="w-6 h-6" />
+                <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800 shadow-xs">
+                  <CheckCircle2 className="w-7 h-7" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
                     Challenge Completed!
                   </h3>
                   <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                    You scored <strong className="text-sv-red dark:text-sv-gold font-mono text-sm">{dailyStatus.score} pts</strong> ({dailyStatus.roundsWon} / 5 correct).
+                    You scored <strong className="text-sv-red dark:text-sv-gold font-mono text-sm font-black">{dailyStatus.score} pts</strong> ({dailyStatus.roundsWon} / 5 correct).
                   </p>
                 </div>
                 <div className="pt-2">
                   <button
                     onClick={onNavigateLeaderboard}
-                    className="w-full py-2.5 text-xs font-semibold text-white bg-sv-red hover:bg-sv-crimson rounded-xl transition-colors cursor-pointer shadow-xs"
+                    className="w-full py-3 text-xs font-black text-white bg-sv-red hover:bg-sv-crimson rounded-2xl transition-all cursor-pointer shadow-sm shadow-sv-red/25"
                   >
                     View Daily Leaderboard Rank
                   </button>
@@ -103,20 +103,20 @@ export const DailyChallengeView: React.FC<DailyChallengeViewProps> = ({
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="w-12 h-12 rounded-full bg-sv-warm-orange/20 text-sv-orange dark:text-sv-gold flex items-center justify-center mx-auto border border-sv-warm-orange/30">
-                  <Trophy className="w-6 h-6" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sv-amber/20 to-sv-gold/30 text-sv-orange dark:text-sv-gold flex items-center justify-center mx-auto border border-sv-warm-orange/30 shadow-xs">
+                  <Trophy className="w-7 h-7" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
                     Ready for Today’s Test?
                   </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                    Current Streak: <strong className="text-sv-orange dark:text-sv-gold font-mono">{userProfile.currentStreak}</strong> days
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 font-medium">
+                    Current Streak: <strong className="text-sv-orange dark:text-sv-gold font-mono font-black">{userProfile.currentStreak}</strong> days
                   </p>
                 </div>
                 <button
                   onClick={onStartDaily}
-                  className="w-full py-3.5 text-xs font-bold text-white bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy rounded-xl transition-all cursor-pointer shadow-md shadow-sv-red/25 flex items-center justify-center gap-2"
+                  className="w-full py-4 text-xs font-black text-white bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber hover:from-sv-crimson hover:to-sv-red active:scale-95 rounded-2xl transition-all cursor-pointer shadow-md shadow-sv-red/25 flex items-center justify-center gap-2"
                 >
                   <Play className="w-4 h-4 fill-white" />
                   <span>Start Official Challenge</span>

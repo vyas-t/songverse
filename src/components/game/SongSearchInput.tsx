@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Music, Disc3, X, RefreshCw } from 'lucide-react';
+import { Search, Music, Disc3, X, RefreshCw, Sparkles } from 'lucide-react';
 import { Track } from '../../types';
 import { musicCatalogue } from '../../services/musicCatalogue';
 
@@ -106,7 +106,7 @@ export const SongSearchInput: React.FC<SongSearchInputProps> = ({
         }
       } catch (err: any) {
         if (err.name !== 'AbortError') {
-          // Ignore
+          // Ignore network cancel
         }
       } finally {
         setIsLoadingLive(false);
@@ -172,9 +172,9 @@ export const SongSearchInput: React.FC<SongSearchInputProps> = ({
   return (
     <div className="relative w-full">
       <div className="relative flex items-center">
-        <div className="absolute left-3.5 text-sv-red dark:text-[#F48C06] pointer-events-none">
+        <div className="absolute left-4 text-sv-red dark:text-sv-warm-orange pointer-events-none">
           {isLoadingLive ? (
-            <RefreshCw className="w-4 h-4 animate-spin text-sv-red dark:text-[#F48C06]" />
+            <RefreshCw className="w-4 h-4 animate-spin text-sv-red dark:text-sv-warm-orange" />
           ) : (
             <Search className="w-4 h-4" />
           )}
@@ -198,14 +198,14 @@ export const SongSearchInput: React.FC<SongSearchInputProps> = ({
           placeholder="Type song title or artist name to guess..."
           aria-label="Guess song title or artist"
           aria-expanded={isOpen}
-          className="w-full pl-10 pr-10 py-3 text-sm bg-white dark:bg-[#370617] border-2 border-slate-300 dark:border-[#6A040F] rounded-xl shadow-xs placeholder:text-slate-400 dark:placeholder:text-[#F48C06]/65 text-slate-900 dark:text-[#FFBA08] focus:outline-none focus:border-sv-red dark:focus:border-[#F48C06] transition-all disabled:bg-slate-100 dark:disabled:bg-[#370617]/40 disabled:cursor-not-allowed"
+          className="w-full pl-11 pr-11 py-3.5 text-sm font-medium bg-white dark:bg-sv-midnight border-2 border-slate-200 dark:border-sv-burgundy rounded-2xl shadow-xs placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white focus:outline-none focus:border-sv-red dark:focus:border-sv-warm-orange focus:ring-4 focus:ring-sv-red/10 dark:focus:ring-sv-warm-orange/15 transition-all disabled:bg-slate-100 dark:disabled:bg-sv-midnight/40 disabled:cursor-not-allowed"
         />
 
         {(query || selectedTrack) && !disabled && (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 p-1 text-slate-400 hover:text-slate-600 dark:text-[#FAA307]/80 dark:hover:text-[#FFBA08] cursor-pointer"
+            className="absolute right-3.5 p-1 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-white bg-slate-100 dark:bg-sv-burgundy-deep rounded-lg cursor-pointer transition-colors"
             title="Clear guess"
           >
             <X className="w-4 h-4" />
@@ -217,11 +217,11 @@ export const SongSearchInput: React.FC<SongSearchInputProps> = ({
       {isOpen && !disabled && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 left-0 right-0 mt-1.5 bg-white dark:bg-[#03071E] border border-slate-200 dark:border-[#6A040F] rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto animate-in fade-in"
+          className="absolute z-50 left-0 right-0 mt-2 bg-white/95 dark:bg-sv-midnight/95 backdrop-blur-xl border border-slate-200 dark:border-sv-burgundy rounded-2xl shadow-2xl overflow-hidden max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150"
         >
           {results.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
-              No matching tracks found. Try typing another song title or artist.
+            <div className="p-5 text-center text-xs text-slate-500 dark:text-slate-400 font-medium">
+              No matching tracks found. Try typing another song title or artist name.
             </div>
           ) : (
             results.map((track, index) => {
@@ -232,36 +232,36 @@ export const SongSearchInput: React.FC<SongSearchInputProps> = ({
                   type="button"
                   onClick={() => handlePick(track)}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`w-full text-left p-2.5 sm:p-3 flex items-center justify-between gap-3 border-b border-slate-100 dark:border-[#6A040F]/40 last:border-b-0 cursor-pointer transition-colors ${
+                  className={`w-full text-left p-3 sm:p-3.5 flex items-center justify-between gap-3 border-b border-slate-100 dark:border-sv-burgundy/40 last:border-b-0 cursor-pointer transition-colors ${
                     isSelected
-                      ? 'bg-sv-red/10 dark:bg-sv-crimson/40 text-sv-red dark:text-[#FFBA08]'
-                      : 'hover:bg-slate-50 dark:hover:bg-[#370617]/50 text-slate-900 dark:text-white'
+                      ? 'bg-sv-red/10 dark:bg-sv-crimson/30 text-sv-red dark:text-sv-gold'
+                      : 'hover:bg-slate-50 dark:hover:bg-sv-burgundy-deep/60 text-slate-900 dark:text-white'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0">
                     {track.artworkUrl ? (
                       <img
                         src={track.artworkUrl}
                         alt={track.album}
-                        className="w-9 h-9 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-sv-burgundy"
+                        className="w-10 h-10 rounded-xl object-cover shrink-0 border border-black/5 dark:border-sv-burgundy shadow-xs"
                         loading="lazy"
                       />
                     ) : (
-                      <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-sv-red to-sv-orange flex items-center justify-center text-white shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sv-red to-sv-orange flex items-center justify-center text-white shrink-0 shadow-xs">
                         <Music className="w-4 h-4" />
                       </div>
                     )}
                     <div className="truncate">
-                      <p className="text-xs font-bold truncate">
+                      <p className="text-xs font-black truncate">
                         {track.title}
                       </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        {track.artist} · <span className="font-semibold text-sv-orange">{track.language}</span>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {track.artist} · <span className="font-bold text-sv-red dark:text-sv-warm-orange">{track.language}</span>
                       </p>
                     </div>
                   </div>
 
-                  <span className="text-[10px] text-slate-400 shrink-0 font-mono">
+                  <span className="text-[10px] text-slate-400 font-mono shrink-0 font-bold bg-slate-100 dark:bg-sv-burgundy px-2 py-0.5 rounded-lg">
                     {track.releaseYear || ''}
                   </span>
                 </button>

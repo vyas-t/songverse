@@ -214,14 +214,17 @@ export const LanguageSelectionView: React.FC<LanguageSelectionViewProps> = ({
       </div>
 
       {/* Main Card */}
-      <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 sm:p-7 shadow-xs space-y-6">
+      <div className="bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200/90 dark:border-sv-burgundy rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
         
         {/* Header */}
-        <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-black uppercase tracking-wider text-sv-red dark:text-sv-warm-orange font-mono">
+            Song Preferences
+          </span>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
             Choose Your Languages
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-300 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-300 leading-relaxed font-medium">
             Select one or more languages for your upcoming song-guessing session.
           </p>
         </div>
@@ -238,40 +241,40 @@ export const LanguageSelectionView: React.FC<LanguageSelectionViewProps> = ({
               toggleMixLanguages();
             }
           }}
-          className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none ${
+          className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer select-none ${
             isMixLanguages
-              ? 'bg-sv-red/10 dark:bg-sv-crimson/30 border-sv-red/30 dark:border-sv-burgundy text-slate-900 dark:text-white shadow-2xs'
-              : 'bg-slate-50/70 dark:bg-sv-navy/60 hover:bg-slate-100/70 dark:hover:bg-sv-navy/80 border-slate-200 dark:border-sv-burgundy text-slate-700 dark:text-slate-300'
+              ? 'bg-sv-red/10 dark:bg-sv-crimson/25 border-sv-red/30 dark:border-sv-burgundy text-slate-900 dark:text-white shadow-xs'
+              : 'bg-slate-50/70 dark:bg-sv-midnight/60 hover:bg-slate-100/70 dark:hover:bg-sv-midnight/80 border-slate-200 dark:border-sv-burgundy text-slate-700 dark:text-slate-300'
           }`}
         >
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm transition-colors ${
-              isMixLanguages ? 'bg-sv-red text-white' : 'bg-white dark:bg-sv-navy border border-slate-200 dark:border-sv-burgundy text-slate-600 dark:text-slate-300'
+          <div className="flex items-center gap-3.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-sm transition-colors shadow-xs ${
+              isMixLanguages ? 'bg-sv-red text-white' : 'bg-white dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy text-slate-600 dark:text-slate-300'
             }`}>
               <Globe className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
+                <span className="text-xs font-black text-slate-900 dark:text-white">
                   🌍 Mix Languages
                 </span>
                 {isMixLanguages && (
-                  <span className="text-[10px] font-semibold text-sv-red dark:text-sv-gold bg-sv-red/10 dark:bg-sv-burgundy px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] font-black text-sv-red dark:text-sv-gold bg-sv-red/10 dark:bg-sv-burgundy px-2 py-0.5 rounded-md font-mono">
                     All Active
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
                 Include songs from every eligible language in a single global game.
               </p>
             </div>
           </div>
 
           {/* Toggle pill */}
-          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors relative shrink-0 ${
+          <div className={`w-11 h-6 rounded-full p-0.5 transition-colors relative shrink-0 ${
             isMixLanguages ? 'bg-sv-red' : 'bg-slate-300 dark:bg-slate-700'
           }`}>
-            <div className={`w-4 h-4 rounded-full bg-white shadow-xs transition-transform duration-200 ease-out ${
+            <div className={`w-5 h-5 rounded-full bg-white shadow-xs transition-transform duration-200 ease-out ${
               isMixLanguages ? 'translate-x-5' : 'translate-x-0'
             }`} />
           </div>
@@ -485,10 +488,10 @@ export const LanguageSelectionView: React.FC<LanguageSelectionViewProps> = ({
             type="button"
             onClick={handleStartGame}
             disabled={isCatalogueEmpty || activeLanguages.length === 0}
-            className={`w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+            className={`w-full py-4 px-4 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all ${
               isCatalogueEmpty || activeLanguages.length === 0
                 ? 'bg-slate-100 dark:bg-sv-burgundy/40 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-sv-burgundy cursor-not-allowed shadow-none'
-                : 'bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy text-white shadow-sm cursor-pointer'
+                : 'bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber hover:from-sv-crimson hover:to-sv-red active:scale-95 text-white shadow-md shadow-sv-red/25 cursor-pointer'
             }`}
           >
             <Play className={`w-4 h-4 ${isCatalogueEmpty ? 'fill-slate-400' : 'fill-white'}`} />

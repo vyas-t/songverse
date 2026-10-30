@@ -27,12 +27,12 @@
     --font-mono: 'Space Grotesk', monospace;
 
     /* Light theme — refined high-contrast palette */
-    --app-bg: #FCFBF9;
+    --app-bg: #FAF8F5;
     --app-card: #FFFFFF;
-    --app-card-subtle: #FDF4EC;
-    --app-text: #03071E;
-    --app-text-muted: #6A040F;
-    --app-border: #F6D6C8;
+    --app-card-subtle: #FDF6F0;
+    --app-text: #0E1326;
+    --app-text-muted: #64748B;
+    --app-border: #E8E2D9;
 
     /* 10-Color Palette Variables */
     --sv-midnight: #03071E;
@@ -50,18 +50,22 @@
     --sv-gradient-sunset: linear-gradient(135deg, #03071E 0%, #370617 25%, #6A040F 50%, #DC2F02 75%, #FFBA08 100%);
     --sv-gradient-warm: linear-gradient(135deg, #9D0208 0%, #E85D04 60%, #FFBA08 100%);
     --sv-gradient-gold: linear-gradient(135deg, #F48C06 0%, #FAA307 50%, #FFBA08 100%);
-    --sv-shadow-warm: 0 12px 36px rgba(55, 6, 23, 0.12);
-    --sv-glow-coral: 0 0 24px rgba(220, 47, 2, 0.22);
+    --sv-shadow-warm: 0 16px 40px -8px rgba(55, 6, 23, 0.14);
+    --sv-shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+    --sv-glow-coral: 0 0 28px rgba(220, 47, 2, 0.25);
+    --sv-glow-gold: 0 0 28px rgba(255, 186, 8, 0.3);
   }
 
   [data-theme="dark"], html.dark, .dark {
-    /* Dark theme — deep midnight & dark wine */
+    /* Dark theme — deep midnight & luxurious dark wine */
     --app-bg: #03071E;
-    --app-card: #14050D;
-    --app-card-subtle: #240510;
+    --app-card: #0F040B;
+    --app-card-subtle: #1C0512;
     --app-text: #FFF8F2;
     --app-text-muted: #E29D7C;
     --app-border: #370617;
+    --sv-shadow-warm: 0 18px 45px -8px rgba(0, 0, 0, 0.6);
+    --sv-shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }
 
@@ -79,8 +83,9 @@
     font-family: var(--font-sans);
     background-color: var(--app-bg);
     background-image:
-      radial-gradient(ellipse at 0% 0%, rgba(208, 0, 0, 0.07), transparent 36%),
-      radial-gradient(ellipse at 100% 10%, rgba(232, 93, 4, 0.08), transparent 32%);
+      radial-gradient(circle at 12% 15%, rgba(208, 0, 0, 0.06), transparent 42%),
+      radial-gradient(circle at 88% 20%, rgba(232, 93, 4, 0.08), transparent 38%),
+      radial-gradient(circle at 50% 85%, rgba(255, 186, 8, 0.04), transparent 46%);
     color: var(--app-text);
     overflow-x: hidden;
     transition: background-color 0.28s ease, color 0.28s ease;
@@ -104,11 +109,11 @@
 
   button {
     transition:
-      background-color 180ms ease,
-      color 180ms ease,
-      border-color 180ms ease,
-      box-shadow 180ms ease,
-      transform 180ms ease;
+      background-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   button:active {
@@ -125,7 +130,7 @@
   }
 }
 
-/* Shared opt-in utility classes for existing components */
+/* Premium Glass & Elevation Utilities */
 .sv-sunset-gradient {
   background: var(--sv-gradient-sunset);
 }
@@ -134,16 +139,46 @@
   background: var(--sv-gradient-warm);
 }
 
+.sv-gold-gradient {
+  background: var(--sv-gradient-gold);
+}
+
 .sv-glass-panel {
-  background: color-mix(in srgb, var(--app-card) 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--sv-peach) 24%, var(--app-border));
+  background: color-mix(in srgb, var(--app-card) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-warm-gold) 15%, var(--app-border));
+  box-shadow: var(--sv-shadow-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.sv-glass-card {
+  background: color-mix(in srgb, var(--app-card) 92%, transparent);
+  border: 1px solid color-mix(in srgb, #ffffff 12%, var(--app-border));
+  box-shadow: var(--sv-shadow-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 240ms cubic-bezier(0.16, 1, 0.3, 1), border-color 240ms ease;
+}
+
+.sv-glass-card:hover {
+  transform: translateY(-3px);
   box-shadow: var(--sv-shadow-warm);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  border-color: color-mix(in srgb, var(--sv-red) 35%, var(--app-border));
+}
+
+.sv-glass-pill {
+  background: color-mix(in srgb, var(--app-card) 75%, transparent);
+  border: 1px solid color-mix(in srgb, #ffffff 18%, var(--app-border));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .sv-warm-glow {
   box-shadow: var(--sv-glow-coral);
+}
+
+.sv-gold-glow {
+  box-shadow: var(--sv-glow-gold);
 }
 
 .sv-interactive-card {
@@ -153,19 +188,20 @@
 .sv-interactive-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--sv-shadow-warm);
-  border-color: color-mix(in srgb, var(--sv-peach) 48%, var(--app-border));
+  border-color: color-mix(in srgb, var(--sv-crimson) 40%, var(--app-border));
 }
 
 @media (hover: none) {
-  .sv-interactive-card:hover {
+  .sv-interactive-card:hover,
+  .sv-glass-card:hover {
     transform: none;
   }
 }
 
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -188,7 +224,7 @@
     transform: translateY(0px) rotate(0deg);
   }
   50% {
-    transform: translateY(-14px) rotate(1.2deg);
+    transform: translateY(-12px) rotate(1deg);
   }
 }
 
@@ -197,7 +233,7 @@
     transform: translateY(0px) rotate(0deg);
   }
   50% {
-    transform: translateY(-18px) rotate(-1.5deg);
+    transform: translateY(-16px) rotate(-1.2deg);
   }
 }
 
@@ -206,26 +242,42 @@
     transform: translateY(0px) rotate(0deg);
   }
   50% {
-    transform: translateY(12px) rotate(1deg);
+    transform: translateY(10px) rotate(0.8deg);
   }
 }
 
 .animate-float-slow {
-  animation: sv-float-slow 6s ease-in-out infinite;
+  animation: sv-float-slow 6.5s ease-in-out infinite;
 }
 
 .animate-float-medium {
-  animation: sv-float-medium 4.8s ease-in-out infinite;
+  animation: sv-float-medium 5.2s ease-in-out infinite;
 }
 
 .animate-float-reverse {
-  animation: sv-float-reverse 5.5s ease-in-out infinite;
+  animation: sv-float-reverse 5.8s ease-in-out infinite;
+}
+
+/* Subtle Shimmer Effect for VIP badges and loading */
+@keyframes sv-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: sv-shimmer 2.5s infinite;
 }
 
 /* Waveform pulse animation */
 @keyframes wave-bounce {
   0%, 100% {
-    transform: scaleY(0.25);
+    transform: scaleY(0.2);
   }
   50% {
     transform: scaleY(1);
@@ -236,18 +288,7 @@
   animation: wave-bounce 1.2s ease-in-out infinite;
 }
 
-/* Reduced motion preference */
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-
-/* Ambient sunset motion; apply only to decorative hero/background elements. */
+/* Ambient sunset motion; apply only to decorative hero/background elements */
 @keyframes sv-sunset-drift {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -259,13 +300,23 @@
   animation: sv-sunset-drift 18s ease-in-out infinite;
 }
 
+/* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  .sv-animated-sunset {
-    animation: none;
-    background-position: 50% 50%;
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-
-  .sv-interactive-card:hover {
-    transform: none;
+  .animate-float-slow,
+  .animate-float-medium,
+  .animate-float-reverse,
+  .sv-animated-sunset,
+  .animate-shimmer {
+    animation: none !important;
+  }
+  .sv-interactive-card:hover,
+  .sv-glass-card:hover {
+    transform: none !important;
   }
 }

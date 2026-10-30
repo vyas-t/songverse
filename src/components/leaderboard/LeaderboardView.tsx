@@ -70,14 +70,14 @@ export const LeaderboardView: React.FC = () => {
       </div>
 
       {/* Period Tabs: Daily, Weekly, Monthly, All-time */}
-      <div className="flex items-center justify-center gap-1.5 p-1 bg-slate-100 dark:bg-sv-burgundy-deep rounded-2xl max-w-md mx-auto border border-slate-200 dark:border-sv-burgundy">
+      <div className="flex items-center justify-center gap-1.5 p-1.5 bg-black/[0.04] dark:bg-sv-midnight/90 rounded-2xl max-w-md mx-auto border border-black/[0.05] dark:border-sv-burgundy shadow-xs">
         {(['daily', 'weekly', 'monthly', 'all-time'] as const).map((period) => (
           <button
             key={period}
             onClick={() => setActiveTab(period)}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer capitalize ${
+            className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer capitalize ${
               activeTab === period
-                ? 'bg-sv-red text-white shadow-xs'
+                ? 'bg-sv-red text-white shadow-sm shadow-sv-red/30'
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >

@@ -21,3 +21,4 @@ public/audio/temp_*.wav
 
 # Scratch test files
 check-*.cjs
+.agents/

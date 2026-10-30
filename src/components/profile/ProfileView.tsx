@@ -140,16 +140,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
       {/* Guest Mode Warning Banner if Guest */}
       {profile.isGuest && (
-        <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+        <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-900 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 flex items-center justify-center shrink-0 shadow-xs">
               <Info className="w-5 h-5" />
             </div>
             <div className="space-y-0.5">
-              <div className="text-xs font-bold text-amber-900 flex items-center gap-2">
+              <div className="text-xs font-black text-amber-900 dark:text-amber-200 flex items-center gap-2">
                 <span>Guest Player Account (Local Storage Only)</span>
               </div>
-              <p className="text-xs text-amber-800 leading-relaxed max-w-xl">
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed max-w-xl font-medium">
                 Your high scores, streak, and unlocked achievements are saved only on this browser. If you clear cookies, browser history, or switch devices, your data may be lost.
               </p>
             </div>
@@ -157,16 +157,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
           <button
             onClick={() => setAuthModalOpen(true)}
-            className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-white bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy rounded-xl shadow-xs transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full sm:w-auto px-5 py-3 text-xs font-black text-white bg-sv-red hover:bg-sv-crimson active:bg-sv-burgundy rounded-2xl shadow-md shadow-sv-red/25 transition-all shrink-0 flex items-center justify-center gap-2 cursor-pointer"
           >
-            <LogIn className="w-3.5 h-3.5" />
+            <LogIn className="w-4 h-4" />
             <span>Link / Sign In Account</span>
           </button>
         </div>
       )}
 
       {/* Profile Card Header */}
-      <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-3xl p-6 sm:p-8 shadow-xs">
+      <div className="bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200/90 dark:border-sv-burgundy rounded-3xl p-6 sm:p-9 shadow-sm">
         
         <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
           
