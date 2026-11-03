@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, RefreshCw, AlertCircle, Sparkles, Disc3, Zap, Swords } from 'lucide-react';
+import { Trophy, RefreshCw, AlertCircle, Sparkles, Disc3, Zap, Swords, Users } from 'lucide-react';
 import { LeaderboardEntry } from '../../types';
 import { gameEngine } from '../../services/gameEngine';
 import { fetchLeaderboardEntries, isSupabaseConfigured } from '../../services/supabaseClient';
+import { socialService } from '../../services/socialService';
 
 export const LeaderboardView: React.FC = () => {
-  const [modeCategory, setModeCategory] = useState<'solo' | 'competitive'>('solo');
+  const [modeCategory, setModeCategory] = useState<'solo' | 'competitive' | 'friends'>('solo');
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly' | 'all-time'>('daily');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,6 +46,35 @@ export const LeaderboardView: React.FC = () => {
   }, [activeTab]);
 
   const userCompetitiveMatches = (userProfile.matchHistory || []).filter(m => m.gameMode === 'competitive');
+  const friends = socialService.getFriends();
+
+  // Build friend leaderboard entries (ranking user and accepted friends)
+  const friendEntries: LeaderboardEntry[] = [
+    {
+      rank: 1,
+      userId: userProfile.id,
+      displayName: `${userProfile.displayName} (You)`,
+      avatarSeed: userProfile.avatarSeed,
+      score: userProfile.totalScore,
+      accuracy: userProfile.accuracy,
+      streak: userProfile.currentStreak,
+      dateAchieved: new Date().toISOString().split('T')[0],
+      gameMode: 'classic'
+    },
+    ...friends.map(f => ({
+      rank: 1,
+      userId: f.id,
+      displayName: `@${f.username} (${f.displayName})`,
+      avatarSeed: f.avatarSeed,
+      score: f.totalScore,
+      accuracy: 0,
+      streak: f.currentStreak,
+      dateAchieved: new Date().toISOString().split('T')[0],
+      gameMode: 'classic'
+    }))
+  ]
+    .sort((a, b) => b.score - a.score)
+    .map((e, idx) => ({ ...e, rank: idx + 1 }));
 
   const displayedEntries = entries.filter(e => {
     if (modeCategory === 'competitive') {
@@ -54,7 +84,9 @@ export const LeaderboardView: React.FC = () => {
     }
   });
 
-  const currentEntries: LeaderboardEntry[] = modeCategory === 'competitive'
+  const currentEntries: LeaderboardEntry[] = modeCategory === 'friends'
+    ? friendEntries
+    : modeCategory === 'competitive'
     ? (displayedEntries.length > 0 ? displayedEntries : (userCompetitiveMatches.length > 0 ? [{
         rank: 1,
         userId: userProfile.id,
@@ -94,8 +126,8 @@ export const LeaderboardView: React.FC = () => {
         </p>
       </div>
 
-      {/* Mode Category Selector: Solo Trivia vs Competitive PvP */}
-      <div className="flex items-center justify-center gap-2 p-1.5 bg-slate-100 dark:bg-sv-midnight rounded-2xl max-w-sm mx-auto border border-slate-200 dark:border-sv-burgundy shadow-xs">
+      {/* Mode Category Selector: Solo Trivia vs Competitive PvP vs Friends */}
+      <div className="flex items-center justify-center gap-2 p-1.5 bg-slate-100 dark:bg-sv-midnight rounded-2xl max-w-md mx-auto border border-slate-200 dark:border-sv-burgundy shadow-xs">
         <button
           onClick={() => setModeCategory('solo')}
           className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
@@ -116,7 +148,18 @@ export const LeaderboardView: React.FC = () => {
           }`}
         >
           <Trophy className="w-3.5 h-3.5 text-sv-gold" />
-          <span>Competitive PvP</span>
+          <span>PvP</span>
+        </button>
+        <button
+          onClick={() => setModeCategory('friends')}
+          className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            modeCategory === 'friends'
+              ? 'bg-sv-red text-white shadow-sm shadow-sv-red/30'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5 text-sv-warm-orange" />
+          <span>Friends ({friends.length})</span>
         </button>
       </div>
 

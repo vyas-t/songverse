@@ -47,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'game', label: 'Play', view: 'language_select', mode: 'classic' as GameMode, isActive: currentView === 'game' || currentView === 'language_select' },
     { id: 'daily', label: 'Daily', view: 'daily', isActive: currentView === 'daily' },
     { id: 'multiplayer', label: 'Multiplayer', view: 'multiplayer', isActive: currentView === 'multiplayer' },
+    { id: 'friends', label: 'Friends', view: 'friends', isActive: currentView === 'friends' },
     { id: 'discovery', label: 'Discover', view: 'discovery', isActive: currentView === 'discovery' },
     { id: 'leaderboard', label: 'Leaderboard', view: 'leaderboard', isActive: currentView === 'leaderboard' },
   ];

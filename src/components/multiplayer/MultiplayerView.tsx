@@ -41,6 +41,8 @@ import { audioEngine } from '../../services/audioEngine';
 import { GAME_LEVELS } from '../../config/gameConfig';
 import { SongSearchInput } from '../game/SongSearchInput';
 import { MusicVisualizer } from '../common/MusicVisualizer';
+import { socialService } from '../../services/socialService';
+import { FriendUser } from '../../types';
 
 interface MultiplayerViewProps {
   onOpenAuth?: () => void;
@@ -69,6 +71,9 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [friendsList, setFriendsList] = useState<FriendUser[]>(socialService.getFriends());
+  const [invitedFriendIds, setInvitedFriendIds] = useState<Set<string>>(new Set());
 
   const isHost = Boolean(room && room.hostId === profile.id);
   const myPlayer = room?.players.find(p => p.id === profile.id);
@@ -254,6 +259,23 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
     if (isHost && room && room.status === 'lobby') {
       multiplayerEngine.setLanguageFilter(lang);
     }
+  };
+
+  const handleOpenInviteFriends = () => {
+    setFriendsList(socialService.getFriends());
+    socialService.syncFriendsFromDatabase();
+    setShowInviteModal(true);
+  };
+
+  const handleSendFriendRoomInvite = async (friend: FriendUser) => {
+    if (!room) return;
+    await socialService.inviteFriendToRoom(
+      friend,
+      room.roomCode,
+      room.mode || 'competitive',
+      room.totalRounds || 3
+    );
+    setInvitedFriendIds(prev => new Set(prev).add(friend.id));
   };
 
   const handlePlayMultiplayerAudio = async () => {
@@ -826,13 +848,23 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={handleStartGame}
-                      className="px-8 py-3.5 bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber hover:from-sv-crimson hover:to-sv-red text-white rounded-2xl text-xs font-black cursor-pointer shadow-md shadow-sv-red/25 flex items-center justify-center gap-2 transition-all active:scale-95"
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      <span>Start Match for All Players</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleOpenInviteFriends}
+                        className="px-5 py-3.5 bg-white dark:bg-sv-midnight hover:bg-slate-50 dark:hover:bg-sv-burgundy text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-sv-burgundy rounded-2xl text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      >
+                        <Users className="w-4 h-4 text-sv-red" />
+                        <span>Invite Friends</span>
+                      </button>
+                      <button
+                        onClick={handleStartGame}
+                        className="px-8 py-3.5 bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber hover:from-sv-crimson hover:to-sv-red text-white rounded-2xl text-xs font-black cursor-pointer shadow-md shadow-sv-red/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+                      >
+                        <Play className="w-4 h-4 fill-white" />
+                        <span>Start Match for All Players</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
@@ -1403,6 +1435,76 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* INVITE FRIENDS MODAL */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-sv-burgundy pb-3">
+              <div className="flex items-center gap-2.5">
+                <Users className="w-5 h-5 text-sv-red" />
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                  Invite Friends to Room {room?.roomCode}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {friendsList.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400 font-medium space-y-2">
+                <p>No accepted friends found in your network.</p>
+                <p className="text-[11px] opacity-75">
+                  Visit the Friends section to search and connect with other SongVerse players.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-72 overflow-y-auto space-y-2 divide-y divide-slate-100 dark:divide-sv-burgundy/40">
+                {friendsList.map(friend => {
+                  const alreadyInvited = invitedFriendIds.has(friend.id);
+                  return (
+                    <div key={friend.id} className="pt-2 flex items-center justify-between gap-3 text-xs">
+                      <div className="min-w-0">
+                        <p className="font-black text-slate-900 dark:text-white truncate">
+                          {friend.displayName}
+                        </p>
+                        <p className="text-[11px] font-mono text-slate-400">
+                          @{friend.username}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleSendFriendRoomInvite(friend)}
+                        disabled={alreadyInvited}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          alreadyInvited
+                            ? 'bg-slate-100 dark:bg-sv-midnight text-slate-400 cursor-not-allowed'
+                            : 'bg-sv-red hover:bg-sv-crimson text-white shadow-xs'
+                        }`}
+                      >
+                        {alreadyInvited ? 'Invited ✓' : 'Send Invite'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-slate-100 dark:border-sv-burgundy flex justify-end">
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-sv-midnight text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

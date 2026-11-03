@@ -461,6 +461,7 @@ class AuthService {
       email: sbUser.email,
       emailVerified: isVerified,
       displayName: remoteProfileData?.display_name || sbUser.user_metadata?.display_name || localProfile.displayName,
+      username: remoteProfileData?.username || localProfile.username || undefined,
       avatarSeed: remoteProfileData?.avatar_seed || localProfile.avatarSeed,
       avatarUrl: remoteProfileData?.avatar_url || sbUser.user_metadata?.avatar_url,
       authProvider: provider,

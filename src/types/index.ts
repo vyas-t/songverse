@@ -131,6 +131,7 @@ export interface LevelConfig {
 export interface UserProfile {
   id: string;
   displayName: string;
+  username?: string;
   avatarSeed: string;
   avatarUrl?: string;
   isGuest: boolean;
@@ -159,6 +160,61 @@ export interface UserProfile {
   lastLoginAt?: number;
   favoriteMode?: 'competitive' | 'casual' | 'classic';
   matchHistory?: MatchHistoryItem[];
+}
+
+export type FriendshipStatus = 'pending' | 'accepted' | 'rejected' | 'blocked';
+
+export interface FriendUser {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarSeed: string;
+  avatarUrl?: string;
+  totalScore: number;
+  gamesPlayed: number;
+  roundsWon: number;
+  currentStreak: number;
+  bestStreak: number;
+  favoriteMode?: 'competitive' | 'casual' | 'classic';
+  isOnline: boolean;
+  lastSeenAt?: number;
+}
+
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  status: FriendshipStatus;
+  createdAt: string;
+  updatedAt?: string;
+  sender?: {
+    id: string;
+    displayName: string;
+    username: string;
+    avatarSeed: string;
+    avatarUrl?: string;
+  };
+  receiver?: {
+    id: string;
+    displayName: string;
+    username: string;
+    avatarSeed: string;
+    avatarUrl?: string;
+  };
+}
+
+export interface RoomInvitation {
+  id: string;
+  roomCode: string;
+  senderId: string;
+  senderName: string;
+  senderUsername?: string;
+  receiverId: string;
+  mode: 'competitive' | 'casual';
+  totalRounds: number;
+  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface AuthProviderConfig {

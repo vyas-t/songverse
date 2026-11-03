@@ -22,11 +22,14 @@ import {
   Mail,
   Info,
   Sparkles,
-  Swords
+  Swords,
+  AtSign,
+  AlertCircle
 } from 'lucide-react';
 import { MatchHistoryItem } from '../../types';
 import { gameEngine } from '../../services/gameEngine';
 import { authService } from '../../services/authService';
+import { socialService } from '../../services/socialService';
 import { AchievementSystem } from './AchievementSystem';
 import { AuthModal } from '../auth/AuthModal';
 
@@ -50,6 +53,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
   const [profile, setProfile] = useState(gameEngine.getUserProfile());
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.displayName);
+
+  // Username editing state
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState(profile.username || '');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSaving, setUsernameSaving] = useState(false);
   
   // Account deletion modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -99,6 +108,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
       setProfile(updated);
     }
     setIsEditingName(false);
+  };
+
+  const handleSaveUsername = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUsernameError(null);
+    const clean = usernameInput.trim();
+    if (!clean) {
+      setUsernameError('Please enter a username.');
+      return;
+    }
+
+    setUsernameSaving(true);
+    try {
+      const res = await socialService.updateUsername(clean);
+      if (res.success && res.username) {
+        setProfile(gameEngine.getUserProfile());
+        setIsEditingUsername(false);
+      } else {
+        setUsernameError(res.error || 'Failed to update username.');
+      }
+    } catch (err: any) {
+      setUsernameError(err.message || 'Error updating username.');
+    } finally {
+      setUsernameSaving(false);
+    }
   };
 
   const handleToggleLanguage = (lang: string) => {
@@ -236,6 +270,71 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                   </button>
                 </div>
               )}
+
+              {/* Unique Username Row */}
+              <div className="pt-0.5">
+                {isEditingUsername ? (
+                  <form onSubmit={handleSaveUsername} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-2 text-xs font-mono text-slate-400">@</span>
+                        <input
+                          type="text"
+                          value={usernameInput}
+                          onChange={(e) => setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))}
+                          className="pl-6 pr-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-white bg-white dark:bg-sv-navy border border-slate-300 dark:border-sv-burgundy rounded-lg focus:outline-none focus:border-sv-red"
+                          placeholder="username"
+                          autoFocus
+                          disabled={usernameSaving}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={usernameSaving}
+                        className="px-2.5 py-1.5 bg-sv-red text-white text-xs font-bold rounded-lg hover:bg-sv-crimson transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {usernameSaving ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingUsername(false);
+                          setUsernameInput(profile.username || '');
+                          setUsernameError(null);
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-200 dark:bg-sv-burgundy text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {usernameError && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span>{usernameError}</span>
+                      </p>
+                    )}
+                  </form>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-sv-red dark:text-sv-warm-orange flex items-center gap-0.5">
+                      <AtSign className="w-3.5 h-3.5" />
+                      <span>{profile.username || 'set_username'}</span>
+                    </span>
+                    {!profile.isGuest && (
+                      <button
+                        onClick={() => {
+                          setUsernameInput(profile.username || '');
+                          setUsernameError(null);
+                          setIsEditingUsername(true);
+                        }}
+                        className="text-[11px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline cursor-pointer"
+                      >
+                        {profile.username ? 'Change' : 'Set username'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <span>Player ID: <span className="font-mono">{profile.id}</span></span>

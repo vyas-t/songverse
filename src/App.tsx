@@ -16,6 +16,7 @@ import { DailyChallengeView } from './components/daily/DailyChallengeView';
 import { MultiplayerView } from './components/multiplayer/MultiplayerView';
 import { DiscoveryView } from './components/discovery/DiscoveryView';
 import { LeaderboardView } from './components/leaderboard/LeaderboardView';
+import { FriendsView } from './components/friends/FriendsView';
 import { ProfileView } from './components/profile/ProfileView';
 import { LegalCentre } from './components/legal/LegalCentre';
 import { AdminPanel } from './components/admin/AdminPanel';
@@ -189,6 +190,15 @@ export default function App() {
 
         {currentView === 'discovery' && (
           <DiscoveryView />
+        )}
+
+        {currentView === 'friends' && (
+          <FriendsView
+            onOpenAuth={() => setAuthModalOpen(true)}
+            onJoinRoom={(code) => {
+              setCurrentView('multiplayer');
+            }}
+          />
         )}
 
         {currentView === 'leaderboard' && (
