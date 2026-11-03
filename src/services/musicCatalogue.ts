@@ -387,6 +387,11 @@ class MusicCatalogueService {
     return scored.slice(0, limit);
   }
 
+  public searchInPool(query: string, pool: Track[], limit: number = 8): Track[] {
+    const scored = this.searchTracksInternal(query, pool);
+    return scored.slice(0, limit);
+  }
+
   private searchTracksInternal(query: string, pool: Track[]): Track[] {
     const cleanQuery = this.normalizeString(query);
     if (!cleanQuery) return pool;

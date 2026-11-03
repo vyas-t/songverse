@@ -157,6 +157,8 @@ export interface UserProfile {
   createdAt: number;
   lastPlayedAt: number;
   lastLoginAt?: number;
+  favoriteMode?: 'competitive' | 'casual' | 'classic';
+  matchHistory?: MatchHistoryItem[];
 }
 
 export interface AuthProviderConfig {
@@ -244,6 +246,27 @@ export interface PlayerGuessEvent {
   timestamp: number;
 }
 
+export interface RoomCatalogueStats {
+  totalEligibleTracks: number;
+  languages: string[];
+  hostName: string;
+  validatedAt: number;
+  source: 'host-snapshot';
+}
+
+export interface MatchHistoryItem {
+  id: string;
+  roomCode?: string;
+  mode: 'solo' | 'competitive' | 'casual';
+  finalScore: number;
+  placement?: number;
+  totalPlayers?: number;
+  roundsCompleted: number;
+  totalRounds: number;
+  accuracy: number;
+  completedAt: number;
+}
+
 export interface MultiplayerPlayer {
   id: string;
   displayName: string;
@@ -257,7 +280,11 @@ export interface MultiplayerPlayer {
   lastGuessTitle?: string;
   lastGuessTrackId?: string;
   lastGuessPoints?: number;
-  status?: 'connected' | 'idle' | 'disconnected';
+  status?: 'connected' | 'idle' | 'disconnected' | 'reconnecting';
+  streak?: number;
+  correctGuesses?: number;
+  joinedAt?: number;
+  lastSeenAt?: number;
 }
 
 export interface MultiplayerRoom {
@@ -277,6 +304,13 @@ export interface MultiplayerRoom {
   roundEndReason?: 'timeout' | 'two_players_guessed' | 'all_guessed' | 'completed';
   targetTrackRevealed?: Track;
   recentGuesses?: PlayerGuessEvent[];
+  mode?: 'competitive' | 'casual';
+  catalogueSnapshot?: Track[];
+  catalogueStats?: RoomCatalogueStats;
+  languageFilter?: string;
+  isSettingsLocked?: boolean;
+  hostMigrated?: boolean;
+  hostMigrationNotice?: string;
 }
 
 export interface CookiePreferences {

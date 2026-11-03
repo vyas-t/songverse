@@ -1,5 +1,6 @@
-import { MultiplayerRoom, MultiplayerPlayer, Track, PlayerGuessEvent } from '../types';
+import { MultiplayerRoom, MultiplayerPlayer, Track, PlayerGuessEvent, RoomCatalogueStats } from '../types';
 import { musicCatalogue } from './musicCatalogue';
+import { gameEngine } from './gameEngine';
 
 type RoomListener = (room: MultiplayerRoom) => void;
 
@@ -309,6 +310,13 @@ class MultiplayerEngineService {
         if (existing) {
           existing.displayName = guestPlayer.displayName || existing.displayName;
           existing.status = 'connected';
+          existing.lastSeenAt = Date.now();
+          conn.send({ type: 'ROOM_STATE', room: this.activeRoom });
+          this.saveLocalRoomState(this.activeRoom);
+          this.broadcastMessage({ type: 'PLAYER_RECONNECTED', playerId: guestPlayer.id, room: this.activeRoom });
+          this.broadcastRoomToPeers();
+          this.notify();
+          break;
         } else {
           this.activeRoom.players.push({
             id: guestPlayer.id,
@@ -319,7 +327,11 @@ class MultiplayerEngineService {
             score: 0,
             currentLevel: 1,
             hasGuessedThisRound: false,
-            status: 'connected'
+            status: 'connected',
+            streak: 0,
+            correctGuesses: 0,
+            joinedAt: Date.now(),
+            lastSeenAt: Date.now()
           });
         }
 
@@ -348,6 +360,20 @@ class MultiplayerEngineService {
           this.saveLocalRoomState(this.activeRoom);
           this.broadcastRoomToPeers();
           this.notify();
+        }
+        break;
+      }
+
+      case 'CHANGE_MODE': {
+        if (this.activeRoom.status === 'lobby' && data.mode && !this.activeRoom.isSettingsLocked) {
+          this.setGameMode(data.mode);
+        }
+        break;
+      }
+
+      case 'CHANGE_LANGUAGE': {
+        if (this.activeRoom.status === 'lobby' && data.language && !this.activeRoom.isSettingsLocked) {
+          this.setLanguageFilter(data.language);
         }
         break;
       }
@@ -459,13 +485,145 @@ class MultiplayerEngineService {
   }
 
   /**
+   * Phase 3: Host-Controlled Room Catalogue Architecture
+   * Validates and snapshots the host's eligible playable tracks.
+   * Guarantees every participant in the room plays the identical song pool regardless of personal collection size.
+   */
+  public buildEligibleRoomSnapshot(language?: string, hostName?: string): { snapshot: Track[]; stats: RoomCatalogueStats } {
+    const allPlayable = musicCatalogue.getPlayableTracks();
+    const valid = allPlayable.filter(t =>
+      t.availabilityStatus === 'available' &&
+      t.playbackStatus === 'verified_audio' &&
+      Boolean(t.audioUrl || t.audioAssetUrl) &&
+      Boolean(t.title?.trim()) &&
+      Boolean(t.artist?.trim())
+    );
+
+    let filtered = valid;
+    if (language && language !== 'ALL' && language !== 'All') {
+      const match = valid.filter(t => t.language.toLowerCase() === language.toLowerCase());
+      if (match.length >= MULTIPLAYER_MIN_ROUNDS) {
+        filtered = match;
+      }
+    }
+
+    const availableLanguages = Array.from(new Set(filtered.map(t => t.language)));
+    const artists = new Set(filtered.map(t => t.artist)).size;
+    const stats: RoomCatalogueStats = {
+      totalTracks: filtered.length,
+      totalEligibleTracks: filtered.length,
+      artistsCount: artists,
+      languages: availableLanguages,
+      hostName: hostName || 'Host',
+      validatedAt: Date.now(),
+      source: 'host-snapshot'
+    };
+
+    return { snapshot: filtered, stats };
+  }
+
+  public getRoomCatalogue(): Track[] {
+    return this.activeRoom?.catalogueSnapshot || [];
+  }
+
+  public getRoomCatalogueStats(): RoomCatalogueStats | undefined {
+    return this.activeRoom?.catalogueStats;
+  }
+
+  public getRoomTrackById(id: string): Track | undefined {
+    if (this.activeRoom?.catalogueSnapshot && this.activeRoom.catalogueSnapshot.length > 0) {
+      const found = this.activeRoom.catalogueSnapshot.find(t => t.id === id || t.providerTrackId === id);
+      if (found) return found;
+    }
+    return musicCatalogue.getTrackById(id);
+  }
+
+  public searchRoomTracks(query: string, limit: number = 8): Track[] {
+    const pool = (this.activeRoom?.catalogueSnapshot && this.activeRoom.catalogueSnapshot.length > 0)
+      ? this.activeRoom.catalogueSnapshot
+      : musicCatalogue.getPlayableTracks();
+    return musicCatalogue.searchInPool(query, pool, limit);
+  }
+
+  /**
+   * Phase 4: Competitive and Casual Mode Setting
+   */
+  public setGameMode(mode: 'competitive' | 'casual'): void {
+    if (!this.activeRoom || this.activeRoom.status !== 'lobby' || this.activeRoom.isSettingsLocked) return;
+    this.activeRoom.mode = mode;
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'ROOM_SETTINGS_UPDATED', room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'ROOM_SETTINGS_UPDATED', room: this.activeRoom });
+    this.notify();
+  }
+
+  /**
+   * Phase 5: Language Filter Setting (Regenerates room snapshot)
+   */
+  public setLanguageFilter(language: string): void {
+    if (!this.activeRoom || this.activeRoom.status !== 'lobby' || this.activeRoom.isSettingsLocked) return;
+    const hostPlayer = this.activeRoom.players.find(p => p.id === this.activeRoom?.hostId);
+    const { snapshot, stats } = this.buildEligibleRoomSnapshot(language, hostPlayer?.displayName);
+
+    this.activeRoom.languageFilter = language;
+    this.activeRoom.catalogueSnapshot = snapshot;
+    this.activeRoom.catalogueStats = stats;
+
+    const totalRounds = this.activeRoom.totalRounds || 3;
+    const shuffled = [...snapshot].sort(() => 0.5 - Math.random());
+    this.activeRoom.trackIds = shuffled.slice(0, Math.min(totalRounds, shuffled.length)).map(t => t.id);
+    if (this.activeRoom.trackIds.length > 0) {
+      this.activeRoom.currentTrack = snapshot.find(t => t.id === this.activeRoom!.trackIds[0]);
+    }
+
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'ROOM_SETTINGS_UPDATED', room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'ROOM_SETTINGS_UPDATED', room: this.activeRoom });
+    this.notify();
+  }
+
+  /**
+   * Phase 7: Host Migration
+   * If the host disconnects or leaves, elect an eligible remaining participant as host.
+   * Completely preserves the room, catalogue snapshot, scores, and round progression.
+   */
+  public tryMigrateHost(): boolean {
+    if (!this.activeRoom) return false;
+    const currentHostId = this.activeRoom.hostId;
+    const connectedPlayers = this.activeRoom.players.filter(p => p.id !== currentHostId && p.status !== 'disconnected');
+    if (connectedPlayers.length === 0) return false;
+
+    connectedPlayers.sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+    const newHost = connectedPlayers[0];
+
+    this.activeRoom.players.forEach(p => {
+      p.isHost = p.id === newHost.id;
+    });
+    this.activeRoom.hostId = newHost.id;
+    this.activeRoom.hostMigrated = true;
+    this.activeRoom.hostMigrationNotice = `Previous host departed. ${newHost.displayName} is now the host.`;
+
+    if (this.currentUserId === newHost.id) {
+      if (this.isWebRTCSupported()) {
+        this.initHostPeer(this.activeRoom.roomCode);
+      }
+    }
+
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'HOST_MIGRATED', room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'HOST_MIGRATED', room: this.activeRoom });
+    this.notify();
+    return true;
+  }
+
+  /**
    * Create a new room with a random 6-digit room code (000000 - 999999)
    * Capacity: 20 participants max. Zero bots.
    */
   public async createRoom(
     hostPlayerName: string,
     hostPlayerId: string,
-    settings?: { language?: string; mixLanguages?: boolean; totalRounds?: number }
+    settings?: { language?: string; mixLanguages?: boolean; totalRounds?: number; mode?: 'competitive' | 'casual' }
   ): Promise<MultiplayerRoom> {
     this.leaveRoom();
     this.currentUserId = hostPlayerId;
@@ -473,13 +631,16 @@ class MultiplayerEngineService {
     let roomCode = this.generate6DigitCode();
     const totalRounds = settings?.totalRounds
       ? Math.min(MULTIPLAYER_MAX_ROUNDS, Math.max(MULTIPLAYER_MIN_ROUNDS, settings.totalRounds))
-      : 3;
+      : 5;
+    const gameMode = settings?.mode || 'competitive';
+    const langFilter = settings?.mixLanguages ? 'ALL' : (settings?.language || 'ALL');
 
-    // Prepare verified playable tracks
-    const availableTracks = musicCatalogue.getAvailableTracks();
-    const shuffled = [...availableTracks].sort(() => 0.5 - Math.random());
-    const trackIds = shuffled.slice(0, totalRounds).map(t => t.id);
-    const initialTrack = trackIds.length > 0 ? musicCatalogue.getTrackById(trackIds[0]) : undefined;
+    // Phase 3: Build room catalogue snapshot from host's verified playable tracks
+    const { snapshot, stats } = this.buildEligibleRoomSnapshot(langFilter, hostPlayerName);
+    const shuffled = [...snapshot].sort(() => 0.5 - Math.random());
+    const countToPick = Math.min(totalRounds, shuffled.length);
+    const trackIds = shuffled.slice(0, countToPick).map(t => t.id);
+    const initialTrack = trackIds.length > 0 ? snapshot.find(t => t.id === trackIds[0]) : undefined;
 
     const hostPlayer: MultiplayerPlayer = {
       id: hostPlayerId,
@@ -490,7 +651,11 @@ class MultiplayerEngineService {
       score: 0,
       currentLevel: 1,
       hasGuessedThisRound: false,
-      status: 'connected'
+      status: 'connected',
+      streak: 0,
+      correctGuesses: 0,
+      joinedAt: Date.now(),
+      lastSeenAt: Date.now()
     };
 
     // Try server-side room creation first
@@ -501,9 +666,10 @@ class MultiplayerEngineService {
         body: JSON.stringify({
           hostId: hostPlayerId,
           displayName: hostPlayerName,
-          language: settings?.language || 'English',
+          language: langFilter,
           mixLanguages: Boolean(settings?.mixLanguages),
-          totalRounds
+          totalRounds,
+          mode: gameMode
         })
       });
 
@@ -528,6 +694,11 @@ class MultiplayerEngineService {
       roundStartedAt: 0,
       roundDeadline: 0,
       roundGuessedPlayerIds: [],
+      mode: gameMode,
+      catalogueSnapshot: snapshot,
+      catalogueStats: stats,
+      languageFilter: langFilter,
+      isSettingsLocked: false,
       createdAt: Date.now()
     };
 
@@ -548,15 +719,18 @@ class MultiplayerEngineService {
    * Set total number of match rounds (Host choice: 3 to 10)
    */
   public setTotalRounds(rounds: number): void {
-    if (!this.activeRoom || this.activeRoom.status !== 'lobby') return;
+    if (!this.activeRoom || this.activeRoom.status !== 'lobby' || this.activeRoom.isSettingsLocked) return;
     const count = Math.min(MULTIPLAYER_MAX_ROUNDS, Math.max(MULTIPLAYER_MIN_ROUNDS, Math.round(rounds)));
     this.activeRoom.totalRounds = count;
 
-    const availableTracks = musicCatalogue.getAvailableTracks();
-    const shuffled = [...availableTracks].sort(() => 0.5 - Math.random());
-    this.activeRoom.trackIds = shuffled.slice(0, count).map(t => t.id);
+    const pool = (this.activeRoom.catalogueSnapshot && this.activeRoom.catalogueSnapshot.length > 0)
+      ? this.activeRoom.catalogueSnapshot
+      : musicCatalogue.getPlayableTracks();
+
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+    this.activeRoom.trackIds = shuffled.slice(0, Math.min(count, shuffled.length)).map(t => t.id);
     if (this.activeRoom.trackIds.length > 0) {
-      this.activeRoom.currentTrack = musicCatalogue.getTrackById(this.activeRoom.trackIds[0]);
+      this.activeRoom.currentTrack = pool.find(t => t.id === this.activeRoom!.trackIds[0]);
     }
 
     this.saveLocalRoomState(this.activeRoom);
@@ -724,8 +898,9 @@ class MultiplayerEngineService {
           });
 
           conn.on('close', () => {
-            console.log('[MultiplayerEngine] Host connection closed.');
+            console.log('[MultiplayerEngine] Host connection closed. Attempting host migration...');
             this.hostConnection = null;
+            this.tryMigrateHost();
           });
 
           conn.on('error', (err: any) => {
@@ -774,7 +949,9 @@ class MultiplayerEngineService {
       data.type === 'MATCH_COMPLETED' ||
       data.type === 'ROOM_SETTINGS_UPDATED' ||
       data.type === 'PLAYER_UPDATE' ||
-      data.type === 'GUESS_SUBMITTED'
+      data.type === 'GUESS_SUBMITTED' ||
+      data.type === 'HOST_MIGRATED' ||
+      data.type === 'PLAYER_RECONNECTED'
     ) {
       if (data.room) {
         this.activeRoom = data.room;
@@ -970,7 +1147,7 @@ class MultiplayerEngineService {
       this.activeRoom.recentGuesses = [];
 
       const nextId = this.activeRoom.trackIds[this.activeRoom.currentRoundIndex];
-      this.activeRoom.currentTrack = musicCatalogue.getTrackById(nextId);
+      this.activeRoom.currentTrack = this.getRoomTrackById(nextId) || musicCatalogue.getTrackById(nextId);
 
       this.activeRoom.players.forEach(p => {
         p.hasGuessedThisRound = false;
@@ -989,6 +1166,29 @@ class MultiplayerEngineService {
       this.activeRoom.status = 'completed';
       this.activeRoom.roundEndReason = 'completed';
       this.saveLocalRoomState(this.activeRoom);
+
+      // Record match history for the local player
+      try {
+        const myId = this.localPlayerId;
+        const myPlayer = this.activeRoom.players.find(p => p.id === myId);
+        if (myPlayer) {
+          const sorted = [...this.activeRoom.players].sort((a, b) => (b.score || 0) - (a.score || 0));
+          const rank = sorted.findIndex(p => p.id === myId) + 1;
+          gameEngine.recordMatchHistory({
+            id: `mp_${this.activeRoom.roomCode}_${Date.now()}`,
+            roomCode: this.activeRoom.roomCode,
+            gameMode: this.activeRoom.mode === 'casual' ? 'casual' : 'competitive',
+            playedAt: new Date().toISOString(),
+            score: myPlayer.score || 0,
+            totalRounds: this.activeRoom.totalRounds || this.activeRoom.trackIds?.length || 3,
+            correctGuesses: myPlayer.correctGuesses || 0,
+            rank: rank > 0 ? rank : 1,
+            totalPlayers: this.activeRoom.players.length,
+            details: `Multiplayer ${this.activeRoom.mode === 'casual' ? 'Casual' : 'Competitive'} Match`
+          });
+        }
+      } catch {}
+
       this.broadcastMessage({ type: 'MATCH_COMPLETED', room: this.activeRoom });
       this.broadcastRoomToPeers({ type: 'MATCH_COMPLETED', room: this.activeRoom });
       this.notify();
@@ -1017,15 +1217,19 @@ class MultiplayerEngineService {
     }
 
     const totalRounds = this.activeRoom.totalRounds || 3;
+    const pool = (this.activeRoom.catalogueSnapshot && this.activeRoom.catalogueSnapshot.length > 0)
+      ? this.activeRoom.catalogueSnapshot
+      : musicCatalogue.getPlayableTracks();
+
     if (!this.activeRoom.trackIds || this.activeRoom.trackIds.length < totalRounds) {
-      const availableTracks = musicCatalogue.getAvailableTracks();
-      const shuffled = [...availableTracks].sort(() => 0.5 - Math.random());
-      this.activeRoom.trackIds = shuffled.slice(0, totalRounds).map(t => t.id);
+      const shuffled = [...pool].sort(() => 0.5 - Math.random());
+      this.activeRoom.trackIds = shuffled.slice(0, Math.min(totalRounds, shuffled.length)).map(t => t.id);
     }
 
     const now = Date.now();
-    this.activeRoom.currentTrack = musicCatalogue.getTrackById(this.activeRoom.trackIds[0]);
+    this.activeRoom.currentTrack = this.getRoomTrackById(this.activeRoom.trackIds[0]);
     this.activeRoom.status = 'playing';
+    this.activeRoom.isSettingsLocked = true;
     this.activeRoom.roundStartedAt = now;
     this.activeRoom.roundDeadline = now + MULTIPLAYER_ROUND_DURATION_MS;
     this.activeRoom.currentRoundIndex = 0;
@@ -1229,6 +1433,12 @@ class MultiplayerEngineService {
     player.lastGuessTitle = resolvedTitle;
     player.lastGuessPoints = points;
     player.lastGuessTrackId = guessTrackId;
+    if (isCorrect) {
+      player.correctGuesses = (player.correctGuesses || 0) + 1;
+      player.streak = (player.streak || 0) + 1;
+    } else {
+      player.streak = 0;
+    }
 
     const guessEvent: PlayerGuessEvent = {
       playerId,
@@ -1298,7 +1508,7 @@ class MultiplayerEngineService {
     }
     if (this.activeRoom.trackIds && this.activeRoom.trackIds.length > 0) {
       const currentId = this.activeRoom.trackIds[this.activeRoom.currentRoundIndex];
-      return musicCatalogue.getTrackById(currentId);
+      return this.getRoomTrackById(currentId) || musicCatalogue.getTrackById(currentId);
     }
     return undefined;
   }

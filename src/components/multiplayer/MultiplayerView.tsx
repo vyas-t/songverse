@@ -28,7 +28,11 @@ import {
   CheckCircle2,
   XCircle,
   Hourglass,
-  Edit2
+  Edit2,
+  Flame,
+  Swords,
+  Info,
+  Heart
 } from 'lucide-react';
 import { MultiplayerRoom, Track, GameLevelNumber } from '../../types';
 import { multiplayerEngine } from '../../services/multiplayerEngine';
@@ -237,6 +241,18 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
       await multiplayerEngine.closeRoom();
       setRoom(null);
       setShowCloseConfirm(false);
+    }
+  };
+
+  const handleSelectMode = (mode: 'competitive' | 'casual') => {
+    if (isHost && room && room.status === 'lobby') {
+      multiplayerEngine.setGameMode(mode);
+    }
+  };
+
+  const handleSelectLanguageFilter = (lang: string) => {
+    if (isHost && room && room.status === 'lobby') {
+      multiplayerEngine.setLanguageFilter(lang);
     }
   };
 
@@ -618,6 +634,58 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
             )}
           </div>
 
+          {/* Host Migration Notification Banner */}
+          {room.hostMigrated && (
+            <div className="p-4 bg-amber-500/15 border border-amber-500/30 rounded-3xl flex items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200 shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <Crown className="w-6 h-6 text-sv-gold shrink-0 animate-bounce" />
+                <div>
+                  <p className="font-black text-sm">👑 Host Migration Active</p>
+                  <p className="text-[11px] opacity-90 mt-0.5">
+                    {room.hostMigrationNotice || 'Previous host departed. Host authority seamlessly promoted to next active player. All scores, rounds, and music catalogue snapshot are preserved!'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Room Music Catalogue Transparency Card */}
+          <div className="p-5 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl shadow-sm space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-sv-burgundy pb-3">
+              <div className="flex items-center gap-2.5">
+                <Disc3 className="w-5 h-5 text-sv-red animate-spin" style={{ animationDuration: '10s' }} />
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider font-mono">
+                    Host Room Catalogue Snapshot
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Immutable pool · Zero disruption during active gameplay
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-mono px-2.5 py-1 rounded-xl bg-sv-red/10 text-sv-red dark:text-sv-warm-orange font-black border border-sv-red/20">
+                  {room.catalogueStats?.totalTracks || room.catalogueSnapshot?.length || 0} Playable Tracks
+                </span>
+                <span className="font-mono px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-sv-midnight text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-sv-burgundy">
+                  {room.catalogueStats?.artistsCount || 16} Artists
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-1.5 font-medium">
+                <Globe className="w-3.5 h-3.5 text-sv-warm-orange" />
+                <span>Languages: <strong className="text-slate-800 dark:text-slate-200">{room.catalogueStats?.languages?.join(', ') || room.languageFilter || 'All Languages'}</strong></span>
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Host Source: <strong className="text-slate-700 dark:text-slate-300">{room.catalogueStats?.hostName || 'Host'}</strong>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium bg-slate-50 dark:bg-sv-midnight/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-sv-burgundy/60">
+              🛡️ <strong>Catalogue Isolation Guarantee:</strong> All participants in this room will play using the host's shared room catalogue. Your personal song catalogue on this device remains completely unchanged.
+            </p>
+          </div>
+
           {/* DEDICATED HOST MANAGEMENT PANEL */}
           {isHost && room.status === 'lobby' && (
             <div className="bg-gradient-to-br from-sv-burgundy-deep/15 to-sv-midnight/40 dark:bg-sv-burgundy-deep/90 border border-sv-burgundy/40 rounded-3xl p-6 sm:p-7 space-y-5 shadow-sm">
@@ -629,6 +697,85 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 <span className="text-[10px] uppercase font-bold text-sv-orange bg-sv-orange/10 px-3 py-1 rounded-full border border-sv-orange/20 font-mono">
                   Host Authority Verified
                 </span>
+              </div>
+
+              {/* Game Mode Selector: Competitive vs Casual */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Swords className="w-3.5 h-3.5 text-sv-red" />
+                  <span>Select Game Mode</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectMode('competitive')}
+                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                      (room.mode || 'competitive') === 'competitive'
+                        ? 'border-sv-red bg-sv-red/10 text-sv-red dark:text-sv-warm-orange shadow-sm ring-2 ring-sv-red/30'
+                        : 'border-slate-200 dark:border-sv-burgundy text-slate-600 dark:text-slate-400 hover:border-slate-300 bg-white dark:bg-sv-midnight'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-black text-xs">
+                        <Zap className="w-4 h-4 text-sv-warm-orange" />
+                        <span>Competitive Mode</span>
+                      </div>
+                      {(room.mode || 'competitive') === 'competitive' && (
+                        <Check className="w-4 h-4 text-sv-red" />
+                      )}
+                    </div>
+                    <p className="text-[11px] mt-1.5 opacity-85 leading-snug font-medium">
+                      100-70-40-20 speed scoring, win streaks, competitive leaderboard, and podium ceremony.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectMode('casual')}
+                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                      room.mode === 'casual'
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 shadow-sm ring-2 ring-emerald-500/30'
+                        : 'border-slate-200 dark:border-sv-burgundy text-slate-600 dark:text-slate-400 hover:border-slate-300 bg-white dark:bg-sv-midnight'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-black text-xs">
+                        <Sparkles className="w-4 h-4 text-emerald-500" />
+                        <span>Casual Jam Mode</span>
+                      </div>
+                      {room.mode === 'casual' && (
+                        <Check className="w-4 h-4 text-emerald-600" />
+                      )}
+                    </div>
+                    <p className="text-[11px] mt-1.5 opacity-85 leading-snug font-medium">
+                      Relaxed guessing, collaborative summaries, team music appreciation, zero pressure.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Language Filter Selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-sv-warm-orange" />
+                  <span>Catalogue Language Filter</span>
+                </label>
+                <select
+                  value={room.languageFilter || 'all'}
+                  onChange={(e) => handleSelectLanguageFilter(e.target.value)}
+                  className="w-full px-4 py-3 text-xs font-semibold bg-white dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:border-sv-red"
+                >
+                  <option value="all">All Languages (Mixed Global Hits)</option>
+                  <option value="English">English Only</option>
+                  <option value="Hindi">Hindi (Bollywood & Pop)</option>
+                  <option value="Telugu">Telugu</option>
+                  <option value="Tamil">Tamil</option>
+                  <option value="Malayalam">Malayalam</option>
+                  <option value="Kannada">Kannada</option>
+                  <option value="Bengali">Bengali</option>
+                  <option value="Punjabi">Punjabi</option>
+                  <option value="Spanish">Spanish</option>
+                </select>
               </div>
 
               {/* Host Round Count Selector (3 to 10 rounds) in Lobby */}
@@ -664,14 +811,87 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 pt-1">
+              {/* Start Match & Ready State Summary */}
+              {(() => {
+                const guests = room.players.filter(p => !p.isHost);
+                const readyGuests = guests.filter(p => p.isReady).length;
+                return (
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-200/60 dark:border-sv-burgundy/60">
+                    <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      {guests.length === 0 ? (
+                        <span>Solo lobby. Invite friends with code <strong>{room.roomCode}</strong> or start solo practice.</span>
+                      ) : (
+                        <span>
+                          Participant Readiness: <strong className={readyGuests === guests.length ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>{readyGuests} / {guests.length} ready</strong>
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleStartGame}
+                      className="px-8 py-3.5 bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber hover:from-sv-crimson hover:to-sv-red text-white rounded-2xl text-xs font-black cursor-pointer shadow-md shadow-sv-red/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                      <Play className="w-4 h-4 fill-white" />
+                      <span>Start Match for All Players</span>
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* GUEST LOBBY READY TOGGLE & ROOM MODE DISPLAY */}
+          {!isHost && room.status === 'lobby' && (
+            <div className="bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl p-6 sm:p-7 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-sv-burgundy pb-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-sv-red dark:text-sv-warm-orange font-mono">
+                    Participant Status
+                  </span>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    {myPlayer?.isReady ? 'You are Ready to Play! ✅' : 'Waiting for You to Ready Up'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Signal to the host that you have your headphones on and are ready for track trivia.
+                  </p>
+                </div>
                 <button
-                  onClick={handleStartGame}
-                  className="px-7 py-3.5 bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber hover:from-sv-crimson hover:to-sv-red text-white rounded-2xl text-xs font-black cursor-pointer shadow-md shadow-sv-red/25 flex items-center gap-2 transition-all active:scale-95"
+                  type="button"
+                  onClick={handleToggleReady}
+                  className={`px-6 py-3.5 rounded-2xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm ${
+                    myPlayer?.isReady
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                      : 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/20'
+                  }`}
                 >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>Start Match for All Players</span>
+                  {myPlayer?.isReady ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Ready (Tap to Unready)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Hourglass className="w-4 h-4" />
+                      <span>Mark Yourself as Ready</span>
+                    </>
+                  )}
                 </button>
+              </div>
+
+              {/* Game Mode Badge for Guest */}
+              <div className="p-3.5 bg-slate-50 dark:bg-sv-midnight rounded-2xl border border-slate-200/80 dark:border-sv-burgundy/80 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  {room.mode === 'casual' ? (
+                    <Sparkles className="w-4 h-4 text-emerald-500" />
+                  ) : (
+                    <Zap className="w-4 h-4 text-sv-warm-orange" />
+                  )}
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    Host Mode: <strong>{room.mode === 'casual' ? 'Casual Jam' : 'Competitive Match'}</strong>
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  {room.mode === 'casual' ? 'Friendly group trivia' : '100-70-40-20 speed ranking'}
+                </span>
               </div>
             </div>
           )}
@@ -706,6 +926,30 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                             {p.displayName} {isMe && '(You)'}
                           </p>
                           {p.isHost && <Crown className="w-3.5 h-3.5 text-sv-gold shrink-0" />}
+                          {p.status === 'disconnected' ? (
+                            <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
+                              <WifiOff className="w-2.5 h-2.5 animate-pulse" /> Reconnecting
+                            </span>
+                          ) : room.status === 'lobby' ? (
+                            p.isHost ? (
+                              <span className="text-[9px] font-bold text-sv-gold bg-sv-gold/10 border border-sv-gold/30 px-1.5 py-0.2 rounded-md">
+                                Host
+                              </span>
+                            ) : p.isReady ? (
+                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> Ready
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
+                                <Hourglass className="w-2.5 h-2.5" /> Not Ready
+                              </span>
+                            )
+                          ) : null}
+                          {(p.streak || 0) > 1 && (
+                            <span className="text-[9px] font-black text-rose-600 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
+                              <Flame className="w-2.5 h-2.5 text-rose-500" /> {p.streak}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold">
@@ -747,6 +991,10 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
                   <span className="text-xs font-black text-sv-red uppercase tracking-wider font-mono">
                     Synchronized Match In Progress
+                  </span>
+                  <span className="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border border-sv-red/30 bg-sv-red/10 text-sv-red dark:text-sv-warm-orange flex items-center gap-1">
+                    {room.mode === 'casual' ? <Sparkles className="w-3 h-3 text-emerald-500" /> : <Zap className="w-3 h-3 text-sv-warm-orange" />}
+                    <span>{room.mode === 'casual' ? 'Casual Jam' : 'Competitive Mode'}</span>
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -919,6 +1167,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                     selectedTrack={selectedTrack}
                     onSelectTrack={setSelectedTrack}
                     onClearSelection={() => setSelectedTrack(null)}
+                    customTrackPool={room.catalogueSnapshot}
                   />
 
                   <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -1102,14 +1351,20 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
           {room.status === 'completed' && (
             <div className="bg-white/95 dark:bg-sv-burgundy-deep/95 border-2 border-sv-red/40 dark:border-sv-red/50 rounded-3xl p-6 sm:p-9 space-y-6 shadow-xl text-center animate-in fade-in">
               <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-sv-amber/20 to-sv-gold/30 border border-sv-gold/40 text-sv-amber flex items-center justify-center mx-auto shadow-md">
-                <Trophy className="w-8 h-8" />
+                {room.mode === 'casual' ? (
+                  <Sparkles className="w-8 h-8 text-emerald-500" />
+                ) : (
+                  <Trophy className="w-8 h-8 text-sv-gold" />
+                )}
               </div>
               <div className="space-y-1">
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-                  Match Completed!
+                  {room.mode === 'casual' ? 'Casual Jam Complete! 🎶' : 'Competitive Match Completed! 🏆'}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Great game! Here are the final scores for all participants:
+                  {room.mode === 'casual'
+                    ? `Thanks for jamming together! Collective group score: ${room.players.reduce((sum, p) => sum + (p.score || 0), 0)} pts.`
+                    : 'Great game! Here are the final scores and rankings for all participants:'}
                 </p>
               </div>
 

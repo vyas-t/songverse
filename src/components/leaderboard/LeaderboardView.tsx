@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
+import { Trophy, RefreshCw, AlertCircle, Sparkles, Disc3, Zap, Swords } from 'lucide-react';
 import { LeaderboardEntry } from '../../types';
 import { gameEngine } from '../../services/gameEngine';
 import { fetchLeaderboardEntries, isSupabaseConfigured } from '../../services/supabaseClient';
 
 export const LeaderboardView: React.FC = () => {
+  const [modeCategory, setModeCategory] = useState<'solo' | 'competitive'>('solo');
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly' | 'all-time'>('daily');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +44,30 @@ export const LeaderboardView: React.FC = () => {
     loadLeaderboard(activeTab);
   }, [activeTab]);
 
+  const userCompetitiveMatches = (userProfile.matchHistory || []).filter(m => m.gameMode === 'competitive');
+
+  const displayedEntries = entries.filter(e => {
+    if (modeCategory === 'competitive') {
+      return e.gameMode === 'competitive' || e.gameMode === 'multiplayer';
+    } else {
+      return e.gameMode !== 'competitive' && e.gameMode !== 'multiplayer';
+    }
+  });
+
+  const currentEntries: LeaderboardEntry[] = modeCategory === 'competitive'
+    ? (displayedEntries.length > 0 ? displayedEntries : (userCompetitiveMatches.length > 0 ? [{
+        rank: 1,
+        userId: userProfile.id,
+        displayName: `${userProfile.displayName} (You)`,
+        avatarSeed: userProfile.avatarSeed,
+        score: Math.max(...userCompetitiveMatches.map(m => m.score)),
+        accuracy: userProfile.accuracy,
+        streak: userProfile.bestStreak,
+        dateAchieved: userCompetitiveMatches[0].playedAt.split('T')[0],
+        gameMode: 'competitive'
+      }] : []))
+    : displayedEntries;
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-in fade-in">
       
@@ -69,6 +94,32 @@ export const LeaderboardView: React.FC = () => {
         </p>
       </div>
 
+      {/* Mode Category Selector: Solo Trivia vs Competitive PvP */}
+      <div className="flex items-center justify-center gap-2 p-1.5 bg-slate-100 dark:bg-sv-midnight rounded-2xl max-w-sm mx-auto border border-slate-200 dark:border-sv-burgundy shadow-xs">
+        <button
+          onClick={() => setModeCategory('solo')}
+          className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            modeCategory === 'solo'
+              ? 'bg-sv-red text-white shadow-sm shadow-sv-red/30'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Disc3 className="w-3.5 h-3.5" />
+          <span>Solo Trivia</span>
+        </button>
+        <button
+          onClick={() => setModeCategory('competitive')}
+          className={`flex-1 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            modeCategory === 'competitive'
+              ? 'bg-sv-red text-white shadow-sm shadow-sv-red/30'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Trophy className="w-3.5 h-3.5 text-sv-gold" />
+          <span>Competitive PvP</span>
+        </button>
+      </div>
+
       {/* Period Tabs: Daily, Weekly, Monthly, All-time */}
       <div className="flex items-center justify-center gap-1.5 p-1.5 bg-black/[0.04] dark:bg-sv-midnight/90 rounded-2xl max-w-md mx-auto border border-black/[0.05] dark:border-sv-burgundy shadow-xs">
         {(['daily', 'weekly', 'monthly', 'all-time'] as const).map((period) => (
@@ -88,7 +139,7 @@ export const LeaderboardView: React.FC = () => {
 
       {/* Status Bar */}
       <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
-        <span>Showing verified scores for: <strong className="capitalize text-slate-800 dark:text-slate-200">{activeTab}</strong></span>
+        <span>Showing verified {modeCategory === 'competitive' ? 'PvP Multiplayer' : 'Solo'} scores for: <strong className="capitalize text-slate-800 dark:text-slate-200">{activeTab}</strong></span>
         <button
           onClick={() => loadLeaderboard(activeTab)}
           disabled={isLoading}
@@ -105,7 +156,7 @@ export const LeaderboardView: React.FC = () => {
           <RefreshCw className="w-8 h-8 text-sv-red animate-spin mx-auto" />
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Loading verified leaderboard...</p>
         </div>
-      ) : entries.length === 0 ? (
+      ) : currentEntries.length === 0 ? (
         /* Explicit Required Empty State */
         <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-3xl p-12 text-center max-w-lg mx-auto space-y-4 shadow-xs">
           <div className="w-16 h-16 rounded-2xl bg-sv-burgundy/20 border border-sv-burgundy/40 text-sv-amber flex items-center justify-center mx-auto">
@@ -113,10 +164,12 @@ export const LeaderboardView: React.FC = () => {
           </div>
           <div className="space-y-1.5">
             <h3 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
-              No scores yet. Be the first to play!
+              {modeCategory === 'competitive' ? 'No PvP scores yet for this period' : 'No scores yet. Be the first to play!'}
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-sm mx-auto">
-              Play a round in Classic or Daily mode to claim the top spot on the {activeTab} leaderboard.
+              {modeCategory === 'competitive'
+                ? `Join or host a multiplayer game in Competitive Mode to claim the top PvP rank on the ${activeTab} leaderboard.`
+                : `Play a round in Classic or Daily mode to claim the top spot on the ${activeTab} leaderboard.`}
             </p>
           </div>
         </div>
@@ -135,7 +188,7 @@ export const LeaderboardView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-sv-burgundy/50">
-                {entries.map((entry) => {
+                {currentEntries.map((entry) => {
                   const isUser = entry.userId === userProfile.id;
                   let rankBadge = (
                     <span className="font-mono text-slate-500 dark:text-slate-400 font-bold">{entry.rank}</span>

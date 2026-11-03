@@ -5,15 +5,18 @@ import {
   GameLevelNumber,
   GameMode,
   GuessRecord,
-  UserProfile
+  UserProfile,
+  MatchHistoryItem
 } from '../types';
 import { GAME_LEVELS, DEFAULT_ROUNDS_PER_GAME, DAILY_CHALLENGE_ROUNDS, ACHIEVEMENTS_LIST } from '../config/gameConfig';
 import { musicCatalogue } from './musicCatalogue';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const STORAGE_KEY_USER_PROFILE = 'songverse_user_profile_v1';
 const STORAGE_KEY_ACTIVE_SESSION = 'songverse_active_session_v1';
 const STORAGE_KEY_COMPLETED_GAMES = 'songverse_completed_games_v1';
 const STORAGE_KEY_DAILY_ATTEMPTS = 'songverse_daily_attempts_v1';
+const STORAGE_KEY_MATCH_HISTORY = 'songverse_match_history_v1';
 
 class GameEngineService {
   private activeSession: GameSession | null = null;
@@ -513,6 +516,20 @@ class GameEngineService {
         // Storage error
       }
     }
+
+    // Record into persistent match history
+    this.recordMatchHistory({
+      id: session.sessionId || `solo_${Date.now()}`,
+      gameMode: 'solo',
+      playedAt: new Date(session.completedAt || Date.now()).toISOString(),
+      score: sessionScore,
+      totalRounds: session.rounds.length,
+      roundsWon,
+      correctGuesses: roundsWon,
+      rank: 1,
+      totalPlayers: 1,
+      details: `${session.mode === 'daily' ? 'Daily Challenge' : 'Classic Solo'} (${roundsWon}/${session.rounds.length} won)`
+    });
   }
 
   private checkAchievementUnlocks(session: GameSession): void {
@@ -592,6 +609,49 @@ class GameEngineService {
     } catch {
       return [];
     }
+  }
+
+  public recordMatchHistory(item: MatchHistoryItem): void {
+    try {
+      const existingStr = localStorage.getItem(STORAGE_KEY_MATCH_HISTORY) || '[]';
+      const existing: MatchHistoryItem[] = JSON.parse(existingStr);
+      const filtered = existing.filter(h => h.id !== item.id);
+      const updated = [item, ...filtered].slice(0, 50);
+      localStorage.setItem(STORAGE_KEY_MATCH_HISTORY, JSON.stringify(updated));
+
+      this.userProfile.matchHistory = updated;
+      this.saveUserProfile(this.userProfile);
+
+      // Asynchronously sync to Supabase if authenticated and not a guest
+      if (isSupabaseConfigured() && supabase && !this.userProfile.isGuest) {
+        supabase.from('match_history').insert({
+          user_id: this.userProfile.id,
+          game_mode: item.gameMode,
+          score: item.score,
+          total_rounds: item.totalRounds,
+          rounds_won: item.roundsWon ?? item.correctGuesses ?? 0,
+          rank: item.rank ?? null,
+          total_players: item.totalPlayers ?? 1,
+          room_code: item.roomCode ?? null,
+          played_at: item.playedAt || new Date().toISOString()
+        }).then(() => {}).catch(() => {});
+      }
+    } catch {
+      // Storage error
+    }
+  }
+
+  public getMatchHistory(): MatchHistoryItem[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_MATCH_HISTORY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return this.userProfile.matchHistory || [];
   }
 
   public getDailyChallengeStatus(dateKey?: string): { completed: boolean; score?: number; roundsWon?: number } {

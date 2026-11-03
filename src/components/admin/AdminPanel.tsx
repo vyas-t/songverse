@@ -47,6 +47,7 @@ import {
 import { runAutomatedTestSuite } from '../../services/gameTests';
 import { musicCatalogue } from '../../services/musicCatalogue';
 import { authService } from '../../services/authService';
+import { supabase, isSupabaseConfigured } from '../../services/supabaseClient';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -108,6 +109,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   // Platform Metrics State
   const [adminMetrics, setAdminMetrics] = useState<AdminDashboardMetrics | null>(null);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
 
   // Registered Player Management State
   const [adminPlayers, setAdminPlayers] = useState<AdminPlayerRecord[]>([]);
@@ -117,6 +119,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [playerSearch, setPlayerSearch] = useState('');
   const [playerStatusFilter, setPlayerStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [isLoadingPlayers, setIsLoadingPlayers] = useState(false);
+  const [playersError, setPlayersError] = useState<string | null>(null);
   const [playerActionNotice, setPlayerActionNotice] = useState<string | null>(null);
 
   // Live Catalogue Browser State
@@ -172,25 +175,83 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
   const adminHeaders = getAdminHeaders();
 
-  // Fetch Platform Overview Metrics
+  // Fetch Platform Overview Metrics (Dual-layer: API endpoint with Supabase RLS client fallback)
   const fetchAdminMetrics = async () => {
     setIsLoadingMetrics(true);
+    setMetricsError(null);
+    let loaded = false;
+
+    // 1. Try server or Cloudflare Pages Function endpoint
     try {
       const res = await fetch('/api/admin/metrics', { headers: getAdminHeaders() });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setAdminMetrics(data);
+        loaded = true;
+      } else if (!res.ok && contentType.includes('application/json')) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.message || errData.error) {
+          setMetricsError(errData.message || errData.error);
+        }
       }
-    } catch (err) {
-      console.warn('Failed to fetch admin metrics:', err);
-    } finally {
-      setIsLoadingMetrics(false);
+    } catch (err: any) {
+      console.warn('[AdminPanel] Server metrics endpoint unreachable, checking client Supabase:', err);
     }
+
+    // 2. Direct client Supabase fallback using administrator session and RLS policies
+    if (!loaded && isSupabaseConfigured() && supabase) {
+      try {
+        const { data: profiles, error } = await supabase.from('profiles').select('*');
+        if (error) {
+          setMetricsError(`Database query failed: ${error.message}`);
+        } else if (Array.isArray(profiles)) {
+          const totalRegisteredUsers = profiles.length;
+          const verifiedAccounts = profiles.filter((p: any) => p.email_verified).length;
+          const unverifiedAccounts = totalRegisteredUsers - verifiedAccounts;
+          const activeAccounts = profiles.filter((p: any) => p.account_status === 'active').length;
+          const suspendedAccounts = profiles.filter((p: any) => p.account_status === 'suspended').length;
+          const googleAccountsCount = profiles.filter((p: any) => p.auth_provider === 'google').length;
+          const emailAccountsCount = profiles.filter((p: any) => p.auth_provider === 'email' || p.auth_provider === 'supabase').length;
+          const totalGamesPlayed = profiles.reduce((sum: number, p: any) => sum + (p.games_played || 0), 0);
+
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const recentRegistrationsCount = profiles.filter((p: any) => p.created_at && p.created_at >= oneDayAgo).length;
+
+          setAdminMetrics({
+            totalRegisteredUsers,
+            totalGuestPlayers: 1,
+            verifiedAccounts,
+            unverifiedAccounts,
+            activeAccounts,
+            suspendedAccounts,
+            totalGamesPlayed,
+            recentRegistrationsCount,
+            googleAccountsCount,
+            emailAccountsCount
+          });
+          setMetricsError(null);
+          loaded = true;
+        }
+      } catch (err: any) {
+        setMetricsError(`Client database error: ${err.message}`);
+      }
+    }
+
+    if (!loaded && !metricsError) {
+      setMetricsError('Unable to connect to database or administrator API.');
+    }
+
+    setIsLoadingMetrics(false);
   };
 
-  // Fetch Registered Player Records with Search & Pagination
+  // Fetch Registered Player Records with Search & Pagination (Dual-layer)
   const fetchAdminPlayers = async () => {
     setIsLoadingPlayers(true);
+    setPlayersError(null);
+    let loaded = false;
+
+    // 1. Try server or Cloudflare Pages Function endpoint
     try {
       const params = new URLSearchParams();
       if (playerSearch.trim()) params.set('search', playerSearch.trim());
@@ -199,17 +260,79 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       params.set('limit', '15');
 
       const res = await fetch(`/api/admin/players?${params.toString()}`, { headers: getAdminHeaders() });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setAdminPlayers(data.players || []);
         setAdminPlayersTotal(data.total || 0);
         setAdminPlayersTotalPages(data.totalPages || 1);
+        loaded = true;
+      } else if (!res.ok && contentType.includes('application/json')) {
+        const errData = await res.json().catch(() => ({}));
+        setPlayersError(errData.message || errData.error || `HTTP ${res.status}`);
       }
-    } catch (err) {
-      console.warn('Failed to fetch players:', err);
-    } finally {
-      setIsLoadingPlayers(false);
+    } catch (err: any) {
+      console.warn('[AdminPanel] Server players endpoint unreachable, checking client Supabase:', err);
     }
+
+    // 2. Direct client Supabase fallback using administrator session and RLS policies
+    if (!loaded && isSupabaseConfigured() && supabase) {
+      try {
+        let query = supabase.from('profiles').select('*', { count: 'exact' });
+        if (playerStatusFilter !== 'all') {
+          query = query.eq('account_status', playerStatusFilter);
+        }
+        if (playerSearch.trim()) {
+          const s = playerSearch.trim();
+          query = query.or(`display_name.ilike.%${s}%,email.ilike.%${s}%`);
+        }
+
+        const limit = 15;
+        const from = (adminPlayersPage - 1) * limit;
+        const to = from + limit - 1;
+
+        const { data, count, error } = await query
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) {
+          setPlayersError(`Database query failed: ${error.message}`);
+        } else if (data) {
+          const mapped: AdminPlayerRecord[] = data.map((p: any) => ({
+            id: p.id,
+            email: p.email,
+            displayName: p.display_name,
+            avatarSeed: p.avatar_seed,
+            avatarUrl: p.avatar_url,
+            authProvider: p.auth_provider,
+            accountType: p.account_type,
+            accountStatus: p.account_status,
+            emailVerified: Boolean(p.email_verified),
+            totalScore: p.total_score || 0,
+            gamesPlayed: p.games_played || 0,
+            roundsWon: p.rounds_won || 0,
+            currentStreak: p.current_streak || 0,
+            bestStreak: p.best_streak || 0,
+            createdAt: p.created_at,
+            lastLoginAt: p.last_login_at || p.created_at,
+            lastPlayedAt: p.last_played_at
+          }));
+          setAdminPlayers(mapped);
+          setAdminPlayersTotal(count || mapped.length);
+          setAdminPlayersTotalPages(Math.max(1, Math.ceil((count || mapped.length) / limit)));
+          setPlayersError(null);
+          loaded = true;
+        }
+      } catch (err: any) {
+        setPlayersError(`Client database error: ${err.message}`);
+      }
+    }
+
+    if (!loaded && !playersError) {
+      setPlayersError('Unable to load player records.');
+    }
+
+    setIsLoadingPlayers(false);
   };
 
   const handleTogglePlayerStatus = async (playerId: string, currentStatus: string) => {
@@ -220,6 +343,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
     if (!window.confirm(confirmMsg)) return;
 
+    let updated = false;
+
+    // 1. Try server endpoint
     try {
       const res = await fetch(`/api/admin/players/${playerId}/status`, {
         method: 'POST',
@@ -227,19 +353,52 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         body: JSON.stringify({ status: nextStatus, reason: 'Dashboard manual status update' })
       });
       if (res.ok) {
-        setPlayerActionNotice(`Player account successfully updated to ${nextStatus}.`);
-        fetchAdminPlayers();
-        fetchAdminMetrics();
+        updated = true;
       }
-    } catch (err: any) {
-      setPlayerActionNotice(`Error: ${err.message}`);
+    } catch {}
+
+    // 2. Direct client Supabase fallback
+    if (!updated && isSupabaseConfigured() && supabase) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ account_status: nextStatus, updated_at: new Date().toISOString() })
+          .eq('id', playerId);
+
+        if (!error) {
+          updated = true;
+          const user = authService.getState().user;
+          try {
+            await supabase.from('admin_audit_logs').insert({
+              admin_id: user.id,
+              action: nextStatus === 'suspended' ? 'suspend_user' : 'reactivate_user',
+              target_user_id: playerId,
+              details: { reason: 'Dashboard manual status update' }
+            });
+          } catch {}
+        } else {
+          setPlayerActionNotice(`Database update failed: ${error.message}`);
+        }
+      } catch (err: any) {
+        setPlayerActionNotice(`Database error: ${err.message}`);
+      }
+    }
+
+    if (updated) {
+      setPlayerActionNotice(`Player account successfully updated to ${nextStatus}.`);
+      fetchAdminPlayers();
+      fetchAdminMetrics();
     }
   };
 
   const handleExportPlayers = async (format: 'json' | 'csv') => {
+    let exported = false;
+
+    // 1. Try server endpoint
     try {
       const res = await fetch(`/api/admin/players/export?format=${format}`, { headers: getAdminHeaders() });
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && (contentType.includes('text/csv') || contentType.includes('application/json'))) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -249,9 +408,50 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
+        exported = true;
       }
-    } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+    } catch {}
+
+    // 2. Direct Supabase client fallback
+    if (!exported && isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, email, display_name, auth_provider, account_type, account_status, email_verified, total_score, games_played, rounds_won, current_streak, best_streak, created_at, last_login_at')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          let content = '';
+          let mime = 'application/json';
+          if (format === 'csv') {
+            const headers = ['id', 'email', 'display_name', 'auth_provider', 'account_type', 'account_status', 'email_verified', 'total_score', 'games_played', 'rounds_won', 'current_streak', 'best_streak', 'created_at', 'last_login_at'];
+            content = [
+              headers.join(','),
+              ...data.map((r: any) => headers.map(h => JSON.stringify(r[h] ?? '')).join(','))
+            ].join('\n');
+            mime = 'text/csv';
+          } else {
+            content = JSON.stringify(data, null, 2);
+          }
+
+          const blob = new Blob([content], { type: mime });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `songverse_players_${new Date().toISOString().split('T')[0]}.${format}`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          exported = true;
+        }
+      } catch (err: any) {
+        alert(`Export failed: ${err.message}`);
+      }
+    }
+
+    if (!exported) {
+      alert('Export failed. Please check your administrator privileges and database connection.');
     }
   };
 
@@ -731,6 +931,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 </button>
               </div>
 
+              {metricsError && (
+                <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-rose-800">
+                  <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <strong className="font-bold">Database Notice: </strong>
+                    <span>{metricsError}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Metric Cards Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
                 <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl">
@@ -839,6 +1049,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
           {/* TAB 0.5: Registered Player Database Management */}
           {activeTab === 'players' && (
             <div className="space-y-4">
+              {playersError && (
+                <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-rose-800">
+                  <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <strong className="font-bold">Player Query Notice: </strong>
+                    <span>{playersError}</span>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-1">
                   <div className="relative flex-1">

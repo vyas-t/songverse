@@ -8,13 +8,15 @@ interface SongSearchInputProps {
   selectedTrack: Track | null;
   onClearSelection: () => void;
   disabled?: boolean;
+  customTrackPool?: Track[];
 }
 
 export const SongSearchInput: React.FC<SongSearchInputProps> = ({
   onSelectTrack,
   selectedTrack,
   onClearSelection,
-  disabled = false
+  disabled = false,
+  customTrackPool
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Track[]>([]);
@@ -25,7 +27,7 @@ export const SongSearchInput: React.FC<SongSearchInputProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Debounced hybrid search: Local Catalogue + Apple iTunes API discovery
+  // Debounced search: Custom room catalogue snapshot (for multiplayer) or Local Catalogue + Apple iTunes API (for solo)
   useEffect(() => {
     if (selectedTrack) {
       setResults([]);
@@ -40,13 +42,21 @@ export const SongSearchInput: React.FC<SongSearchInputProps> = ({
       return;
     }
 
-    // 1. Instant local search
-    const localMatches = musicCatalogue.searchTracks(trimmed, 8);
+    // 1. Search in pool (room catalogue snapshot if provided, else user's music catalogue)
+    const localMatches = (customTrackPool && customTrackPool.length > 0)
+      ? musicCatalogue.searchInPool(trimmed, customTrackPool, 8)
+      : musicCatalogue.searchTracks(trimmed, 8);
+
     setResults(localMatches);
     setIsOpen(true);
     setSelectedIndex(-1);
 
-    // 2. If query is 2+ chars, query live iTunes search to offer rich global suggestions
+    // If using a custom room catalogue snapshot, never search external iTunes outside the room snapshot!
+    if (customTrackPool && customTrackPool.length > 0) {
+      return;
+    }
+
+    // 2. For Solo Play: If query is 2+ chars, query live iTunes search to offer rich global suggestions
     const timer = setTimeout(async () => {
       if (abortControllerRef.current) abortControllerRef.current.abort();
       const ctrl = new AbortController();

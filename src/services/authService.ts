@@ -261,65 +261,130 @@ class AuthService {
       return;
     }
 
-    // OTP Token Hash or PKCE verification
-    try {
-      const searchParams = new URLSearchParams(search);
-      const tokenHash = searchParams.get('token_hash');
-      const tokenType = searchParams.get('type');
-      const authCode = searchParams.get('code');
+    // Inspect hash and search parameters for errors or callback payloads
+    const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : hash);
+    const searchParams = new URLSearchParams(search.startsWith('?') ? search.substring(1) : search);
 
-      if (tokenHash && tokenType && isSupabaseConfigured() && supabase) {
-        if (tokenType === 'recovery') {
-          supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }).then(({ error }) => {
-            if (!error) {
-              this.authView = 'reset_password';
-              this.notify();
-            }
-          });
-        } else {
-          supabase.auth.verifyOtp({ token_hash: tokenHash, type: tokenType as any }).then(async ({ data, error }) => {
-            if (!error && data.user) {
-              await this.syncProfileFromSupabaseUser(data.user);
-              this.authView = 'verified_success';
-              this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
-              this.notify();
-            }
-          });
-        }
-        window.history.replaceState(null, '', '/');
-        return;
+    const errorMsg = hashParams.get('error_description') || searchParams.get('error_description') ||
+                     hashParams.get('error') || searchParams.get('error');
+    const errorCode = hashParams.get('error_code') || searchParams.get('error_code');
+
+    // 1. Explicit error handling: Expired, invalid, or already-used verification links
+    if (errorMsg || errorCode) {
+      const decoded = errorMsg ? decodeURIComponent(errorMsg.replace(/\+/g, ' ')) : 'Authentication link failed.';
+      const isExpired = errorCode === 'otp_expired' || decoded.toLowerCase().includes('expired');
+      const isAlreadyUsed = decoded.toLowerCase().includes('already') || decoded.toLowerCase().includes('invalid');
+
+      if (isExpired) {
+        this.error = 'This verification link has expired. Please enter your email below to receive a fresh verification link.';
+        this.authView = 'verification_pending';
+      } else if (isAlreadyUsed) {
+        this.error = 'This verification link is invalid or has already been used. Please sign in or request a new link.';
+        this.authView = 'login';
+      } else {
+        this.error = decoded;
+        this.authView = 'login';
       }
 
-      if (authCode && isSupabaseConfigured() && supabase) {
-        supabase.auth.exchangeCodeForSession(authCode).then(async ({ data, error }) => {
+      try {
+        window.history.replaceState(null, '', '/');
+      } catch {}
+      this.notify();
+      return;
+    }
+
+    // 2. OTP Token Hash verification (Supabase verifyOtp)
+    const tokenHash = searchParams.get('token_hash') || hashParams.get('token_hash');
+    const tokenType = searchParams.get('type') || hashParams.get('type');
+    const authCode = searchParams.get('code') || hashParams.get('code');
+
+    if (tokenHash && tokenType && isSupabaseConfigured() && supabase) {
+      if (tokenType === 'recovery') {
+        supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }).then(({ error }) => {
+          if (!error) {
+            this.authView = 'reset_password';
+            this.notify();
+          } else {
+            this.error = error.message || 'Password recovery link has expired or is invalid.';
+            this.authView = 'forgot_password';
+            this.notify();
+          }
+        });
+      } else {
+        supabase.auth.verifyOtp({ token_hash: tokenHash, type: tokenType as any }).then(async ({ data, error }) => {
           if (!error && data.user) {
             await this.syncProfileFromSupabaseUser(data.user);
             this.authView = 'verified_success';
             this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+            this.error = null;
+            this.notify();
+          } else if (error) {
+            this.error = error.message.toLowerCase().includes('expired')
+              ? 'This verification link has expired. Please enter your email to receive a fresh link.'
+              : (error.message || 'Verification link is invalid or has already been used.');
+            this.authView = 'verification_pending';
             this.notify();
           }
         });
-        window.history.replaceState(null, '', '/');
-        return;
       }
-    } catch {}
-
-    // Email verification confirmation detection (hash fragment or callback route)
-    if (
-      hash.includes('type=signup') ||
-      search.includes('type=signup') ||
-      hash.includes('type=email_change') ||
-      pathname.includes('auth/callback')
-    ) {
       try {
         window.history.replaceState(null, '', '/');
-      } catch {
-        // Ignore history error
-      }
+      } catch {}
+      return;
+    }
 
-      this.authView = 'verified_success';
-      this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
-      this.notify();
+    // 3. PKCE Authorization Code Exchange
+    if (authCode && isSupabaseConfigured() && supabase) {
+      supabase.auth.exchangeCodeForSession(authCode).then(async ({ data, error }) => {
+        if (!error && data.user) {
+          await this.syncProfileFromSupabaseUser(data.user);
+          this.authView = 'verified_success';
+          this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+          this.error = null;
+          this.notify();
+        } else if (error) {
+          this.error = error.message || 'Failed to verify authentication code.';
+          this.authView = 'login';
+          this.notify();
+        }
+      });
+      try {
+        window.history.replaceState(null, '', '/');
+      } catch {}
+      return;
+    }
+
+    // 4. Supabase Hash-based verification (type=signup or type=email_change with access_token)
+    const hasAccessToken = hash.includes('access_token=');
+    const isSignupType = hash.includes('type=signup') || search.includes('type=signup') ||
+                         hash.includes('type=email_change') || search.includes('type=email_change');
+
+    if (hasAccessToken && isSignupType) {
+      try {
+        window.history.replaceState(null, '', '/');
+      } catch {}
+
+      if (isSupabaseConfigured() && supabase) {
+        supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+          if (!error && session?.user && session.user.email_confirmed_at) {
+            await this.syncProfileFromSupabaseUser(session.user);
+            this.authView = 'verified_success';
+            this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+            this.error = null;
+            this.notify();
+          } else {
+            // Wait for onAuthStateChange
+          }
+        });
+      }
+      return;
+    }
+
+    // 5. Bare /auth/callback route without tokens — clean without fake success
+    if (pathname.includes('auth/callback')) {
+      try {
+        window.history.replaceState(null, '', '/');
+      } catch {}
     }
   }
 
@@ -704,14 +769,18 @@ class AuthService {
   /**
    * Resend Verification Email with sensible rate limit cooldown
    */
-  public async resendVerificationEmail(): Promise<void> {
+  public async resendVerificationEmail(customEmail?: string): Promise<void> {
     if (this.resendCooldownSeconds > 0) {
       throw new Error(`Please wait ${this.resendCooldownSeconds} seconds before requesting another email.`);
     }
 
-    if (!this.pendingEmail) {
-      throw new Error('No pending registration email found. Please register again.');
+    const emailToUse = (customEmail || this.pendingEmail || '').trim().toLowerCase();
+    if (!emailToUse) {
+      throw new Error('Please enter your email address to receive a verification email.');
     }
+
+    this.pendingEmail = emailToUse;
+    safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, emailToUse);
 
     if (!isSupabaseConfigured() || !supabase) {
       throw new Error('Supabase authentication is not configured.');
@@ -726,7 +795,7 @@ class AuthService {
 
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: this.pendingEmail,
+        email: emailToUse,
         options: {
           emailRedirectTo: redirectUri
         }
@@ -736,7 +805,7 @@ class AuthService {
         throw error;
       }
 
-      this.successNotice = `Verification email re-sent to ${this.pendingEmail}. Please check your inbox and spam folder.`;
+      this.successNotice = `Verification email re-sent to ${emailToUse}. Please check your inbox and spam folder.`;
       this.startResendCooldown(60);
       this.notify();
     } catch (err: any) {

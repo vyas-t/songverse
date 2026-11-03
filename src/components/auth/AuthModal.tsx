@@ -158,8 +158,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
   const handleResendVerification = async () => {
     setLocalError(null);
+    const target = (authState.pendingEmail || email).trim();
+    if (!target) {
+      setLocalError('Please enter your email address to resend verification.');
+      return;
+    }
     try {
-      await authService.resendVerificationEmail();
+      await authService.resendVerificationEmail(target);
     } catch (err: any) {
       setLocalError(err.message || 'Failed to resend email.');
     }
@@ -590,11 +595,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 Verify Your Email
               </h2>
               <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                We sent a secure confirmation link to:
+                {(authState.pendingEmail || email)
+                  ? 'We sent a secure confirmation link to:'
+                  : 'Enter your registered email below to receive a verification link:'}
               </p>
-              <div className="font-mono font-bold text-sm text-sv-red dark:text-sv-gold bg-slate-100 dark:bg-slate-900 py-1.5 px-3 rounded-xl max-w-xs mx-auto border border-slate-200 dark:border-slate-800 break-all">
-                {authState.pendingEmail || email}
-              </div>
+              {(authState.pendingEmail || email) ? (
+                <div className="font-mono font-bold text-sm text-sv-red dark:text-sv-gold bg-slate-100 dark:bg-slate-900 py-1.5 px-3 rounded-xl max-w-xs mx-auto border border-slate-200 dark:border-slate-800 break-all">
+                  {authState.pendingEmail || email}
+                </div>
+              ) : (
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full max-w-xs mx-auto block px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white text-center focus:ring-2 focus:ring-sv-red outline-none"
+                />
+              )}
             </div>
 
             {/* Error or Success Notice */}

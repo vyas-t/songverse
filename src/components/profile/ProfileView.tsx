@@ -20,8 +20,11 @@ import {
   LogOut,
   LogIn,
   Mail,
-  Info
+  Info,
+  Sparkles,
+  Swords
 } from 'lucide-react';
+import { MatchHistoryItem } from '../../types';
 import { gameEngine } from '../../services/gameEngine';
 import { authService } from '../../services/authService';
 import { AchievementSystem } from './AchievementSystem';
@@ -61,7 +64,29 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
   // Local auth modal state
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
+  // Match History state & filtering
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'solo' | 'competitive' | 'casual'>('all');
+  const rawHistory = gameEngine.getMatchHistory();
   const completedGames = gameEngine.getCompletedGames();
+
+  // If match history empty, fallback-map completedGames
+  const matchHistory: MatchHistoryItem[] = rawHistory.length > 0
+    ? rawHistory
+    : completedGames.map(g => ({
+        id: g.sessionId,
+        gameMode: 'solo',
+        playedAt: new Date(g.startedAt).toISOString(),
+        score: g.totalScore,
+        totalRounds: g.rounds.length,
+        roundsWon: g.rounds.filter(r => r.status === 'won').length,
+        correctGuesses: g.rounds.filter(r => r.status === 'won').length,
+        details: `${g.mode.toUpperCase()} Solo Game`
+      }));
+
+  const filteredHistory = matchHistory.filter(m => {
+    if (historyFilter === 'all') return true;
+    return m.gameMode === historyFilter;
+  });
 
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -371,38 +396,100 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
       {/* Achievement & Milestones System Hub */}
       <AchievementSystem userProfile={profile} />
 
-      {/* Recent Matches Log */}
-      {completedGames.length > 0 && (
-        <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6 shadow-xs space-y-4">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            Recent Match History
-          </h3>
+      {/* Comprehensive Match History Hub */}
+      <div className="bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200/90 dark:border-sv-burgundy rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-sv-burgundy pb-4">
+          <div className="space-y-0.5">
+            <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Clock className="w-4 h-4 text-sv-red" />
+              <span>Player Match History</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Verified records across solo, competitive and casual games
+            </p>
+          </div>
 
+          {/* Mode Filter Pills */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-sv-midnight rounded-xl border border-slate-200 dark:border-sv-burgundy text-xs">
+            {(['all', 'solo', 'competitive', 'casual'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setHistoryFilter(mode)}
+                className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer capitalize text-[11px] ${
+                  historyFilter === mode
+                    ? 'bg-sv-red text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                {mode === 'all' ? `All (${matchHistory.length})` : mode}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filteredHistory.length === 0 ? (
+          <div className="text-center py-8 space-y-2">
+            <Clock className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              No matches found for <strong className="capitalize">{historyFilter}</strong> mode. Play a match to build your log!
+            </p>
+          </div>
+        ) : (
           <div className="divide-y divide-slate-100 dark:divide-sv-burgundy/40">
-            {completedGames.slice(0, 5).map((game) => (
-              <div key={game.sessionId} className="py-3 flex items-center justify-between text-xs">
-                <div>
-                  <div className="font-semibold text-slate-900 dark:text-white capitalize">
-                    {game.mode} Mode
+            {filteredHistory.slice(0, 15).map((match) => (
+              <div key={match.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 shadow-xs ${
+                    match.gameMode === 'competitive'
+                      ? 'bg-gradient-to-tr from-sv-amber to-sv-gold text-slate-950'
+                      : match.gameMode === 'casual'
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                      : 'bg-sv-red/10 text-sv-red dark:text-sv-warm-orange border border-sv-red/20'
+                  }`}>
+                    {match.gameMode === 'competitive' ? (
+                      <Trophy className="w-4 h-4" />
+                    ) : match.gameMode === 'casual' ? (
+                      <Sparkles className="w-4 h-4" />
+                    ) : (
+                      <Disc3 className="w-4 h-4" />
+                    )}
                   </div>
-                  <div className="text-[11px] text-slate-400 dark:text-slate-400">
-                    {new Date(game.startedAt).toLocaleDateString()} · {game.rounds.length} rounds
+
+                  <div className="truncate">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 dark:text-white capitalize">
+                        {match.details || `${match.gameMode} Match`}
+                      </span>
+                      {match.rank && (
+                        <span className="text-[10px] font-black font-mono text-sv-amber bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-1.5 py-0.2 rounded">
+                          Rank #{match.rank} {match.totalPlayers ? `of ${match.totalPlayers}` : ''}
+                        </span>
+                      )}
+                      {match.roomCode && (
+                        <span className="text-[10px] font-mono text-slate-400">
+                          Room: {match.roomCode}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5 font-medium">
+                      {new Date(match.playedAt).toLocaleDateString()} at {new Date(match.playedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {match.totalRounds} rounds
+                    </div>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <div className="font-bold text-sv-red dark:text-sv-gold font-mono text-sm tabular-nums">
-                    {game.totalScore} pts
+                <div className="flex items-center sm:flex-col sm:items-end justify-between text-right shrink-0">
+                  <div className="font-black text-sv-red dark:text-sv-gold font-mono text-sm tabular-nums">
+                    {match.score} pts
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {game.rounds.filter(r => r.status === 'won').length} / {game.rounds.length} won
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    {match.roundsWon ?? match.correctGuesses ?? 0} / {match.totalRounds} correct
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Account Deletion Section (Explicit confirmation requiring typing 'DELETE') */}
       <div className="bg-rose-50/50 border border-rose-200/80 rounded-2xl p-6 space-y-3">
