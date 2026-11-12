@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Users,
   Play,
@@ -85,6 +85,50 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [exportedService, setExportedService] = useState<'spotify' | 'apple' | null>(null);
+
+  // Cool Floating & Popping Emojis Reaction State
+  interface FloatingReactionItem {
+    id: string;
+    emoji: '🔥' | '🤯' | '👏' | '😭' | '⚡' | '🎉' | '❤️';
+    playerName: string;
+    leftPercent: number;
+    rotation: number;
+    scale: number;
+  }
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReactionItem[]>([]);
+  const lastReactionCountRef = useRef<number>(0);
+
+  const spawnFloatingReaction = (emoji: '🔥' | '🤯' | '👏' | '😭' | '⚡' | '🎉' | '❤️', playerName: string) => {
+    const burstCount = 2;
+    for (let i = 0; i < burstCount; i++) {
+      const id = `pop_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${i}`;
+      const leftPercent = Math.floor(18 + Math.random() * 64);
+      const rotation = Math.floor(-16 + Math.random() * 32);
+      const scale = 0.95 + Math.random() * 0.35;
+
+      setTimeout(() => {
+        setFloatingReactions((prev) => [
+          ...prev.slice(-14),
+          { id, emoji, playerName, leftPercent, rotation, scale }
+        ]);
+
+        setTimeout(() => {
+          setFloatingReactions((prev) => prev.filter((item) => item.id !== id));
+        }, 2400);
+      }, i * 120);
+    }
+  };
+
+  useEffect(() => {
+    const reactions = room?.recentReactions || [];
+    if (reactions.length > lastReactionCountRef.current) {
+      const newItems = reactions.slice(lastReactionCountRef.current);
+      newItems.forEach((rx) => {
+        spawnFloatingReaction(rx.emoji, rx.playerName);
+      });
+    }
+    lastReactionCountRef.current = reactions.length;
+  }, [room?.recentReactions]);
 
   const isHost = Boolean(room && room.hostId === profile.id);
   const myPlayer = room?.players.find(p => p.id === profile.id);
@@ -327,6 +371,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
 
   const handleSendReaction = (emoji: '🔥' | '🤯' | '👏' | '😭' | '⚡' | '🎉' | '❤️') => {
     multiplayerEngine.sendReaction(profile.id, emoji);
+    spawnFloatingReaction(emoji, profile.displayName || 'You');
   };
 
   const handleRematch = async () => {
@@ -1592,18 +1637,18 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
               </div>
 
               {/* Feature 2: Live Emoji Reactions Bar during Round Summary */}
-              <div className="p-3 bg-slate-50 dark:bg-sv-midnight/80 rounded-2xl border border-slate-200 dark:border-sv-burgundy flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="p-3 bg-slate-50 dark:bg-sv-midnight/80 rounded-2xl border border-slate-200 dark:border-sv-burgundy flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-sv-orange" />
+                  <Sparkles className="w-4 h-4 text-sv-orange animate-pulse" />
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Live Reactions:</span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                <div className="flex items-center gap-2 flex-wrap justify-center">
                   {(['🔥', '🤯', '👏', '😭', '⚡', '🎉', '❤️'] as const).map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
                       onClick={() => handleSendReaction(emoji)}
-                      className="px-2.5 py-1 text-sm bg-white dark:bg-sv-burgundy hover:scale-125 hover:bg-slate-100 dark:hover:bg-sv-burgundy-deep rounded-xl border border-slate-200 dark:border-sv-burgundy/80 shadow-2xs transition-transform cursor-pointer active:scale-95"
+                      className="px-2.5 py-1 text-base bg-white dark:bg-sv-burgundy hover:scale-135 hover:bg-slate-100 dark:hover:bg-sv-burgundy-deep rounded-xl border border-slate-200 dark:border-sv-burgundy/80 shadow-2xs transition-all cursor-pointer active:scale-90 active:rotate-6"
                       title={`Send ${emoji} reaction`}
                     >
                       {emoji}
@@ -1723,6 +1768,27 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 )}
               </div>
 
+              {/* Podium Celebration Reaction Bar */}
+              <div className="p-3 bg-slate-50/90 dark:bg-sv-midnight/90 rounded-2xl border border-slate-200 dark:border-sv-burgundy max-w-md mx-auto flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-sv-gold animate-pulse" />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Cheer Podium:</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  {(['🔥', '🤯', '👏', '😭', '⚡', '🎉', '❤️'] as const).map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleSendReaction(emoji)}
+                      className="px-2.5 py-1 text-base bg-white dark:bg-sv-burgundy hover:scale-135 hover:bg-slate-100 dark:hover:bg-sv-burgundy-deep rounded-xl border border-slate-200 dark:border-sv-burgundy/80 shadow-2xs transition-all cursor-pointer active:scale-90"
+                      title={`Send ${emoji} reaction`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Feature 5: 1-Click Rematch Button for Host & Return Button */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
                 {isHost && (
@@ -1816,6 +1882,33 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
           </div>
         </div>
       )}
+
+      {/* Floating Animated Emojis Burst Layer */}
+      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+        {floatingReactions.map((rx) => (
+          <div
+            key={rx.id}
+            className="absolute bottom-16 flex flex-col items-center animate-emoji-pop"
+            style={{
+              left: `${rx.leftPercent}%`,
+              transform: `rotate(${rx.rotation}deg) scale(${rx.scale})`
+            }}
+          >
+            {/* Glowing Burst Ring */}
+            <div className="absolute w-20 h-20 -top-3 -left-3 rounded-full bg-sv-warm-orange/20 border border-sv-warm-orange/50 animate-emoji-ring pointer-events-none" />
+
+            {/* Main Floating Emoji */}
+            <div className="text-5xl drop-shadow-[0_12px_24px_rgba(232,93,4,0.4)] select-none filter">
+              {rx.emoji}
+            </div>
+
+            {/* Attached Player Pill */}
+            <span className="mt-1.5 px-2.5 py-0.5 rounded-full bg-slate-900/90 dark:bg-sv-midnight/95 text-white text-[10px] font-black font-mono shadow-lg border border-white/20 whitespace-nowrap">
+              {rx.playerName}
+            </span>
+          </div>
+        ))}
+      </div>
 
     </div>
   );

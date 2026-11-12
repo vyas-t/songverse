@@ -408,12 +408,20 @@ class AuthService {
 
         remoteProfileData = data;
 
+        // Derive clean username from local profile or email/metadata
+        const desiredUsername = (
+          localProfile.username ||
+          sbUser.user_metadata?.username ||
+          (sbUser.email ? sbUser.email.split('@')[0] : 'groove')
+        ).toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) || `player_${sbUser.id.slice(0, 6)}`;
+
         // If no profile row exists, create it safely
         if (!remoteProfileData) {
-          const insertData = {
+          const insertData: any = {
             id: sbUser.id,
             email: sbUser.email,
             display_name: sbUser.user_metadata?.display_name || sbUser.user_metadata?.full_name || localProfile.displayName || 'GrooveExplorer',
+            username: desiredUsername,
             avatar_seed: localProfile.avatarSeed || 'aurora',
             auth_provider: provider,
             account_type: 'player',
@@ -428,21 +436,32 @@ class AuthService {
             last_login_at: new Date().toISOString()
           };
 
-          const { data: created } = await supabase
+          const { data: created, error: insertError } = await supabase
             .from('profiles')
             .insert(insertData)
             .select()
             .single();
 
-          remoteProfileData = created || insertData;
+          if (insertError) {
+            // If duplicate username collision on insert, append random suffix
+            insertData.username = `${desiredUsername.slice(0, 15)}_${Math.floor(100 + Math.random() * 899)}`;
+            const retry = await supabase.from('profiles').insert(insertData).select().single();
+            remoteProfileData = retry.data || insertData;
+          } else {
+            remoteProfileData = created || insertData;
+          }
         } else {
-          // Update last_login_at and email_verified
+          // If profile exists, ensure username is populated in database if missing
+          const updatePayload: any = {
+            email_verified: isVerified,
+            last_login_at: new Date().toISOString()
+          };
+          if (!remoteProfileData.username && localProfile.username) {
+            updatePayload.username = localProfile.username;
+          }
           await supabase
             .from('profiles')
-            .update({
-              email_verified: isVerified,
-              last_login_at: new Date().toISOString()
-            })
+            .update(updatePayload)
             .eq('id', sbUser.id);
         }
       } catch (err) {

@@ -40,6 +40,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>(socialService.getIncomingRequests());
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>(socialService.getOutgoingRequests());
   const [pendingInvites, setPendingInvites] = useState<RoomInvitation[]>(socialService.getPendingInvitations());
+  const [suggestedUsers, setSuggestedUsers] = useState<FriendUser[]>(socialService.getSuggestedUsers());
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +60,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
     setIncomingRequests(socialService.getIncomingRequests());
     setOutgoingRequests(socialService.getOutgoingRequests());
     setPendingInvites(socialService.getPendingInvitations());
+    setSuggestedUsers(socialService.getSuggestedUsers());
   };
 
   useEffect(() => {
@@ -70,10 +72,34 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
     return () => unsub();
   }, []);
 
+  const handleQueryChange = async (val: string) => {
+    setSearchQuery(val);
+    const trimmed = val.trim();
+    if (!trimmed) {
+      setSearchPerformed(false);
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchPerformed(true);
+    setIsSearching(true);
+    try {
+      const results = await socialService.searchUsersByUsername(trimmed);
+      setSearchResults(results);
+    } catch {
+      // Non-blocking
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = searchQuery.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      setSearchPerformed(false);
+      return;
+    }
 
     setIsSearching(true);
     setActionError(null);
@@ -287,24 +313,59 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
       {activeTab === 'friends' && (
         <div className="space-y-6">
           {friends.length === 0 ? (
-            <div className="bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl p-12 text-center max-w-md mx-auto space-y-4 shadow-sm">
-              <div className="w-16 h-16 rounded-2xl bg-sv-red/10 border border-sv-red/20 text-sv-red flex items-center justify-center mx-auto">
-                <Users className="w-8 h-8" />
+            <div className="space-y-6">
+              <div className="bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl p-8 sm:p-10 text-center max-w-lg mx-auto space-y-4 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-sv-red/10 border border-sv-red/20 text-sv-red flex items-center justify-center mx-auto">
+                  <Users className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    No Friends Added Yet
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Build your SongVerse trivia squad to challenge friends, trade scores, and join private rooms!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('search')}
+                  className="px-5 py-2.5 bg-sv-red text-white text-xs font-bold rounded-2xl hover:bg-sv-crimson transition-all cursor-pointer shadow-sm"
+                >
+                  Find Players Directory
+                </button>
               </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  No Friends Added Yet
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Search for players by their username to build your SongVerse trivia squad!
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveTab('search')}
-                className="px-5 py-2.5 bg-sv-red text-white text-xs font-bold rounded-2xl hover:bg-sv-crimson transition-all cursor-pointer shadow-sm"
-              >
-                Find & Add Friends
-              </button>
+
+              {/* Quick Add Suggestions on Empty Friends List */}
+              {suggestedUsers.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-sv-gold" />
+                    <span>Quick Add Recommended Players</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {suggestedUsers.slice(0, 3).map((user) => (
+                      <div
+                        key={user.id}
+                        className="p-3.5 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-2xl flex items-center justify-between gap-2 shadow-2xs"
+                      >
+                        <div className="truncate">
+                          <p className="text-xs font-black text-slate-900 dark:text-white truncate">
+                            {user.displayName}
+                          </p>
+                          <p className="text-[10px] font-mono font-bold text-slate-400">
+                            @{user.username}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleSendRequest(user)}
+                          className="px-2.5 py-1 bg-sv-red hover:bg-sv-crimson text-white rounded-xl text-[11px] font-black cursor-pointer shadow-xs shrink-0"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -524,9 +585,9 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by username (e.g. vyas, groove)..."
-                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-sv-red"
+                onChange={(e) => handleQueryChange(e.target.value)}
+                placeholder="Search by username (e.g. groove, melody, vyas)..."
+                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-sv-red shadow-2xs"
               />
             </div>
             <button
@@ -539,15 +600,33 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
           </form>
 
           {/* Results Area */}
-          {searchPerformed && (
+          {searchPerformed && searchQuery.trim() ? (
             <div className="space-y-3">
-              <h3 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
-                Search Results ({searchResults.length})
+              <h3 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center justify-between">
+                <span>Search Results ({searchResults.length})</span>
+                <button
+                  type="button"
+                  onClick={() => handleQueryChange('')}
+                  className="text-[11px] text-sv-red font-bold hover:underline cursor-pointer"
+                >
+                  Clear search
+                </button>
               </h3>
 
               {searchResults.length === 0 ? (
-                <div className="p-8 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl text-center text-xs text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto">
-                  No players found matching "{searchQuery}".
+                <div className="p-8 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl text-center space-y-2 max-w-md mx-auto shadow-sm">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 font-bold">
+                    No players found matching "{searchQuery}".
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Try searching for another handle or add an active player from the suggested squad below!
+                  </p>
+                  <button
+                    onClick={() => handleQueryChange('')}
+                    className="mt-2 px-4 py-1.5 bg-sv-red text-white text-xs font-bold rounded-xl"
+                  >
+                    View Suggested Players
+                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -558,7 +637,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
                     return (
                       <div
                         key={user.id}
-                        className="p-4 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-2xl flex items-center justify-between gap-3 shadow-2xs"
+                        className="p-4 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-2xl flex items-center justify-between gap-3 shadow-2xs hover:border-slate-300 dark:hover:border-sv-burgundy/80 transition-all"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sv-red to-sv-orange text-white font-black text-xs flex items-center justify-center shrink-0">
@@ -568,9 +647,11 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
                             <p className="text-xs font-black text-slate-900 dark:text-white truncate">
                               {user.displayName}
                             </p>
-                            <p className="text-[11px] font-mono font-bold text-slate-400">
-                              @{user.username}
-                            </p>
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-400">
+                              <span>@{user.username}</span>
+                              <span>·</span>
+                              <span className="text-sv-red dark:text-sv-gold">{user.totalScore || 0} pts</span>
+                            </div>
                           </div>
                         </div>
 
@@ -589,6 +670,85 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
                             <button
                               onClick={() => handleSendRequest(user)}
                               className="px-3.5 py-1.5 bg-slate-900 dark:bg-sv-warm-orange text-white dark:text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer hover:bg-slate-800"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              <span>Add Friend</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Suggested Active Players Directory */
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-sv-gold" />
+                  <span>Suggested Community Players ({suggestedUsers.length})</span>
+                </h3>
+                <span className="text-[11px] text-slate-500 font-medium">Click to connect instantly</span>
+              </div>
+
+              {suggestedUsers.length === 0 ? (
+                <div className="p-8 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl text-center text-xs text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto">
+                  You are already connected with all suggested community players!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {suggestedUsers.map((user) => {
+                    const isAlreadyFriend = socialService.isFriend(user.id);
+                    const isPending = socialService.hasPendingRequestWith(user.id);
+
+                    return (
+                      <div
+                        key={user.id}
+                        className="p-4 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-2xl flex items-center justify-between gap-3 shadow-2xs hover:border-slate-300 dark:hover:border-sv-burgundy/80 transition-all"
+                      >
+                        <div
+                          className="flex items-center gap-3 min-w-0 cursor-pointer"
+                          onClick={() => setSelectedFriendProfile(user)}
+                        >
+                          <div className="relative">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sv-red to-sv-orange text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
+                              {user.displayName.charAt(0)}
+                            </div>
+                            <span
+                              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-sv-midnight ${
+                                user.isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+                              }`}
+                            />
+                          </div>
+                          <div className="truncate">
+                            <p className="text-xs font-black text-slate-900 dark:text-white truncate">
+                              {user.displayName}
+                            </p>
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-400">
+                              <span>@{user.username}</span>
+                              <span>·</span>
+                              <span className="text-sv-red dark:text-sv-gold">{user.totalScore || 0} pts</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          {isAlreadyFriend ? (
+                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>Friends</span>
+                            </span>
+                          ) : isPending ? (
+                            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>Pending</span>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSendRequest(user)}
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-sv-red to-sv-orange text-white rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer hover:from-sv-crimson hover:to-sv-red shadow-xs transition-transform active:scale-95"
                             >
                               <UserPlus className="w-3.5 h-3.5" />
                               <span>Add Friend</span>

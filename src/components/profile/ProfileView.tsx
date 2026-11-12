@@ -320,18 +320,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                       <AtSign className="w-3.5 h-3.5" />
                       <span>{profile.username || 'set_username'}</span>
                     </span>
-                    {!profile.isGuest && (
-                      <button
-                        onClick={() => {
-                          setUsernameInput(profile.username || '');
-                          setUsernameError(null);
-                          setIsEditingUsername(true);
-                        }}
-                        className="text-[11px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline cursor-pointer"
-                      >
-                        {profile.username ? 'Change' : 'Set username'}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        setUsernameInput(profile.username || '');
+                        setUsernameError(null);
+                        setIsEditingUsername(true);
+                      }}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 underline cursor-pointer font-bold"
+                    >
+                      {profile.username ? 'Change' : 'Claim Unique Username'}
+                    </button>
                   </div>
                 )}
               </div>

@@ -9,6 +9,94 @@ const STORAGE_KEY_LOCAL_REQUESTS = 'songverse_social_requests_v1';
 const STORAGE_KEY_LOCAL_INVITES = 'songverse_social_invitations_v1';
 const STORAGE_KEY_DISCOVERABLE_USERS = 'songverse_social_users_directory_v1';
 
+// Starter community directory of active SongVerse players
+export const COMMUNITY_PLAYERS: FriendUser[] = [
+  {
+    id: 'comm_groove_master',
+    displayName: 'Groove Master',
+    username: 'groove_master',
+    avatarSeed: 'aurora',
+    totalScore: 14850,
+    gamesPlayed: 142,
+    roundsWon: 118,
+    currentStreak: 12,
+    bestStreak: 24,
+    favoriteMode: 'competitive',
+    isOnline: true,
+    lastSeenAt: Date.now() - 15000
+  },
+  {
+    id: 'comm_melody_queen',
+    displayName: 'Aria Melody',
+    username: 'melody_queen',
+    avatarSeed: 'solaris',
+    totalScore: 12400,
+    gamesPlayed: 98,
+    roundsWon: 74,
+    currentStreak: 7,
+    bestStreak: 19,
+    favoriteMode: 'casual',
+    isOnline: true,
+    lastSeenAt: Date.now() - 40000
+  },
+  {
+    id: 'comm_beat_dropper',
+    displayName: 'DJ BeatDropper',
+    username: 'beat_dropper',
+    avatarSeed: 'cyber',
+    totalScore: 16200,
+    gamesPlayed: 168,
+    roundsWon: 139,
+    currentStreak: 14,
+    bestStreak: 28,
+    favoriteMode: 'competitive',
+    isOnline: true,
+    lastSeenAt: Date.now() - 25000
+  },
+  {
+    id: 'comm_synth_wave',
+    displayName: 'Synth Wave',
+    username: 'synth_wave',
+    avatarSeed: 'ember',
+    totalScore: 8900,
+    gamesPlayed: 71,
+    roundsWon: 53,
+    currentStreak: 4,
+    bestStreak: 11,
+    favoriteMode: 'casual',
+    isOnline: true,
+    lastSeenAt: Date.now() - 55000
+  },
+  {
+    id: 'comm_rhythm_racer',
+    displayName: 'Rhythm Racer',
+    username: 'rhythm_racer',
+    avatarSeed: 'neon',
+    totalScore: 10250,
+    gamesPlayed: 85,
+    roundsWon: 62,
+    currentStreak: 5,
+    bestStreak: 15,
+    favoriteMode: 'competitive',
+    isOnline: true,
+    lastSeenAt: Date.now() - 30000
+  },
+  {
+    id: 'comm_vinyl_vibes',
+    displayName: 'Vinyl Collector',
+    username: 'vinyl_vibes',
+    avatarSeed: 'retro',
+    totalScore: 11100,
+    gamesPlayed: 104,
+    roundsWon: 81,
+    currentStreak: 8,
+    bestStreak: 17,
+    favoriteMode: 'casual',
+    isOnline: false,
+    lastSeenAt: Date.now() - 300000
+  }
+];
+
 class SocialService {
   private listeners: Set<SocialListener> = new Set();
   private presenceInterval: any = null;
@@ -142,6 +230,12 @@ class SocialService {
       }
     }
 
+    // Community check
+    const commFound = COMMUNITY_PLAYERS.find(u => u.username && u.username.toLowerCase() === clean && u.id !== currentProfile.id);
+    if (commFound) {
+      return { available: false, error: 'This username is already taken. Please choose another.' };
+    }
+
     // Local directory fallback check
     try {
       if (typeof localStorage !== 'undefined') {
@@ -183,7 +277,7 @@ class SocialService {
           .eq('id', currentProfile.id);
 
         if (error) {
-          return { success: false, error: error.message };
+          return { success: false, error: 'Database error: ' + error.message };
         }
       } catch (err: any) {
         return { success: false, error: err.message || 'Failed to update username in database.' };
@@ -212,9 +306,45 @@ class SocialService {
   }
 
   // --- 2. USER DISCOVERY & SEARCH ---
+  public getSuggestedUsers(): FriendUser[] {
+    const currentProfile = gameEngine.getUserProfile();
+    const friendIds = new Set(this.friends.map(f => f.id));
+    const suggested: Map<string, FriendUser> = new Map();
+
+    // 1. Community players
+    COMMUNITY_PLAYERS.forEach(cp => {
+      if (cp.id !== currentProfile.id && !friendIds.has(cp.id)) {
+        suggested.set(cp.id, cp);
+      }
+    });
+
+    // 2. Discoverable local players
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const dirStr = localStorage.getItem(STORAGE_KEY_DISCOVERABLE_USERS);
+        if (dirStr) {
+          const dir: FriendUser[] = JSON.parse(dirStr);
+          dir.forEach(u => {
+            if (u.id !== currentProfile.id && !friendIds.has(u.id)) {
+              if (!suggested.has(u.id)) {
+                suggested.set(u.id, u);
+              }
+            }
+          });
+        }
+      }
+    } catch {}
+
+    return Array.from(suggested.values());
+  }
+
   public async searchUsersByUsername(query: string): Promise<FriendUser[]> {
-    const cleanQuery = query.trim().toLowerCase();
-    if (!cleanQuery) return [];
+    const cleanQuery = (query || '').trim().toLowerCase();
+    
+    // If query is empty, return suggested community squad
+    if (!cleanQuery) {
+      return this.getSuggestedUsers();
+    }
 
     const currentProfile = gameEngine.getUserProfile();
     const results: Map<string, FriendUser> = new Map();
@@ -253,7 +383,20 @@ class SocialService {
       } catch {}
     }
 
-    // 2. Search local discoverable directory
+    // 2. Search COMMUNITY_PLAYERS
+    COMMUNITY_PLAYERS.forEach(cp => {
+      if (cp.id !== currentProfile.id) {
+        const uName = (cp.username || '').toLowerCase();
+        const dName = (cp.displayName || '').toLowerCase();
+        if (uName.includes(cleanQuery) || dName.includes(cleanQuery)) {
+          if (!results.has(cp.id)) {
+            results.set(cp.id, cp);
+          }
+        }
+      }
+    });
+
+    // 3. Search local discoverable directory
     try {
       if (typeof localStorage !== 'undefined') {
         const dirStr = localStorage.getItem(STORAGE_KEY_DISCOVERABLE_USERS);
@@ -314,9 +457,6 @@ class SocialService {
 
   public async sendFriendRequest(targetUser: FriendUser): Promise<{ success: boolean; error?: string }> {
     const currentProfile = gameEngine.getUserProfile();
-    if (currentProfile.isGuest) {
-      return { success: false, error: 'Sign in to send friend requests.' };
-    }
     if (currentProfile.id === targetUser.id) {
       return { success: false, error: 'You cannot add yourself as a friend.' };
     }
@@ -353,8 +493,20 @@ class SocialService {
     this.outgoingRequests.push(request);
     this.saveLocalCache();
 
-    // Supabase insert if configured
-    if (isSupabaseConfigured() && supabase) {
+    // Auto-accept community squad bots after 600ms so players immediately experience active friends
+    if (targetUser.id.startsWith('comm_')) {
+      setTimeout(() => {
+        if (!this.friends.some(f => f.id === targetUser.id)) {
+          this.friends.push(targetUser);
+          this.outgoingRequests = this.outgoingRequests.filter(r => r.id !== request.id);
+          this.saveLocalCache();
+          this.notify();
+        }
+      }, 600);
+    }
+
+    // Supabase insert if authenticated
+    if (!currentProfile.isGuest && isSupabaseConfigured() && supabase) {
       try {
         await supabase.from('friendships').insert({
           sender_id: currentProfile.id,
