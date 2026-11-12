@@ -37,6 +37,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
 
+  // 6-digit OTP Form states
+  const [otpInput, setOtpInput] = useState('');
+  const [resetOtpInput, setResetOtpInput] = useState('');
+
   useEffect(() => {
     return authService.subscribe((state) => {
       setAuthState(state);
@@ -129,17 +133,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     }
   };
 
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+
+    const clean = otpInput.trim();
+    if (clean.length !== 6) {
+      setLocalError('Please enter the full 6-digit verification code.');
+      return;
+    }
+
+    try {
+      await authService.verifySignInOtp(clean);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setLocalError(err.message || 'OTP verification failed.');
+    }
+  };
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
 
     if (!email.trim()) {
-      setLocalError('Please enter your email address to receive a recovery link.');
+      setLocalError('Please enter your email address to receive a 6-digit password reset code.');
       return;
     }
 
     try {
-      await authService.requestPasswordReset(email);
+      const code = await authService.requestPasswordReset(email);
+      setResetOtpInput(code || '');
     } catch (err: any) {
       setLocalError(err.message || 'Password reset request failed.');
     }
@@ -149,8 +173,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     e.preventDefault();
     setLocalError(null);
 
+    const cleanOtp = resetOtpInput.trim();
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      setLocalError('Mandatory 6-digit security OTP is required.');
+      return;
+    }
+
+    if (!hasMinLength || !hasLetter || !hasNumber) {
+      setLocalError('Password must be at least 8 characters with letters and numbers.');
+      return;
+    }
+
+    if (!passwordsMatch) {
+      setLocalError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
     try {
-      await authService.updatePassword(password, confirmPassword);
+      await authService.resetPasswordWithOtp({
+        email: email || authState.pendingEmail || '',
+        otp: cleanOtp,
+        newPassword: password,
+        confirmPassword
+      });
     } catch (err: any) {
       setLocalError(err.message || 'Password update failed.');
     }
@@ -164,9 +209,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       return;
     }
     try {
-      await authService.resendVerificationEmail(target);
+      const newCode = await authService.resendVerificationEmail(target);
+      if (newCode) {
+        setOtpInput(newCode);
+      }
     } catch (err: any) {
-      setLocalError(err.message || 'Failed to resend email.');
+      setLocalError(err.message || 'Failed to resend code.');
     }
   };
 
@@ -582,82 +630,121 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         )}
 
         {/* =========================================================================
-            VIEW 3: MANDATORY VERIFICATION PENDING
+            VIEW 3: MANDATORY 6-DIGIT OTP VERIFICATION
            ========================================================================= */}
         {authState.authView === 'verification_pending' && (
           <div className="text-center space-y-4 py-2">
-            <div className="w-16 h-16 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 rounded-3xl flex items-center justify-center mx-auto shadow-md animate-pulse">
-              <Mail className="w-8 h-8" />
+            <div className="w-14 h-14 bg-gradient-to-tr from-sv-amber/20 to-sv-gold/30 border border-sv-gold/40 text-sv-amber rounded-2xl flex items-center justify-center mx-auto shadow-md">
+              <KeyRound className="w-7 h-7 text-sv-warm-orange" />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-                Verify Your Email
+                Enter 6-Digit OTP
               </h2>
               <p className="text-xs text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                {(authState.pendingEmail || email)
-                  ? 'We sent a secure confirmation link to:'
-                  : 'Enter your registered email below to receive a verification link:'}
+                A 6-digit verification code has been issued for{' '}
+                <strong className="text-slate-900 dark:text-white font-mono">{authState.pendingEmail || email}</strong>.
               </p>
-              {(authState.pendingEmail || email) ? (
-                <div className="font-mono font-bold text-sm text-sv-red dark:text-sv-gold bg-slate-100 dark:bg-slate-900 py-1.5 px-3 rounded-xl max-w-xs mx-auto border border-slate-200 dark:border-slate-800 break-all">
-                  {authState.pendingEmail || email}
-                </div>
-              ) : (
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full max-w-xs mx-auto block px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white text-center focus:ring-2 focus:ring-sv-red outline-none"
-                />
-              )}
             </div>
+
+            {/* Prominent Active 6-Digit Security OTP Badge */}
+            {authState.activeOtpCode && (
+              <div className="p-3 bg-gradient-to-r from-sv-red/10 via-sv-warm-orange/15 to-sv-gold/10 border-2 border-sv-warm-orange/40 rounded-2xl space-y-1.5 shadow-xs">
+                <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-sv-crimson dark:text-sv-warm-orange">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Your 6-Digit Security OTP Code:</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="font-mono text-2xl sm:text-3xl font-black tracking-[0.25em] text-slate-900 dark:text-white bg-white/90 dark:bg-sv-midnight/90 px-4 py-1.5 rounded-xl border border-slate-200 dark:border-sv-burgundy shadow-inner">
+                    {authState.activeOtpCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOtpInput(authState.activeOtpCode || '')}
+                    className="px-2.5 py-2 bg-sv-red text-white text-[11px] font-bold rounded-xl hover:bg-sv-crimson cursor-pointer transition-all shadow-xs"
+                    title="Fill code into box"
+                  >
+                    Auto-Fill
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Error or Success Notice */}
             {activeError && (
-              <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 rounded-xl text-xs text-rose-700 dark:text-rose-300 text-left">
-                {activeError}
+              <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 rounded-xl text-xs text-rose-700 dark:text-rose-300 text-left flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{activeError}</span>
               </div>
             )}
             {authState.successNotice && (
-              <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 p-3 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 text-left">
-                {authState.successNotice}
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 p-3 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 text-left flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>{authState.successNotice}</span>
               </div>
             )}
 
-            <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-left space-y-2 text-xs text-slate-600 dark:text-slate-300">
-              <div className="font-bold text-slate-800 dark:text-slate-200">Next Steps:</div>
-              <ol className="list-decimal pl-4 space-y-1.5 text-[11px] leading-relaxed">
-                <li>Check your email inbox (or spam folder) on your phone or device.</li>
-                <li>Tap the prominent <strong className="text-sv-red dark:text-sv-gold font-bold">"Yes"</strong> button in the confirmation email.</li>
-                <li>Your account activates instantly and links directly to SongVerse.</li>
-              </ol>
-            </div>
+            {/* 6-Digit Input Form */}
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Enter 6-Digit Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="••••••"
+                  className="w-full max-w-xs mx-auto py-3 px-4 text-center font-mono text-2xl font-black tracking-[0.4em] bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded-2xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-sv-red focus:ring-2 focus:ring-sv-red/30 shadow-inner"
+                  autoFocus
+                />
+              </div>
 
-            <div className="space-y-2 pt-2">
               <button
-                type="button"
-                onClick={handleResendVerification}
-                disabled={authState.isLoading || authState.resendCooldownSeconds > 0}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                type="submit"
+                disabled={authState.isLoading || otpInput.trim().length !== 6}
+                className="w-full py-3 bg-gradient-to-r from-sv-red to-sv-orange hover:from-sv-crimson hover:to-sv-red text-white font-black rounded-xl text-xs shadow-md shadow-sv-red/25 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {authState.isLoading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Sending...</span>
+                    <span>Verifying OTP...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Verify OTP & Sign In</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={authState.isLoading || authState.resendCooldownSeconds > 0}
+                className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {authState.isLoading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Generating Code...</span>
                   </>
                 ) : authState.resendCooldownSeconds > 0 ? (
-                  <span>Resend Email in {authState.resendCooldownSeconds}s</span>
+                  <span>Resend Code in {authState.resendCooldownSeconds}s</span>
                 ) : (
-                  <span>Resend Verification Email</span>
+                  <span>Resend 6-Digit Code</span>
                 )}
               </button>
 
               <button
                 type="button"
                 onClick={() => handleSwitchView('login')}
-                className="w-full py-2 bg-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+                className="w-full py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-semibold"
               >
                 Back to Sign In
               </button>
@@ -777,7 +864,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         )}
 
         {/* =========================================================================
-            VIEW 6: SET NEW PASSWORD
+            VIEW 6: SET NEW PASSWORD WITH MANDATORY 6-DIGIT OTP
            ========================================================================= */}
         {authState.authView === 'reset_password' && (
           <div className="space-y-4">
@@ -786,12 +873,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 <Lock className="w-6 h-6" />
               </div>
               <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-                Set New Password
+                Reset Password
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                Enter your new password below.
+                Enter your mandatory 6-digit security OTP code and choose your new password.
               </p>
             </div>
+
+            {/* Display Active Reset OTP Code Badge */}
+            {authState.activeOtpCode && (
+              <div className="p-3 bg-gradient-to-r from-sv-amber/10 to-sv-gold/15 border-2 border-sv-gold/40 rounded-2xl text-center space-y-1 shadow-xs">
+                <span className="text-[11px] font-bold text-amber-700 dark:text-sv-gold flex items-center justify-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Mandatory Password Reset OTP:</span>
+                </span>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="font-mono text-2xl font-black tracking-[0.25em] text-slate-900 dark:text-white bg-white/90 dark:bg-sv-midnight/90 px-3.5 py-1 rounded-xl border border-slate-200 dark:border-sv-burgundy shadow-inner">
+                    {authState.activeOtpCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setResetOtpInput(authState.activeOtpCode || '')}
+                    className="px-2.5 py-1.5 bg-sv-red text-white text-[10px] font-bold rounded-xl cursor-pointer hover:bg-sv-crimson"
+                  >
+                    Auto-Fill
+                  </button>
+                </div>
+              </div>
+            )}
 
             {activeError && (
               <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 rounded-xl text-xs text-rose-700 dark:text-rose-300">
@@ -802,7 +911,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             <form onSubmit={handleResetPassword} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  New Password
+                  Mandatory 6-Digit Security OTP
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={resetOtpInput}
+                    onChange={(e) => setResetOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Enter 6-digit OTP code"
+                    className="w-full pl-10 pr-3.5 py-2.5 font-mono text-sm tracking-widest font-bold bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sv-red/30 focus:border-sv-red"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  New Password (min 8 chars, letter + number)
                 </label>
                 <input
                   type="password"
@@ -830,19 +957,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
               <button
                 type="submit"
-                disabled={authState.isLoading || !passwordsMatch || !hasMinLength}
+                disabled={authState.isLoading || resetOtpInput.length !== 6 || !passwordsMatch || !hasMinLength}
                 className="w-full py-2.5 bg-gradient-to-r from-sv-red to-sv-red-orange hover:from-rose-600 hover:to-orange-600 text-white font-bold rounded-xl text-xs shadow-md shadow-sv-red/20 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {authState.isLoading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Updating Password...</span>
+                    <span>Verifying OTP & Resetting...</span>
                   </>
                 ) : (
-                  <span>Update Password & Sign In</span>
+                  <span>Verify OTP & Update Password</span>
                 )}
               </button>
             </form>
+
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={() => handleSwitchView('login')}
+                className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-semibold cursor-pointer"
+              >
+                Back to Sign In
+              </button>
+            </div>
           </div>
         )}
       </div>

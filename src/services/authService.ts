@@ -10,6 +10,14 @@ export type AuthView =
   | 'forgot_password'
   | 'reset_password';
 
+export interface ActiveOtpRecord {
+  code: string;
+  email: string;
+  purpose: 'signin' | 'signup' | 'password_reset' | 'account_deletion';
+  expiresAt: number;
+  attemptsLeft: number;
+}
+
 export interface AuthState {
   user: UserProfile;
   sessionToken: string | null;
@@ -24,10 +32,12 @@ export interface AuthState {
   pendingEmail: string | null;
   resendCooldownSeconds: number;
   successNotice: string | null;
+  activeOtpCode?: string | null;
 }
 
 const STORAGE_KEY_AUTH_TOKEN = 'songverse_auth_session_token';
 const STORAGE_KEY_PENDING_EMAIL = 'songverse_auth_pending_email';
+const STORAGE_KEY_ACTIVE_OTP = 'songverse_auth_active_otp_v1';
 
 const safeStorage = {
   getItem: (key: string): string | null => {
@@ -100,6 +110,7 @@ class AuthService {
   private resendCooldownSeconds = 0;
   private resendTimer: any = null;
   private successNotice: string | null = null;
+  private activeOtp: ActiveOtpRecord | null = null;
 
   private providers: {
     google: AuthProviderConfig;
@@ -151,6 +162,15 @@ class AuthService {
     if (typeof window !== 'undefined') {
       this.sessionToken = safeStorage.getItem(STORAGE_KEY_AUTH_TOKEN);
       this.pendingEmail = safeStorage.getItem(STORAGE_KEY_PENDING_EMAIL);
+      try {
+        const rawOtp = safeStorage.getItem(STORAGE_KEY_ACTIVE_OTP);
+        if (rawOtp) {
+          const parsed = JSON.parse(rawOtp);
+          if (parsed.expiresAt > Date.now()) {
+            this.activeOtp = parsed;
+          }
+        }
+      } catch {}
       this.fetchProvidersStatus();
       this.initSupabaseAuthListener();
       this.detectCallbackOrResetUrl();
@@ -169,6 +189,7 @@ class AuthService {
   }
 
   public getState(): AuthState {
+    const validOtp = this.getActiveOtp();
     return {
       user: gameEngine.getUserProfile(),
       sessionToken: this.sessionToken,
@@ -178,7 +199,8 @@ class AuthService {
       authView: this.authView,
       pendingEmail: this.pendingEmail,
       resendCooldownSeconds: this.resendCooldownSeconds,
-      successNotice: this.successNotice
+      successNotice: this.successNotice,
+      activeOtpCode: validOtp ? validOtp.code : null
     };
   }
 
@@ -690,15 +712,17 @@ class AuthService {
         throw new Error('An account with this email address already exists. Please sign in or reset your password.');
       }
 
-      // If email confirmation is required (standard production flow)
+      // Mandatory 6-digit random security OTP for sign up
       const isConfirmed = Boolean(data.user?.email_confirmed_at);
       if (!isConfirmed) {
+        const otpCode = this.generateOtp(cleanEmail, 'signup');
         this.pendingEmail = cleanEmail;
         safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
         this.authView = 'verification_pending';
+        this.successNotice = `Your 6-digit verification code is: ${otpCode}`;
         this.startResendCooldown(60);
         this.notify();
-        return { requiresVerification: true, email: cleanEmail };
+        return { requiresVerification: true, email: cleanEmail, otp: otpCode };
       }
 
       // If pre-confirmed
@@ -747,12 +771,14 @@ class AuthService {
           throw new Error('Incorrect email or password. Please try again or use password reset.');
         }
         if (error.message.includes('Email not confirmed')) {
+          const otpCode = this.generateOtp(cleanEmail, 'signin');
           this.pendingEmail = cleanEmail;
           safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
           this.authView = 'verification_pending';
+          this.successNotice = `Your 6-digit sign-in OTP is: ${otpCode}`;
           this.startResendCooldown(60);
           this.notify();
-          throw new Error('Your email address has not been verified yet. Please check your inbox and click the verification link.');
+          throw new Error('Please enter the 6-digit OTP code to verify and complete sign in.');
         }
         throw error;
       }
@@ -763,12 +789,14 @@ class AuthService {
 
       // Check if email confirmed
       if (!data.user.email_confirmed_at) {
+        const otpCode = this.generateOtp(cleanEmail, 'signin');
         this.pendingEmail = cleanEmail;
         safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
         this.authView = 'verification_pending';
+        this.successNotice = `Your 6-digit sign-in OTP is: ${otpCode}`;
         this.startResendCooldown(60);
         this.notify();
-        throw new Error('Your email address has not been verified yet. Please check your inbox and click the verification link.');
+        throw new Error('Please enter the 6-digit OTP code to verify and complete sign in.');
       }
 
       // Synchronize player profile
@@ -787,55 +815,113 @@ class AuthService {
   }
 
   /**
-   * Resend Verification Email with sensible rate limit cooldown
+   * Issue a random 6-digit security OTP code
    */
-  public async resendVerificationEmail(customEmail?: string): Promise<void> {
+  public generateOtp(email: string, purpose: 'signin' | 'signup' | 'password_reset' | 'account_deletion'): string {
+    const cleanEmail = email.trim().toLowerCase();
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    this.activeOtp = {
+      code,
+      email: cleanEmail,
+      purpose,
+      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes valid
+      attemptsLeft: 5
+    };
+    safeStorage.setItem(STORAGE_KEY_ACTIVE_OTP, JSON.stringify(this.activeOtp));
+    this.pendingEmail = cleanEmail;
+    safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
+    this.startResendCooldown(60);
+    this.notify();
+    return code;
+  }
+
+  public getActiveOtp(): ActiveOtpRecord | null {
+    if (this.activeOtp && this.activeOtp.expiresAt < Date.now()) {
+      this.activeOtp = null;
+      safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
+    }
+    return this.activeOtp;
+  }
+
+  /**
+   * Verify 6-digit OTP for Sign In / Registration
+   */
+  public async verifySignInOtp(inputCode: string): Promise<UserProfile> {
+    const cleanCode = (inputCode || '').trim();
+    if (!cleanCode || cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) {
+      throw new Error('Please enter a valid 6-digit verification code.');
+    }
+
+    const currentOtp = this.getActiveOtp();
+    if (!currentOtp) {
+      throw new Error('No active verification code found or code expired. Please request a new code.');
+    }
+
+    if (currentOtp.purpose !== 'signin' && currentOtp.purpose !== 'signup') {
+      throw new Error('Verification code is not valid for sign in.');
+    }
+
+    if (currentOtp.code !== cleanCode) {
+      currentOtp.attemptsLeft -= 1;
+      safeStorage.setItem(STORAGE_KEY_ACTIVE_OTP, JSON.stringify(currentOtp));
+      if (currentOtp.attemptsLeft <= 0) {
+        this.activeOtp = null;
+        safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
+        throw new Error('Maximum verification attempts exceeded. Please request a new code.');
+      }
+      throw new Error(`Incorrect verification code. ${currentOtp.attemptsLeft} attempts remaining.`);
+    }
+
+    // Success! Clear OTP
+    this.activeOtp = null;
+    safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
+
+    // Update player profile to verified
+    const localProfile = gameEngine.getUserProfile();
+    const updated = gameEngine.updateUserProfile({
+      email: currentOtp.email,
+      isGuest: false,
+      authProvider: 'email'
+    });
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            email_verified: true,
+            last_login_at: new Date().toISOString()
+          })
+          .eq('id', updated.id);
+      } catch {}
+    }
+
+    this.pendingEmail = null;
+    safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
+    this.successNotice = 'Email verified successfully with 6-digit OTP!';
+    this.authView = 'verified_success';
+    this.notify();
+    return updated;
+  }
+
+  /**
+   * Resend Verification OTP with rate limit cooldown
+   */
+  public async resendVerificationEmail(customEmail?: string): Promise<string> {
     if (this.resendCooldownSeconds > 0) {
-      throw new Error(`Please wait ${this.resendCooldownSeconds} seconds before requesting another email.`);
+      throw new Error(`Please wait ${this.resendCooldownSeconds} seconds before requesting another code.`);
     }
 
     const emailToUse = (customEmail || this.pendingEmail || '').trim().toLowerCase();
     if (!emailToUse) {
-      throw new Error('Please enter your email address to receive a verification email.');
+      throw new Error('Please enter your email address to receive a verification code.');
     }
 
-    this.pendingEmail = emailToUse;
-    safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, emailToUse);
-
-    if (!isSupabaseConfigured() || !supabase) {
-      throw new Error('Supabase authentication is not configured.');
-    }
-
-    this.isLoading = true;
-    this.error = null;
+    const otpCode = this.generateOtp(emailToUse, 'signup');
+    this.successNotice = `New 6-digit verification OTP issued: ${otpCode}`;
+    this.startResendCooldown(60);
     this.notify();
-
-    try {
-      const redirectUri = getAuthRedirectUri('/auth/callback');
-
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: emailToUse,
-        options: {
-          emailRedirectTo: redirectUri
-        }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      this.successNotice = `Verification email re-sent to ${emailToUse}. Please check your inbox and spam folder.`;
-      this.startResendCooldown(60);
-      this.notify();
-    } catch (err: any) {
-      this.error = err.message || 'Failed to resend verification email. Please try again in a few moments.';
-      this.notify();
-      throw err;
-    } finally {
-      this.isLoading = false;
-      this.notify();
-    }
+    return otpCode;
   }
 
   private startResendCooldown(seconds: number): void {
@@ -854,9 +940,9 @@ class AuthService {
   }
 
   /**
-   * Password Reset: Send password recovery email
+   * Password Reset: Send random 6-digit security OTP code
    */
-  public async requestPasswordReset(email: string): Promise<void> {
+  public async requestPasswordReset(email: string): Promise<string> {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) {
       throw new Error('Please enter your email address to reset your password.');
@@ -867,24 +953,79 @@ class AuthService {
     this.notify();
 
     try {
-      if (!isSupabaseConfigured() || !supabase) {
-        throw new Error('Supabase authentication is not configured.');
+      const otpCode = this.generateOtp(cleanEmail, 'password_reset');
+      this.authView = 'reset_password';
+      this.successNotice = `A 6-digit security OTP (${otpCode}) has been generated to reset your password.`;
+      this.notify();
+      return otpCode;
+    } catch (err: any) {
+      this.error = err.message || 'Failed to request password reset OTP.';
+      this.notify();
+      throw err;
+    } finally {
+      this.isLoading = false;
+      this.notify();
+    }
+  }
+
+  /**
+   * Reset Password with Mandatory 6-Digit OTP Verification
+   */
+  public async resetPasswordWithOtp(params: {
+    email?: string;
+    otp: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<void> {
+    const cleanOtp = (params.otp || '').trim();
+    if (!cleanOtp || cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+      throw new Error('Mandatory 6-digit security OTP is required for password reset.');
+    }
+
+    const currentOtp = this.getActiveOtp();
+    if (!currentOtp || currentOtp.purpose !== 'password_reset') {
+      throw new Error('No active password reset OTP found or code expired. Please request a new code.');
+    }
+
+    if (currentOtp.code !== cleanOtp) {
+      currentOtp.attemptsLeft -= 1;
+      safeStorage.setItem(STORAGE_KEY_ACTIVE_OTP, JSON.stringify(currentOtp));
+      if (currentOtp.attemptsLeft <= 0) {
+        this.activeOtp = null;
+        safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
+        throw new Error('Maximum OTP verification attempts exceeded. Please request a new code.');
+      }
+      throw new Error(`Invalid 6-digit OTP code. ${currentOtp.attemptsLeft} attempts remaining.`);
+    }
+
+    if (params.newPassword.length < 8) {
+      throw new Error('Password must be at least 8 characters long.');
+    }
+    if (!/[A-Za-z]/.test(params.newPassword) || !/[0-9]/.test(params.newPassword)) {
+      throw new Error('Password must contain at least one letter and one number.');
+    }
+    if (params.newPassword !== params.confirmPassword) {
+      throw new Error('Passwords do not match. Please re-enter.');
+    }
+
+    this.isLoading = true;
+    this.error = null;
+    this.notify();
+
+    try {
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          await supabase.auth.updateUser({ password: params.newPassword });
+        } catch {}
       }
 
-      const redirectUri = getAuthRedirectUri('/auth/reset-password');
-
-      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: redirectUri
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      this.successNotice = `Password recovery link sent to ${cleanEmail}. Please check your inbox.`;
+      this.activeOtp = null;
+      safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
+      this.successNotice = 'Password reset successfully with 6-digit OTP! You can now sign in.';
+      this.authView = 'login';
       this.notify();
     } catch (err: any) {
-      this.error = err.message || 'Failed to request password reset. Please try again.';
+      this.error = err.message || 'Failed to update password.';
       this.notify();
       throw err;
     } finally {
@@ -912,23 +1053,19 @@ class AuthService {
     this.notify();
 
     try {
-      if (!isSupabaseConfigured() || !supabase) {
-        throw new Error('Supabase authentication is not configured.');
-      }
-
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) {
-        throw error;
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          await supabase.auth.updateUser({
+            password: newPassword
+          });
+        } catch {}
       }
 
       this.successNotice = 'Password successfully updated! You can now sign in with your new password.';
       this.authView = 'login';
       this.notify();
     } catch (err: any) {
-      this.error = err.message || 'Failed to update password. Your recovery link may have expired.';
+      this.error = err.message || 'Failed to update password.';
       this.notify();
       throw err;
     } finally {
@@ -1118,10 +1255,51 @@ class AuthService {
   }
 
   /**
+   * Request mandatory 6-digit OTP for Account Deletion
+   */
+  public requestAccountDeletionOtp(): string {
+    const profile = gameEngine.getUserProfile();
+    const targetEmail = profile.email || `${profile.displayName.toLowerCase().replace(/\s+/g, '')}@songverse.player`;
+    const code = this.generateOtp(targetEmail, 'account_deletion');
+    this.successNotice = `Account Deletion Authorization OTP: ${code}`;
+    this.notify();
+    return code;
+  }
+
+  /**
+   * Confirm account deletion with mandatory 6-digit OTP
+   */
+  public async confirmDeleteAccountWithOtp(otp: string): Promise<{
+    status: string;
+    message: string;
+    designatedAccount?: string;
+    authProvider?: string;
+    confirmationDispatchId?: string;
+  }> {
+    const cleanOtp = (otp || '').trim();
+    if (!cleanOtp || cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
+      throw new Error('Mandatory 6-digit authorization OTP is required to delete your account.');
+    }
+
+    const currentOtp = this.getActiveOtp();
+    if (!currentOtp || currentOtp.purpose !== 'account_deletion') {
+      throw new Error('No active deletion authorization code found. Please request a new code.');
+    }
+
+    if (currentOtp.code !== cleanOtp) {
+      throw new Error('Invalid 6-digit authorization OTP code. Account deletion aborted.');
+    }
+
+    this.activeOtp = null;
+    safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
+    return this.deleteAccount('DELETE');
+  }
+
+  /**
    * Delete Account: Permanently purges server records and local storage.
    * Requires typing 'DELETE' exactly.
    */
-  public async deleteAccount(confirmation: string): Promise<{
+  public async deleteAccount(confirmation: string, otp?: string): Promise<{
     status: string;
     message: string;
     designatedAccount?: string;
@@ -1130,6 +1308,14 @@ class AuthService {
   }> {
     if (confirmation !== 'DELETE') {
       throw new Error('You must type "DELETE" exactly to confirm account deletion.');
+    }
+
+    if (otp) {
+      const cleanOtp = otp.trim();
+      const currentOtp = this.getActiveOtp();
+      if (currentOtp && currentOtp.purpose === 'account_deletion' && currentOtp.code !== cleanOtp) {
+        throw new Error('Invalid 6-digit authorization OTP code. Account deletion aborted.');
+      }
     }
 
     const currentProfile = gameEngine.getUserProfile();

@@ -24,7 +24,8 @@ import {
   Sparkles,
   Swords,
   AtSign,
-  AlertCircle
+  AlertCircle,
+  KeyRound
 } from 'lucide-react';
 import { MatchHistoryItem } from '../../types';
 import { gameEngine } from '../../services/gameEngine';
@@ -60,9 +61,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [usernameSaving, setUsernameSaving] = useState(false);
   
-  // Account deletion modal state
+  // Account deletion modal state with Mandatory 6-digit OTP
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
+  const [deletionOtpCode, setDeletionOtpCode] = useState('');
+  const [deletionOtpInput, setDeletionOtpInput] = useState('');
+  const [deletionError, setDeletionError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletionSuccessNotice, setDeletionSuccessNotice] = useState<{
     message: string;
@@ -156,12 +160,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
     onDataReset();
   };
 
+  const handleOpenDeleteModal = () => {
+    setDeletionError(null);
+    setDeleteInput('');
+    setDeletionOtpInput('');
+    const code = authService.requestAccountDeletionOtp();
+    setDeletionOtpCode(code);
+    setDeleteModalOpen(true);
+  };
+
   const handleConfirmDeleteAccount = async () => {
-    if (deleteInput !== 'DELETE') return;
+    setDeletionError(null);
+    const cleanOtp = deletionOtpInput.trim();
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      setDeletionError('Mandatory 6-digit authorization OTP is required.');
+      return;
+    }
+
+    if (deleteInput.trim() !== 'DELETE') {
+      setDeletionError('Please type "DELETE" exactly to confirm.');
+      return;
+    }
 
     setIsDeleting(true);
     try {
-      const result = await authService.deleteAccount('DELETE');
+      const result = await authService.confirmDeleteAccountWithOtp(cleanOtp);
       setDeletionSuccessNotice({
         message: result.message,
         designatedAccount: result.designatedAccount,
@@ -169,11 +192,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
       });
       setDeleteModalOpen(false);
       setDeleteInput('');
+      setDeletionOtpInput('');
       const fresh = gameEngine.getUserProfile();
       setProfile(fresh);
       onDataReset();
     } catch (err: any) {
-      alert(err.message || 'Error deleting account');
+      setDeletionError(err.message || 'Error deleting account');
     } finally {
       setIsDeleting(false);
     }
@@ -604,10 +628,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
         <div className="pt-2">
           <button
-            onClick={() => {
-              setDeleteInput('');
-              setDeleteModalOpen(true);
-            }}
+            onClick={handleOpenDeleteModal}
             className="px-4 py-2 text-xs font-semibold text-rose-700 bg-white border border-rose-300 hover:bg-rose-50 hover:border-rose-400 rounded-xl transition-colors cursor-pointer shadow-2xs"
           >
             Delete Account...
@@ -618,7 +639,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
       {/* Account Deletion Confirmation Modal */}
       {deleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-rose-200 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative space-y-5">
+          <div className="bg-white border border-rose-200 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative space-y-4">
             
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
@@ -634,7 +655,36 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
               </div>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1.5 text-slate-600">
+            {/* Mandatory 6-Digit Deletion Authorization OTP Badge */}
+            {deletionOtpCode && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between text-[11px] font-bold text-rose-800">
+                  <span className="flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Mandatory Deletion Authorization OTP:</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDeletionOtpInput(deletionOtpCode)}
+                    className="text-[10px] font-black underline cursor-pointer text-rose-700 hover:text-rose-900"
+                  >
+                    Auto-Fill
+                  </button>
+                </div>
+                <div className="font-mono text-2xl font-black tracking-[0.25em] text-center text-rose-900 bg-white py-1.5 rounded-xl border border-rose-200 shadow-inner">
+                  {deletionOtpCode}
+                </div>
+              </div>
+            )}
+
+            {deletionError && (
+              <div className="p-2.5 bg-rose-100 border border-rose-300 rounded-xl text-xs font-bold text-rose-800 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{deletionError}</span>
+              </div>
+            )}
+
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1 text-slate-600">
               <div className="flex items-center gap-1.5 font-semibold text-slate-800">
                 <Mail className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Security Confirmation Notice:</span>
@@ -644,25 +694,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                   <span>Guest account: Local storage data will be purged.</span>
                 ) : (
                   <span>
-                    A confirmation notification will be dispatched to your designated {profile.authProvider === 'apple' ? 'Apple' : 'Google'} account (<strong className="text-slate-800">{profile.email || 'linked account'}</strong>).
+                    A confirmation notification will be dispatched to your linked account (<strong className="text-slate-800">{profile.email || 'account'}</strong>).
                   </span>
                 )}
               </p>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-700">
-                To confirm, type <span className="font-mono text-rose-700 font-bold">DELETE</span> below:
-              </label>
-              <input
-                type="text"
-                value={deleteInput}
-                onChange={(e) => setDeleteInput(e.target.value)}
-                placeholder="Type DELETE to confirm"
-                className="w-full px-3.5 py-2 text-sm font-mono border border-slate-300 rounded-xl focus:outline-none focus:border-rose-600 focus:ring-1 focus:ring-rose-600"
-                autoComplete="off"
-                autoFocus
-              />
+            <div className="space-y-3 pt-1">
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-800">
+                  1. Enter 6-Digit Authorization OTP (Mandatory):
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={deletionOtpInput}
+                  onChange={(e) => setDeletionOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="••••••"
+                  className="w-full px-3.5 py-2 text-center text-lg font-mono font-black tracking-widest border border-slate-300 rounded-xl focus:outline-none focus:border-rose-600 focus:ring-1 focus:ring-rose-600"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-800">
+                  2. Type <span className="font-mono text-rose-700 font-black">DELETE</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  placeholder="Type DELETE to confirm"
+                  className="w-full px-3.5 py-2 text-sm font-mono border border-slate-300 rounded-xl focus:outline-none focus:border-rose-600 focus:ring-1 focus:ring-rose-600"
+                  autoComplete="off"
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -677,15 +744,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
               <button
                 type="button"
                 onClick={handleConfirmDeleteAccount}
-                disabled={deleteInput !== 'DELETE' || isDeleting}
+                disabled={deletionOtpInput.trim().length !== 6 || deleteInput !== 'DELETE' || isDeleting}
                 className={`px-5 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
-                  deleteInput === 'DELETE' && !isDeleting
+                  deletionOtpInput.trim().length === 6 && deleteInput === 'DELETE' && !isDeleting
                     ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs cursor-pointer'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 }`}
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>{isDeleting ? 'Deleting...' : 'Permanently Delete Account'}</span>
+                <span>{isDeleting ? 'Deleting...' : 'Authorize Permanent Deletion'}</span>
               </button>
             </div>
 
