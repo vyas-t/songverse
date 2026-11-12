@@ -71,6 +71,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [kickTargetPlayer, setKickTargetPlayer] = useState<{ id: string; name: string } | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [friendsList, setFriendsList] = useState<FriendUser[]>(socialService.getFriends());
   const [invitedFriendIds, setInvitedFriendIds] = useState<Set<string>>(new Set());
@@ -235,9 +236,24 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
     }
   };
 
-  const handleKickPlayer = async (targetId: string) => {
-    if (isHost) {
-      await multiplayerEngine.kickParticipant(targetId);
+  const handleKickPlayer = async (targetId: string, targetName: string) => {
+    if (!isHost) return;
+    if (room?.status === 'playing') {
+      alert('Fair play safeguard: You cannot remove participants while a round is actively in progress.');
+      return;
+    }
+    setKickTargetPlayer({ id: targetId, name: targetName });
+  };
+
+  const handleConfirmKick = async () => {
+    if (isHost && kickTargetPlayer) {
+      try {
+        await multiplayerEngine.kickParticipant(kickTargetPlayer.id);
+      } catch (err: any) {
+        alert(err.message || 'Failed to remove player.');
+      } finally {
+        setKickTargetPlayer(null);
+      }
     }
   };
 
@@ -654,6 +670,35 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 </div>
               </div>
             )}
+
+            {/* Kick Participant confirmation modal */}
+            {kickTargetPlayer && (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 rounded-2xl space-y-3 animate-in fade-in">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200">
+                  <UserX className="w-4 h-4 text-rose-600" />
+                  <span>
+                    Remove <span className="font-extrabold text-slate-900 dark:text-white">"{kickTargetPlayer.name}"</span> from this room?
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                  This player will be disconnected from the lobby and their spot will open up for others.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleConfirmKick}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs transition-colors"
+                  >
+                    Yes, Remove Player
+                  </button>
+                  <button
+                    onClick={() => setKickTargetPlayer(null)}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Host Migration Notification Banner */}
@@ -999,9 +1044,14 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isHost && !p.isHost && (
                         <button
-                          onClick={() => handleKickPlayer(p.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg cursor-pointer transition-colors"
-                          title="Remove participant"
+                          onClick={() => handleKickPlayer(p.id, p.displayName)}
+                          disabled={room.status === 'playing'}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            room.status === 'playing'
+                              ? 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50'
+                              : 'text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 cursor-pointer'
+                          }`}
+                          title={room.status === 'playing' ? 'Cannot remove players while a round is actively in progress' : `Remove ${p.displayName}`}
                         >
                           <UserX className="w-4 h-4" />
                         </button>

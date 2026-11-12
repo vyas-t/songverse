@@ -21,6 +21,7 @@ import { ProfileView } from './components/profile/ProfileView';
 import { LegalCentre } from './components/legal/LegalCentre';
 import { AdminPanel } from './components/admin/AdminPanel';
 import { AuthModal } from './components/auth/AuthModal';
+import { OnboardingGuide } from './components/common/OnboardingGuide';
 import { gameEngine } from './services/gameEngine';
 import { privacyConsent } from './services/privacyConsent';
 import { audioEngine } from './services/audioEngine';
@@ -53,6 +54,7 @@ export default function App() {
   const [legalInitialTab, setLegalInitialTab] = useState('privacy');
   const [cookieModalOpen, setCookieModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [guideModalOpen, setGuideModalOpen] = useState(false);
 
   // Subscribe to cookie preference updates.
   useEffect(() => {
@@ -143,6 +145,7 @@ export default function App() {
         streak={userProfile.currentStreak}
         isGuest={userProfile.isGuest}
         onOpenAuth={() => setAuthModalOpen(true)}
+        onOpenGuide={() => setGuideModalOpen(true)}
       />
 
       {/* Main View Router */}
@@ -151,6 +154,7 @@ export default function App() {
           <LandingPage
             onStartPlay={handleStartPlay}
             onNavigate={handleNavigate}
+            onOpenGuide={() => setGuideModalOpen(true)}
           />
         )}
 
@@ -260,6 +264,13 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Interactive Onboarding & Game Guide (Optional, non-intrusive) */}
+      <OnboardingGuide
+        isOpen={guideModalOpen ? true : undefined}
+        onClose={() => setGuideModalOpen(false)}
+        onNavigate={handleNavigate}
+      />
     </div>
   );
 }

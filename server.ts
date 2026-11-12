@@ -1614,6 +1614,14 @@ app.post('/api/multiplayer/rooms/:code/host/kick', (req: Request, res: Response)
   if (room.hostToken !== hostToken) return res.status(403).json({ error: 'UNAUTHORIZED_HOST' });
   if (targetPlayerId === room.hostId) return res.status(400).json({ error: 'CANNOT_KICK_HOST' });
 
+  // Security Gate: Kicking blocked during active match gameplay
+  if (room.status === 'playing') {
+    return res.status(400).json({
+      error: 'MATCH_ACTIVE',
+      message: 'Participants cannot be removed while a round is actively in progress.'
+    });
+  }
+
   room.bannedPlayerIds.add(targetPlayerId);
   room.players = room.players.filter(p => p.id !== targetPlayerId);
   room.lastActivityAt = Date.now();

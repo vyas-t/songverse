@@ -23,6 +23,7 @@ import { audioEngine } from '../../services/audioEngine';
 interface LandingPageProps {
   onStartPlay: (mode?: GameMode) => void;
   onNavigate: (view: string, mode?: GameMode) => void;
+  onOpenGuide?: () => void;
 }
 
 // Real curated artist/album artwork cards for the floating perimeter
@@ -96,7 +97,7 @@ const FLOATING_ARTISTS_RIGHT = [
   }
 ];
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigate }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigate, onOpenGuide }) => {
   const [demoLevel, setDemoLevel] = useState<1 | 2 | 3 | 4>(1);
   const [isPlayingDemo, setIsPlayingDemo] = useState(false);
 
@@ -203,12 +204,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
       {/* CENTRAL HERO SECTION */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 text-center space-y-9 z-20">
         
-        {/* Brand Tag Pill */}
-        <div className="inline-flex items-center gap-2.5 text-xs font-extrabold text-sv-red dark:text-sv-warm-orange bg-sv-red/10 dark:bg-sv-burgundy-deep/90 border border-sv-red/20 dark:border-sv-burgundy px-4 py-1.5 rounded-full uppercase tracking-wider shadow-xs">
-          <Zap className="w-3.5 h-3.5 fill-current text-sv-red dark:text-sv-gold" />
-          <span>Multilingual Song Guessing Platform 2.0</span>
-          <span className="text-slate-300 dark:text-sv-burgundy" aria-hidden="true">•</span>
-          <span className="text-slate-700 dark:text-slate-300 font-semibold lowercase">80+ verified tracks</span>
+        {/* Brand Tag Pill + Optional Guide Trigger */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <div className="inline-flex items-center gap-2.5 text-xs font-extrabold text-sv-red dark:text-sv-warm-orange bg-sv-red/10 dark:bg-sv-burgundy-deep/90 border border-sv-red/20 dark:border-sv-burgundy px-4 py-1.5 rounded-full uppercase tracking-wider shadow-xs">
+            <Zap className="w-3.5 h-3.5 fill-current text-sv-red dark:text-sv-gold" />
+            <span>Multilingual Song Guessing Platform 2.0</span>
+            <span className="text-slate-300 dark:text-sv-burgundy" aria-hidden="true">•</span>
+            <span className="text-slate-700 dark:text-slate-300 font-semibold lowercase">80+ verified tracks</span>
+          </div>
+
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white/80 dark:bg-sv-burgundy/80 hover:bg-slate-100 dark:hover:bg-sv-burgundy border border-slate-200/80 dark:border-sv-burgundy px-3 py-1.5 rounded-full shadow-xs transition-all cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-sv-orange" />
+              <span>New here? How it works</span>
+            </button>
+          )}
         </div>
 
         {/* Hero Title */}

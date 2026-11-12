@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Menu, X, Sun, Moon, Laptop, Users, Calendar, Disc3, Trophy, Flame, Sparkles } from 'lucide-react';
+import { Music, Menu, X, Sun, Moon, Laptop, Users, Calendar, Disc3, Trophy, Flame, Sparkles, HelpCircle } from 'lucide-react';
 import { GameMode } from '../../types';
 import { themeManager, ThemePreference } from '../../services/themeManager';
 
@@ -10,6 +10,7 @@ interface NavbarProps {
   streak: number;
   isGuest?: boolean;
   onOpenAuth?: () => void;
+  onOpenGuide?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,7 +19,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   userScore,
   streak,
   isGuest,
-  onOpenAuth
+  onOpenAuth,
+  onOpenGuide
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [themePref, setThemePref] = useState<ThemePreference>(themeManager.getPreference());
@@ -125,6 +127,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
 
+          {/* How to Play Guide Pill */}
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="px-3 py-1.5 rounded-xl bg-sv-red/10 hover:bg-sv-red/20 text-sv-red dark:text-sv-warm-orange text-xs font-bold flex items-center gap-1.5 border border-sv-red/20 transition-all cursor-pointer shadow-xs"
+              title="How to play & guide"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Guide</span>
+            </button>
+          )}
+
           {/* Guest Sign In Prompt */}
           {isGuest && onOpenAuth && (
             <button
@@ -169,6 +183,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Play
           </button>
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="p-2 text-sv-red dark:text-sv-warm-orange rounded-xl bg-sv-red/10 border border-sv-red/20 focus:outline-none"
+              title="How to play guide"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 text-slate-700 dark:text-slate-200 rounded-xl bg-slate-100 dark:bg-sv-burgundy-deep focus:outline-none"

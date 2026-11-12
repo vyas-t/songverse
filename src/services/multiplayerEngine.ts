@@ -14,7 +14,9 @@ const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' }
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:global.stun.twilio.com:3478' }
 ];
 
 async function getPeerClass(): Promise<any> {
@@ -336,6 +338,7 @@ class MultiplayerEngineService {
         }
 
         this.saveLocalRoomState(this.activeRoom);
+        conn.send({ type: 'ROOM_STATE', room: this.activeRoom });
         this.broadcastMessage({ type: 'PLAYER_JOINED', room: this.activeRoom });
         this.broadcastRoomToPeers();
         this.notify();
@@ -875,10 +878,10 @@ class MultiplayerEngineService {
           reject(err);
         };
 
-        // 3.5s timeout for fast WebRTC lookup
+        // 7s timeout for reliable cross-network WebRTC NAT/STUN traversal
         connTimeout = setTimeout(() => {
           safeResolve(null);
-        }, 3500) as any;
+        }, 7000) as any;
 
         this.guestPeer.on('open', (id: string) => {
           console.log(`[MultiplayerEngine] Guest peer initialized: ${id}`);
@@ -1257,9 +1260,17 @@ class MultiplayerEngineService {
 
   /**
    * Host Controls: Kick Participant & Revoke Access
+   * Fair play security rule: Kicking is only permitted in 'lobby' or 'round-summary' / 'results',
+   * NEVER during active synchronized round gameplay ('playing') to prevent score sabotage.
    */
   public async kickParticipant(targetPlayerId: string): Promise<boolean> {
     if (!this.activeRoom) return false;
+
+    // Security Gate: Disallow kicking while match round is active
+    if (this.activeRoom.status === 'playing') {
+      console.warn('[MultiplayerEngine] Kicking is blocked during active round gameplay.');
+      throw new Error('Host cannot remove participants while a round is actively in progress.');
+    }
 
     // Notify guest via DataChannel
     const guestConn = this.guestConnections.get(targetPlayerId);
