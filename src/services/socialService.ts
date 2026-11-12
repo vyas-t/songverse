@@ -268,17 +268,44 @@ class SocialService {
     // 2. Persist to Supabase if authenticated
     if (!currentProfile.isGuest && isSupabaseConfigured() && supabase) {
       try {
-        const { error } = await supabase
+        const { data: updatedRows, error: updateError } = await supabase
           .from('profiles')
           .update({
-            username: clean,
-            updated_at: new Date().toISOString()
+            username: clean
           })
-          .eq('id', currentProfile.id);
+          .eq('id', currentProfile.id)
+          .select('id');
 
-        if (error) {
-          return { success: false, error: 'Database error: ' + error.message };
+        if (updateError) {
+          return { success: false, error: 'Database error: ' + updateError.message };
         }
+
+        // If no existing row was updated, insert base profile row with safe columns
+        if (!updatedRows || updatedRows.length === 0) {
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: currentProfile.id,
+              username: clean,
+              display_name: currentProfile.displayName || clean,
+              avatar_seed: currentProfile.avatarSeed || 'aurora',
+              account_status: 'active',
+              total_score: currentProfile.totalScore || 0,
+              games_played: currentProfile.gamesPlayed || 0,
+              rounds_won: currentProfile.roundsWon || 0,
+              current_streak: currentProfile.currentStreak || 0,
+              best_streak: currentProfile.bestStreak || 0
+            });
+
+          if (insertError) {
+            console.warn('[SocialService] Supabase profile upsert warning:', insertError);
+          }
+        }
+
+        // Keep Supabase auth user_metadata synchronized as well
+        await supabase.auth.updateUser({
+          data: { username: clean }
+        }).catch(() => {});
       } catch (err: any) {
         return { success: false, error: err.message || 'Failed to update username in database.' };
       }

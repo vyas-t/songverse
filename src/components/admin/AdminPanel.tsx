@@ -362,7 +362,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       try {
         const { error } = await supabase
           .from('profiles')
-          .update({ account_status: nextStatus, updated_at: new Date().toISOString() })
+          .update({ account_status: nextStatus })
           .eq('id', playerId);
 
         if (!error) {

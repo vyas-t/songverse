@@ -439,52 +439,63 @@ class AuthService {
 
         // If no profile row exists, create it safely
         if (!remoteProfileData) {
-          const insertData: any = {
+          const safeInsertData: any = {
             id: sbUser.id,
-            email: sbUser.email,
             display_name: sbUser.user_metadata?.display_name || sbUser.user_metadata?.full_name || localProfile.displayName || 'GrooveExplorer',
             username: desiredUsername,
             avatar_seed: localProfile.avatarSeed || 'aurora',
-            auth_provider: provider,
-            account_type: 'player',
             account_status: 'active',
-            email_verified: isVerified,
             total_score: localProfile.totalScore || 0,
             games_played: localProfile.gamesPlayed || 0,
             rounds_won: localProfile.roundsWon || 0,
             current_streak: localProfile.currentStreak || 0,
-            best_streak: localProfile.bestStreak || 0,
+            best_streak: localProfile.bestStreak || 0
+          };
+
+          const fullInsertData: any = {
+            ...safeInsertData,
+            email: sbUser.email,
+            auth_provider: provider,
+            account_type: 'player',
+            email_verified: isVerified,
             preferred_language: localProfile.preferredLanguages?.[0] || 'English',
             last_login_at: new Date().toISOString()
           };
 
           const { data: created, error: insertError } = await supabase
             .from('profiles')
-            .insert(insertData)
+            .insert(fullInsertData)
             .select()
             .single();
 
           if (insertError) {
-            // If duplicate username collision on insert, append random suffix
-            insertData.username = `${desiredUsername.slice(0, 15)}_${Math.floor(100 + Math.random() * 899)}`;
-            const retry = await supabase.from('profiles').insert(insertData).select().single();
-            remoteProfileData = retry.data || insertData;
+            // If full insert failed (e.g. missing optional columns in schema), fall back to safe core columns
+            const fallback = await supabase
+              .from('profiles')
+              .insert(safeInsertData)
+              .select()
+              .single();
+
+            if (fallback.error && fallback.error.code === '23505') {
+              // If duplicate username collision, append random suffix
+              safeInsertData.username = `${desiredUsername.slice(0, 15)}_${Math.floor(100 + Math.random() * 899)}`;
+              const retry = await supabase.from('profiles').insert(safeInsertData).select().single();
+              remoteProfileData = retry.data || safeInsertData;
+            } else {
+              remoteProfileData = fallback.data || safeInsertData;
+            }
           } else {
-            remoteProfileData = created || insertData;
+            remoteProfileData = created || fullInsertData;
           }
         } else {
           // If profile exists, ensure username is populated in database if missing
-          const updatePayload: any = {
-            email_verified: isVerified,
-            last_login_at: new Date().toISOString()
-          };
           if (!remoteProfileData.username && localProfile.username) {
-            updatePayload.username = localProfile.username;
+            await supabase
+              .from('profiles')
+              .update({ username: localProfile.username })
+              .eq('id', sbUser.id)
+              .catch(() => {});
           }
-          await supabase
-            .from('profiles')
-            .update(updatePayload)
-            .eq('id', sbUser.id);
         }
       } catch (err) {
         console.warn('[SongVerse AuthService] Failed to sync remote profile:', err);
@@ -1152,7 +1163,7 @@ class AuthService {
       try {
         await supabase
           .from('profiles')
-          .update({ display_name: cleanName, updated_at: new Date().toISOString() })
+          .update({ display_name: cleanName })
           .eq('id', currentProfile.id);
 
         await supabase.auth.updateUser({
