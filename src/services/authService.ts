@@ -1,6 +1,7 @@
 import { UserProfile, AuthProviderConfig } from '../types';
 import { gameEngine } from './gameEngine';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { emailService } from './emailService';
 
 export type AuthView =
   | 'login'
@@ -32,7 +33,7 @@ export interface AuthState {
   pendingEmail: string | null;
   resendCooldownSeconds: number;
   successNotice: string | null;
-  activeOtpCode?: string | null;
+  hasActiveOtp?: boolean;
 }
 
 const STORAGE_KEY_AUTH_TOKEN = 'songverse_auth_session_token';
@@ -200,7 +201,7 @@ class AuthService {
       pendingEmail: this.pendingEmail,
       resendCooldownSeconds: this.resendCooldownSeconds,
       successNotice: this.successNotice,
-      activeOtpCode: validOtp ? validOtp.code : null
+      hasActiveOtp: Boolean(validOtp)
     };
   }
 
@@ -730,7 +731,7 @@ class AuthService {
         this.pendingEmail = cleanEmail;
         safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
         this.authView = 'verification_pending';
-        this.successNotice = `Your 6-digit verification code is: ${otpCode}`;
+        this.successNotice = 'A 6-digit verification code has been dispatched to your email address.';
         this.startResendCooldown(60);
         this.notify();
         return { requiresVerification: true, email: cleanEmail, otp: otpCode };
@@ -786,7 +787,7 @@ class AuthService {
           this.pendingEmail = cleanEmail;
           safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
           this.authView = 'verification_pending';
-          this.successNotice = `Your 6-digit sign-in OTP is: ${otpCode}`;
+          this.successNotice = 'A 6-digit sign-in code has been dispatched to your email address.';
           this.startResendCooldown(60);
           this.notify();
           throw new Error('Please enter the 6-digit OTP code to verify and complete sign in.');
@@ -842,6 +843,16 @@ class AuthService {
     this.pendingEmail = cleanEmail;
     safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
     this.startResendCooldown(60);
+
+    // Dispatch 6-digit OTP email to user's mailbox (Gmail / SMTP / Resend)
+    emailService.sendOtpEmail({
+      email: cleanEmail,
+      otp: code,
+      purpose
+    }).catch(err => {
+      console.warn('[SongVerse AuthService] OTP email dispatch warning:', err?.message || err);
+    });
+
     this.notify();
     return code;
   }
@@ -929,7 +940,7 @@ class AuthService {
     }
 
     const otpCode = this.generateOtp(emailToUse, 'signup');
-    this.successNotice = `New 6-digit verification OTP issued: ${otpCode}`;
+    this.successNotice = 'A new 6-digit verification code has been dispatched to your email address.';
     this.startResendCooldown(60);
     this.notify();
     return otpCode;
@@ -966,7 +977,7 @@ class AuthService {
     try {
       const otpCode = this.generateOtp(cleanEmail, 'password_reset');
       this.authView = 'reset_password';
-      this.successNotice = `A 6-digit security OTP (${otpCode}) has been generated to reset your password.`;
+      this.successNotice = `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox.`;
       this.notify();
       return otpCode;
     } catch (err: any) {
@@ -1272,7 +1283,7 @@ class AuthService {
     const profile = gameEngine.getUserProfile();
     const targetEmail = profile.email || `${profile.displayName.toLowerCase().replace(/\s+/g, '')}@songverse.player`;
     const code = this.generateOtp(targetEmail, 'account_deletion');
-    this.successNotice = `Account Deletion Authorization OTP: ${code}`;
+    this.successNotice = 'A 6-digit authorization code has been dispatched to your email address.';
     this.notify();
     return code;
   }

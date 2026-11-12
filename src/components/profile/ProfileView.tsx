@@ -64,7 +64,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
   // Account deletion modal state with Mandatory 6-digit OTP
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
-  const [deletionOtpCode, setDeletionOtpCode] = useState('');
   const [deletionOtpInput, setDeletionOtpInput] = useState('');
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -164,8 +163,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
     setDeletionError(null);
     setDeleteInput('');
     setDeletionOtpInput('');
-    const code = authService.requestAccountDeletionOtp();
-    setDeletionOtpCode(code);
+    authService.requestAccountDeletionOtp();
     setDeleteModalOpen(true);
   };
 
@@ -655,27 +653,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
               </div>
             </div>
 
-            {/* Mandatory 6-Digit Deletion Authorization OTP Badge */}
-            {deletionOtpCode && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-1.5 shadow-2xs">
-                <div className="flex items-center justify-between text-[11px] font-bold text-rose-800">
-                  <span className="flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Mandatory Deletion Authorization OTP:</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setDeletionOtpInput(deletionOtpCode)}
-                    className="text-[10px] font-black underline cursor-pointer text-rose-700 hover:text-rose-900"
-                  >
-                    Auto-Fill
-                  </button>
-                </div>
-                <div className="font-mono text-2xl font-black tracking-[0.25em] text-center text-rose-900 bg-white py-1.5 rounded-xl border border-rose-200 shadow-inner">
-                  {deletionOtpCode}
-                </div>
+            {/* Email Inbox Notice Card */}
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-left">
+              <Mail className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="text-[11px] text-rose-800 leading-relaxed">
+                A mandatory 6-digit authorization code has been dispatched to your email (<strong>{profile.email || 'your account'}</strong>). Please check your inbox or spam folder.
               </div>
-            )}
+            </div>
 
             {deletionError && (
               <div className="p-2.5 bg-rose-100 border border-rose-300 rounded-xl text-xs font-bold text-rose-800 flex items-center gap-2">
