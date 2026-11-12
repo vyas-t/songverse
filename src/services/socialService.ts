@@ -597,11 +597,19 @@ class SocialService {
 
     if (!currentProfile.isGuest && isSupabaseConfigured() && supabase) {
       try {
-        await supabase
+        const { error: fErr } = await supabase
           .from('friendships')
           .update({ status: 'accepted', updated_at: new Date().toISOString() })
           .eq('sender_id', req.senderId)
           .eq('receiver_id', currentProfile.id);
+        if (fErr) {
+          // Schema fallback if updated_at column is not present
+          await supabase
+            .from('friendships')
+            .update({ status: 'accepted' })
+            .eq('sender_id', req.senderId)
+            .eq('receiver_id', currentProfile.id);
+        }
       } catch (err) {
         console.warn('[SocialService] Accept friend in Supabase failed:', err);
       }
@@ -620,11 +628,18 @@ class SocialService {
 
     if (req && !currentProfile.isGuest && isSupabaseConfigured() && supabase) {
       try {
-        await supabase
+        const { error: rErr } = await supabase
           .from('friendships')
           .update({ status: 'rejected', updated_at: new Date().toISOString() })
           .eq('sender_id', req.senderId)
           .eq('receiver_id', currentProfile.id);
+        if (rErr) {
+          await supabase
+            .from('friendships')
+            .update({ status: 'rejected' })
+            .eq('sender_id', req.senderId)
+            .eq('receiver_id', currentProfile.id);
+        }
       } catch {}
     }
 

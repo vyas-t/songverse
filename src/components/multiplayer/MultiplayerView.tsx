@@ -47,6 +47,11 @@ import { SongSearchInput } from '../game/SongSearchInput';
 import { MusicVisualizer } from '../common/MusicVisualizer';
 import { socialService } from '../../services/socialService';
 import { FriendUser } from '../../types';
+import { soundEffectsService } from '../../services/soundEffectsService';
+import { ShareResultModal } from '../common/ShareResultModal';
+import { CURATED_BATTLE_THEMES } from '../../config/battleThemes';
+import { rankedBlitzService } from '../../services/rankedBlitzService';
+import { RankedBlitzModal } from './RankedBlitzModal';
 
 interface MultiplayerViewProps {
   onOpenAuth?: () => void;
@@ -85,6 +90,16 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [exportedService, setExportedService] = useState<'spotify' | 'apple' | null>(null);
+  const [selectedBattleTheme, setSelectedBattleTheme] = useState<string>('pop_2010s');
+  const [blitzModalOpen, setBlitzModalOpen] = useState(false);
+  const [shareMatchModalOpen, setShareMatchModalOpen] = useState(false);
+  const [blitzStats, setBlitzStats] = useState(rankedBlitzService.getStats());
+
+  useEffect(() => {
+    return rankedBlitzService.subscribe(() => {
+      setBlitzStats(rankedBlitzService.getStats());
+    });
+  }, []);
 
   // Cool Floating & Popping Emojis Reaction State
   interface FloatingReactionItem {
@@ -99,6 +114,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   const lastReactionCountRef = useRef<number>(0);
 
   const spawnFloatingReaction = (emoji: '🔥' | '🤯' | '👏' | '😭' | '⚡' | '🎉' | '❤️', playerName: string) => {
+    soundEffectsService.playEmojiPop(emoji);
     const burstCount = 2;
     for (let i = 0; i < burstCount; i++) {
       const id = `pop_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${i}`;
@@ -148,10 +164,20 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   }, []);
 
   // Tick interval for 30-second round countdown and 5-second round summary countdown
+  const lastTickSecondRef = useRef<number>(-1);
   useEffect(() => {
     const updateCountdowns = () => {
       if (room?.status === 'playing') {
-        setRemainingSeconds(multiplayerEngine.getRemainingSeconds());
+        const remaining = multiplayerEngine.getRemainingSeconds();
+        setRemainingSeconds(remaining);
+        if (remaining <= 3 && remaining > 0) {
+          if (lastTickSecondRef.current !== remaining) {
+            lastTickSecondRef.current = remaining;
+            soundEffectsService.playCountdownTick(remaining === 1);
+          }
+        } else {
+          lastTickSecondRef.current = -1;
+        }
       } else if (room?.status === 'round-summary') {
         setResultsSeconds(multiplayerEngine.getResultsCountdownSeconds());
       }
@@ -160,6 +186,13 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
     const interval = setInterval(updateCountdowns, 200);
     return () => clearInterval(interval);
   }, [room?.status, room?.roundDeadline, room?.roundResultsUntil]);
+
+  // Victory fanfare sound when match completes
+  useEffect(() => {
+    if (room?.status === 'completed') {
+      soundEffectsService.playGameVictoryFanfare();
+    }
+  }, [room?.status]);
 
   useEffect(() => {
     const unsubPlayback = audioEngine.subscribePlayback((playing, curTime) => {
@@ -232,7 +265,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
       const newRoom = await multiplayerEngine.createRoom(
         effectiveName,
         profile.id,
-        { language: roomLanguage, mixLanguages: roomMixLanguages, totalRounds: selectedRounds }
+        { language: roomLanguage, mixLanguages: roomMixLanguages, totalRounds: selectedRounds, battleTheme: selectedBattleTheme }
       );
       setRoom(newRoom);
     } catch (err: any) {
@@ -470,6 +503,12 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
 
     const points = isCorrect ? (pointsMap[myLevel] || 20) : 0;
 
+    if (isCorrect) {
+      soundEffectsService.playCorrectChime(profile.currentStreak || 1);
+    } else {
+      soundEffectsService.playWrongBuzz();
+    }
+
     multiplayerEngine.submitPlayerGuess(
       profile.id,
       isCorrect,
@@ -572,6 +611,45 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
             </div>
           </div>
 
+          {/* Quick Match 1v1 Blitz Card */}
+          <div className="bg-gradient-to-r from-sv-burgundy via-sv-red/80 to-sv-orange/80 rounded-3xl p-6 sm:p-7 shadow-lg text-white flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden border border-white/20">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+            <div className="relative z-10 space-y-2 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/30 backdrop-blur-md text-[10px] font-black uppercase tracking-wider text-sv-warm-orange border border-white/10">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Ranked Matchmaking • 3-Round Duel
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+                ⚡ Quick Match 1v1 Blitz
+              </h2>
+              <p className="text-xs text-white/80 max-w-lg leading-relaxed">
+                Compete in real-time head-to-head 30-second song showdowns. Climb from <span className="font-bold text-amber-300">Bronze</span> to <span className="font-bold text-cyan-300">Maestro</span> and gain Elo!
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                <span className="px-3 py-1 rounded-xl bg-black/40 font-bold border border-white/10">
+                  Rating: <span className="text-sv-warm-orange font-mono font-black">{blitzStats.rating} Elo</span>
+                </span>
+                <span className="px-3 py-1 rounded-xl bg-black/40 font-bold border border-white/10">
+                  Tier: <span className="text-amber-300 font-mono font-black">{blitzStats.tier}</span>
+                </span>
+                <span className="px-3 py-1 rounded-xl bg-black/40 font-bold border border-white/10">
+                  Record: <span className="text-white font-mono">{blitzStats.wins}W / {blitzStats.losses}L</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={() => setBlitzModalOpen(true)}
+                className="w-full sm:w-auto px-7 py-3.5 bg-white text-slate-950 hover:bg-slate-100 font-black text-sm rounded-2xl shadow-xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Zap className="w-4 h-4 text-sv-red" />
+                Find 1v1 Match
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-7 items-start">
           
           {/* Create Room Card */}
@@ -589,6 +667,36 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
             </div>
 
             <div className="space-y-4">
+              {/* Curated Showdown Theme & Visualizer */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Battle Showdown Theme & Visualizer
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {CURATED_BATTLE_THEMES.map((theme) => {
+                    const isSelected = selectedBattleTheme === theme.id;
+                    return (
+                      <button
+                        type="button"
+                        key={theme.id}
+                        onClick={() => setSelectedBattleTheme(theme.id)}
+                        className={`p-2.5 rounded-xl text-left border transition-all text-xs cursor-pointer flex flex-col gap-1 ${
+                          isSelected
+                            ? 'border-sv-red bg-sv-red/10 text-sv-red dark:text-sv-warm-orange ring-1 ring-sv-red'
+                            : 'border-slate-200 dark:border-sv-burgundy bg-slate-50 dark:bg-sv-midnight text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="truncate">{theme.name}</span>
+                          <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 shrink-0">{theme.visualizerTheme}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{theme.subtitle}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Language Preference
@@ -1381,6 +1489,9 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 waveformBars={waveformBars}
                 isPlaying={isPlayingAudio}
                 isLoading={isLoadingAudio}
+                defaultStyle={
+                  (CURATED_BATTLE_THEMES.find(t => t.id === (room?.battleTheme || selectedBattleTheme))?.visualizerTheme) || 'cyberpunk'
+                }
               />
 
               {/* Progress Bar Track */}
@@ -1801,6 +1912,14 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                   </button>
                 )}
                 <button
+                  type="button"
+                  onClick={() => setShareMatchModalOpen(true)}
+                  className="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-sv-burgundy to-sv-red hover:from-sv-burgundy-deep hover:to-sv-crimson text-white rounded-2xl text-xs font-black transition-all cursor-pointer shadow-md shadow-sv-red/25 flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Share Score Card</span>
+                </button>
+                <button
                   onClick={handleLeaveRoom}
                   className="w-full sm:w-auto px-7 py-3.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-2xl text-xs font-black transition-all cursor-pointer shadow-xs"
                 >
@@ -1909,6 +2028,26 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
           </div>
         ))}
       </div>
+
+      {/* 1v1 Ranked Blitz Duel Modal */}
+      <RankedBlitzModal
+        isOpen={blitzModalOpen}
+        onClose={() => setBlitzModalOpen(false)}
+        playerName={nameInput.trim() || profile.displayName || `Player_${profile.id.slice(-4)}`}
+      />
+
+      {/* Wordle-Style Match Share Result Modal */}
+      <ShareResultModal
+        isOpen={shareMatchModalOpen}
+        onClose={() => setShareMatchModalOpen(false)}
+        gameMode="multiplayer"
+        score={myPlayer?.score || 0}
+        accuracy={Math.round(((myPlayer?.correctGuesses || 0) / Math.max(1, room?.totalRounds || room?.trackIds?.length || 5)) * 100)}
+        streak={profile.currentStreak || 0}
+        totalRounds={room?.totalRounds || room?.trackIds?.length || 5}
+        roundsWon={myPlayer?.correctGuesses || 0}
+        playerName={myPlayer?.displayName || profile.displayName}
+      />
 
     </div>
   );

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Calendar, Play, Trophy, Sparkles, CheckCircle2, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Calendar, Play, Trophy, Sparkles, CheckCircle2, Clock, ShieldCheck, ArrowRight, Share2 } from 'lucide-react';
 import { gameEngine } from '../../services/gameEngine';
 import { GameMode } from '../../types';
+import { ShareResultModal } from '../common/ShareResultModal';
 
 interface DailyChallengeViewProps {
   onStartDaily: () => void;
@@ -12,6 +13,7 @@ export const DailyChallengeView: React.FC<DailyChallengeViewProps> = ({
   onStartDaily,
   onNavigateLeaderboard
 }) => {
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const today = new Date().toISOString().split('T')[0];
   const dailyStatus = gameEngine.getDailyChallengeStatus(today);
   const userProfile = gameEngine.getUserProfile();
@@ -92,12 +94,19 @@ export const DailyChallengeView: React.FC<DailyChallengeViewProps> = ({
                     You scored <strong className="text-sv-red dark:text-sv-gold font-mono text-sm font-black">{dailyStatus.score} pts</strong> ({dailyStatus.roundsWon} / 5 correct).
                   </p>
                 </div>
-                <div className="pt-2">
+                <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                  <button
+                    onClick={() => setShareModalOpen(true)}
+                    className="flex-1 py-3 text-xs font-black text-white bg-gradient-to-r from-sv-warm-orange to-sv-gold hover:brightness-110 rounded-2xl transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span>Share Result</span>
+                  </button>
                   <button
                     onClick={onNavigateLeaderboard}
-                    className="w-full py-3 text-xs font-black text-white bg-sv-red hover:bg-sv-crimson rounded-2xl transition-all cursor-pointer shadow-sm shadow-sv-red/25"
+                    className="flex-1 py-3 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-sv-navy hover:bg-slate-200 rounded-2xl transition-all cursor-pointer"
                   >
-                    View Daily Leaderboard Rank
+                    Leaderboard
                   </button>
                 </div>
               </div>
@@ -128,6 +137,18 @@ export const DailyChallengeView: React.FC<DailyChallengeViewProps> = ({
         </div>
 
       </div>
+
+      <ShareResultModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        gameMode="daily"
+        score={dailyStatus.score || 0}
+        accuracy={Math.round(((dailyStatus.roundsWon || 0) / 5) * 100)}
+        streak={userProfile.currentStreak}
+        totalRounds={5}
+        roundsWon={dailyStatus.roundsWon || 0}
+        playerName={userProfile.displayName}
+      />
 
     </div>
   );

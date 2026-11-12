@@ -643,7 +643,7 @@ class MultiplayerEngineService {
   public async createRoom(
     hostPlayerName: string,
     hostPlayerId: string,
-    settings?: { language?: string; mixLanguages?: boolean; totalRounds?: number; mode?: 'competitive' | 'casual' }
+    settings?: { language?: string; mixLanguages?: boolean; totalRounds?: number; mode?: 'competitive' | 'casual'; battleTheme?: string }
   ): Promise<MultiplayerRoom> {
     this.leaveRoom();
     this.currentUserId = hostPlayerId;
@@ -719,6 +719,7 @@ class MultiplayerEngineService {
       catalogueStats: stats,
       languageFilter: langFilter,
       isSettingsLocked: false,
+      battleTheme: settings?.battleTheme || 'pop_2010s',
       createdAt: Date.now()
     };
 

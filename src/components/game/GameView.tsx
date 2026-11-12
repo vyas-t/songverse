@@ -13,7 +13,10 @@ import {
   Award,
   Disc3,
   FastForward,
-  Globe
+  Globe,
+  Share2,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { GameSession, GameRound, Track, GameMode } from '../../types';
 import { gameEngine } from '../../services/gameEngine';
@@ -21,6 +24,8 @@ import { GAME_LEVELS } from '../../config/gameConfig';
 import { AudioPlayer } from './AudioPlayer';
 import { SongSearchInput } from './SongSearchInput';
 import { audioEngine } from '../../services/audioEngine';
+import { soundEffectsService } from '../../services/soundEffectsService';
+import { ShareResultModal } from '../common/ShareResultModal';
 
 interface GameViewProps {
   mode: GameMode;
@@ -45,6 +50,12 @@ export const GameView: React.FC<GameViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [sfxMuted, setSfxMuted] = useState(soundEffectsService.getIsMuted());
+
+  useEffect(() => {
+    return soundEffectsService.subscribe((muted) => setSfxMuted(muted));
+  }, []);
 
   // Initialize or resume session
   useEffect(() => {
@@ -86,7 +97,7 @@ export const GameView: React.FC<GameViewProps> = ({
       setSelectedTrack(null);
 
       if (result.isCorrect) {
-        audioEngine.playCorrectSound();
+        audioEngine.playCorrectSound(gameEngine.getUserProfile().currentStreak);
         if (result.round.currentLevel === 1 || result.session.totalScore >= 300) {
           setShowCelebration(true);
           setTimeout(() => setShowCelebration(false), 3500);
@@ -97,6 +108,10 @@ export const GameView: React.FC<GameViewProps> = ({
         } else {
           audioEngine.playLevelUnlockSound();
         }
+      }
+
+      if (result.session.status === 'completed') {
+        soundEffectsService.playGameVictoryFanfare();
       }
     } catch (err: unknown) {
       setErrorMessage((err as Error).message || 'Submission error');
@@ -308,6 +323,20 @@ export const GameView: React.FC<GameViewProps> = ({
               +{isRoundOver ? currentRound.pointsAwarded : currentLevelConfig.points} pts
             </div>
           </div>
+
+          {/* SFX Mute Toggle */}
+          <button
+            type="button"
+            onClick={() => soundEffectsService.toggleMute()}
+            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              sfxMuted
+                ? 'bg-slate-100 dark:bg-sv-midnight text-slate-400 border-slate-200 dark:border-sv-burgundy'
+                : 'bg-sv-red/10 dark:bg-sv-midnight text-sv-red dark:text-sv-warm-orange border-sv-red/25'
+            }`}
+            title={sfxMuted ? 'Unmute Sound Effects' : 'Mute Sound Effects'}
+          >
+            {sfxMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
 
           {/* Language Preference Quick Button */}
           {onChangeLanguages && (
@@ -524,6 +553,14 @@ export const GameView: React.FC<GameViewProps> = ({
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
+                onClick={() => setShareModalOpen(true)}
+                className="w-full sm:w-auto px-5 py-3 text-xs font-black text-white bg-gradient-to-r from-sv-warm-orange to-sv-gold hover:brightness-110 rounded-2xl transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Share Result</span>
+              </button>
+
+              <button
                 onClick={handleRestartGame}
                 className="w-full sm:w-auto px-6 py-3 text-xs font-black text-white bg-sv-red hover:bg-sv-crimson rounded-2xl transition-colors cursor-pointer shadow-md shadow-sv-red/25"
               >
@@ -555,6 +592,29 @@ export const GameView: React.FC<GameViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Wordle-Style Share Card Modal */}
+      {session && (
+        <ShareResultModal
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          gameMode={session.mode === 'daily' ? 'daily' : 'solo'}
+          score={session.totalScore}
+          accuracy={Math.round((session.rounds.filter(r => r.status === 'won').length / Math.max(1, session.rounds.length)) * 100)}
+          streak={gameEngine.getUserProfile().currentStreak}
+          totalRounds={session.rounds.length}
+          roundsWon={session.rounds.filter(r => r.status === 'won').length}
+          roundHistory={session.rounds.map(r => ({
+            roundNumber: r.roundNumber,
+            level: r.currentLevel,
+            isWon: r.status === 'won',
+            points: r.pointsAwarded,
+            title: r.targetTrack?.title,
+            artist: r.targetTrack?.artist
+          }))}
+          playerName={gameEngine.getUserProfile().displayName}
+        />
       )}
 
     </div>

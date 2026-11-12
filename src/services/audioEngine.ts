@@ -1,5 +1,6 @@
 import { Track, GameLevelNumber } from '../types';
 import { GAME_LEVELS } from '../config/gameConfig';
+import { soundEffectsService } from './soundEffectsService';
 
 export interface AudioProviderAdapter {
   readonly id: string;
@@ -580,79 +581,25 @@ class AudioEngineService {
   /**
    * Sound effect for a correct guess: high pleasant chime
    */
-  public playCorrectSound() {
-    const ctx = this.initAudioContext();
-    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-    notes.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const time = ctx.currentTime + idx * 0.08;
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, time);
-
-      gain.gain.setValueAtTime(0.001, time);
-      gain.gain.linearRampToValueAtTime(0.15, time + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(time);
-      osc.stop(time + 0.42);
-    });
+  public playCorrectSound(streakCount: number = 0) {
+    if (soundEffectsService.getIsMuted()) return;
+    soundEffectsService.playCorrectChime(streakCount);
   }
 
   /**
    * Sound effect for an incorrect guess: gentle descending buzz
    */
   public playIncorrectSound() {
-    const ctx = this.initAudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const time = ctx.currentTime;
-
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(180, time);
-    osc.frequency.linearRampToValueAtTime(110, time + 0.28);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(500, time);
-
-    gain.gain.setValueAtTime(0.14, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(time);
-    osc.stop(time + 0.32);
+    if (soundEffectsService.getIsMuted()) return;
+    soundEffectsService.playWrongBuzz();
   }
 
   /**
    * Sound effect for unlocking next level
    */
   public playLevelUnlockSound() {
-    const ctx = this.initAudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const time = ctx.currentTime;
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(349.23, time);
-    osc.frequency.exponentialRampToValueAtTime(587.33, time + 0.16);
-
-    gain.gain.setValueAtTime(0.001, time);
-    gain.gain.linearRampToValueAtTime(0.12, time + 0.03);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(time);
-    osc.stop(time + 0.26);
+    if (soundEffectsService.getIsMuted()) return;
+    soundEffectsService.playLevelUpWhoosh();
   }
 
   private generateWaveformBars(elapsedSecs: number, preset: string): number[] {

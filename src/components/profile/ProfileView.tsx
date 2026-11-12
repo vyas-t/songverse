@@ -33,6 +33,7 @@ import { authService } from '../../services/authService';
 import { socialService } from '../../services/socialService';
 import { AchievementSystem } from './AchievementSystem';
 import { AuthModal } from '../auth/AuthModal';
+import { rankedBlitzService } from '../../services/rankedBlitzService';
 
 interface ProfileViewProps {
   onDataReset: () => void;
@@ -75,6 +76,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
   // Sign out confirmation modal state
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
+
+  // Ranked 1v1 Blitz Stats
+  const [blitzStats, setBlitzStats] = useState(rankedBlitzService.getStats());
+
+  React.useEffect(() => {
+    return rankedBlitzService.subscribe(() => {
+      setBlitzStats(rankedBlitzService.getStats());
+    });
+  }, []);
 
   // Local auth modal state
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -481,6 +491,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
             </div>
           </div>
 
+        </div>
+
+        {/* Ranked 1v1 Blitz Summary Banner */}
+        <div className="mt-5 p-4 rounded-2xl bg-gradient-to-r from-sv-burgundy/40 via-sv-red/10 to-transparent border border-sv-red/20 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sv-red to-sv-orange flex items-center justify-center text-white shadow-md shrink-0">
+              <Zap className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Ranked 1v1 Blitz</span>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-500 font-mono">
+                  {blitzStats.tier} Tier
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                {blitzStats.wins} Wins • {blitzStats.losses} Losses • {blitzStats.streak} Win Streak
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-xl font-black text-sv-red dark:text-sv-warm-orange font-mono">
+              {blitzStats.rating} <span className="text-xs font-bold text-slate-400">Elo</span>
+            </span>
+          </div>
         </div>
 
       </div>

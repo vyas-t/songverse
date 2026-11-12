@@ -378,6 +378,7 @@ export interface MultiplayerRoom {
   passcode?: string;
   isPasscodeProtected?: boolean;
   recentReactions?: LiveReactionEvent[];
+  battleTheme?: string;
 }
 
 export interface CookiePreferences {
