@@ -343,6 +343,14 @@ export interface MultiplayerPlayer {
   lastSeenAt?: number;
 }
 
+export interface LiveReactionEvent {
+  id: string;
+  playerId: string;
+  playerName: string;
+  emoji: '🔥' | '🤯' | '👏' | '😭' | '⚡' | '🎉' | '❤️';
+  timestamp: number;
+}
+
 export interface MultiplayerRoom {
   roomCode: string;
   hostId: string;
@@ -367,6 +375,9 @@ export interface MultiplayerRoom {
   isSettingsLocked?: boolean;
   hostMigrated?: boolean;
   hostMigrationNotice?: string;
+  passcode?: string;
+  isPasscodeProtected?: boolean;
+  recentReactions?: LiveReactionEvent[];
 }
 
 export interface CookiePreferences {

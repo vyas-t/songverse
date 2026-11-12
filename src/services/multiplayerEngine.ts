@@ -300,6 +300,16 @@ class MultiplayerEngineService {
         const guestPlayer = data.player;
         if (!guestPlayer || !guestPlayer.id) return;
 
+        // Passcode Protection Gate
+        if (this.activeRoom.isPasscodeProtected && this.activeRoom.passcode) {
+          const provided = String(data.passcode || '').trim();
+          if (provided !== this.activeRoom.passcode) {
+            conn.send({ type: 'ERROR', message: 'INCORRECT_PASSCODE: Invalid 4-digit room passcode.' });
+            conn.close();
+            return;
+          }
+        }
+
         if (this.activeRoom.players.length >= 20) {
           conn.send({ type: 'ERROR', message: 'Room has reached the maximum capacity of 20 participants.' });
           conn.close();
@@ -464,6 +474,13 @@ class MultiplayerEngineService {
           this.saveLocalRoomState(this.activeRoom);
           this.broadcastRoomToPeers();
           this.notify();
+        }
+        break;
+      }
+
+      case 'SEND_REACTION': {
+        if (data.emoji && data.playerId) {
+          this.broadcastReaction(data.playerId, data.emoji);
         }
         break;
       }
@@ -745,14 +762,14 @@ class MultiplayerEngineService {
   /**
    * Join an existing room with 6-digit code across devices
    */
-  public async joinRoom(roomCode: string, playerName: string, playerId: string): Promise<MultiplayerRoom> {
+  public async joinRoom(roomCode: string, playerName: string, playerId: string, passcode?: string): Promise<MultiplayerRoom> {
     const cleanCode = String(roomCode).trim().padStart(6, '0');
     this.currentUserId = playerId;
 
     // 1. Try WebRTC DataChannel connection directly to host (real cross-device)
     if (this.isWebRTCSupported()) {
       try {
-        const roomFromPeer = await this.connectGuestViaWebRTC(cleanCode, playerName, playerId);
+        const roomFromPeer = await this.connectGuestViaWebRTC(cleanCode, playerName, playerId, passcode);
         if (roomFromPeer) {
           this.activeRoom = roomFromPeer;
           this.saveLocalRoomState(this.activeRoom);
@@ -762,7 +779,7 @@ class MultiplayerEngineService {
           return this.activeRoom;
         }
       } catch (err: any) {
-        if (err.message && (err.message.includes('capacity') || err.message.includes('kicked'))) {
+        if (err.message && (err.message.includes('capacity') || err.message.includes('kicked') || err.message.includes('PASSCODE'))) {
           throw err;
         }
         // Fall through to server API & local storage
@@ -848,7 +865,7 @@ class MultiplayerEngineService {
   /**
    * Connect Guest to Host via WebRTC DataChannel
    */
-  private async connectGuestViaWebRTC(cleanCode: string, playerName: string, playerId: string): Promise<MultiplayerRoom | null> {
+  private async connectGuestViaWebRTC(cleanCode: string, playerName: string, playerId: string, passcode?: string): Promise<MultiplayerRoom | null> {
     const PeerClass = await getPeerClass();
     if (!PeerClass) return null;
 
@@ -892,7 +909,8 @@ class MultiplayerEngineService {
             console.log(`[MultiplayerEngine] Connected to host peer: ${targetHostPeerId}`);
             conn.send({
               type: 'JOIN_REQUEST',
-              player: { id: playerId, displayName: playerName }
+              player: { id: playerId, displayName: playerName },
+              passcode: passcode || undefined
             });
           });
 
@@ -954,7 +972,8 @@ class MultiplayerEngineService {
       data.type === 'PLAYER_UPDATE' ||
       data.type === 'GUESS_SUBMITTED' ||
       data.type === 'HOST_MIGRATED' ||
-      data.type === 'PLAYER_RECONNECTED'
+      data.type === 'PLAYER_RECONNECTED' ||
+      data.type === 'REACTION_EVENT'
     ) {
       if (data.room) {
         this.activeRoom = data.room;
@@ -1510,6 +1529,111 @@ class MultiplayerEngineService {
     }
     const diff = this.activeRoom.roundResultsUntil - Date.now();
     return Math.max(0, Math.ceil(diff / 1000));
+  }
+
+  /**
+   * Set room passcode protection (Optional 4-digit code)
+   */
+  public setRoomPasscode(passcode: string | null): void {
+    if (!this.activeRoom || this.activeRoom.status !== 'lobby' || this.activeRoom.isSettingsLocked) return;
+    const clean = passcode ? String(passcode).trim().slice(0, 4) : '';
+    this.activeRoom.passcode = clean || undefined;
+    this.activeRoom.isPasscodeProtected = Boolean(clean && clean.length > 0);
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'ROOM_SETTINGS_UPDATED', room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'ROOM_SETTINGS_UPDATED', room: this.activeRoom });
+    this.notify();
+  }
+
+  /**
+   * Send live emoji reaction during round or summary (🔥, 🤯, 👏, 😭, ⚡, 🎉, ❤️)
+   */
+  public sendReaction(playerId: string, emoji: '🔥' | '🤯' | '👏' | '😭' | '⚡' | '🎉' | '❤️'): void {
+    if (!this.activeRoom) return;
+
+    if (this.hostConnection && this.hostConnection.open) {
+      this.hostConnection.send({
+        type: 'SEND_REACTION',
+        playerId,
+        emoji
+      });
+    }
+
+    this.broadcastReaction(playerId, emoji);
+  }
+
+  private broadcastReaction(playerId: string, emoji: '🔥' | '🤯' | '👏' | '😭' | '⚡' | '🎉' | '❤️'): void {
+    if (!this.activeRoom) return;
+    const player = this.activeRoom.players.find(p => p.id === playerId);
+    const event: any = {
+      id: `rx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      playerId,
+      playerName: player?.displayName || 'Player',
+      emoji,
+      timestamp: Date.now()
+    };
+
+    if (!this.activeRoom.recentReactions) {
+      this.activeRoom.recentReactions = [];
+    }
+    // Keep last 10 reactions to prevent bloat
+    this.activeRoom.recentReactions = [...this.activeRoom.recentReactions.slice(-9), event];
+
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'REACTION_EVENT', reaction: event, room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'REACTION_EVENT', reaction: event, room: this.activeRoom });
+    this.notify();
+  }
+
+  /**
+   * Host Rematch: Reset players score and streak, pick a fresh set of tracks, return room to lobby
+   */
+  public async restartRematch(hostId: string): Promise<boolean> {
+    if (!this.activeRoom || this.activeRoom.hostId !== hostId) return false;
+
+    const totalRounds = this.activeRoom.totalRounds || 3;
+    const pool = (this.activeRoom.catalogueSnapshot && this.activeRoom.catalogueSnapshot.length > 0)
+      ? this.activeRoom.catalogueSnapshot
+      : musicCatalogue.getPlayableTracks();
+
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+    const countToPick = Math.min(totalRounds, shuffled.length);
+    const trackIds = shuffled.slice(0, countToPick).map(t => t.id);
+    const initialTrack = trackIds.length > 0 ? pool.find(t => t.id === trackIds[0]) : undefined;
+
+    this.activeRoom.status = 'lobby';
+    this.activeRoom.isSettingsLocked = false;
+    this.activeRoom.currentRoundIndex = 0;
+    this.activeRoom.trackIds = trackIds;
+    this.activeRoom.currentTrack = initialTrack;
+    this.activeRoom.roundStartedAt = 0;
+    this.activeRoom.roundDeadline = 0;
+    this.activeRoom.roundResultsUntil = undefined;
+    this.activeRoom.roundGuessedPlayerIds = [];
+    this.activeRoom.roundEndReason = undefined;
+    this.activeRoom.targetTrackRevealed = undefined;
+    this.activeRoom.recentGuesses = [];
+    this.activeRoom.recentReactions = [];
+
+    // Reset all player match stats while keeping connection status
+    this.activeRoom.players.forEach(p => {
+      p.score = 0;
+      p.currentLevel = 1;
+      p.hasGuessedThisRound = false;
+      p.lastGuessCorrect = undefined;
+      p.lastGuessTitle = undefined;
+      p.lastGuessPoints = undefined;
+      p.lastGuessTrackId = undefined;
+      p.streak = 0;
+      p.correctGuesses = 0;
+      p.isReady = p.isHost; // host remains ready, others can toggle ready
+    });
+
+    this.saveLocalRoomState(this.activeRoom);
+    this.broadcastMessage({ type: 'ROOM_STATE', room: this.activeRoom });
+    this.broadcastRoomToPeers({ type: 'ROOM_STATE', room: this.activeRoom });
+    this.notify();
+    return true;
   }
 
   public getCurrentTrack(): Track | undefined {

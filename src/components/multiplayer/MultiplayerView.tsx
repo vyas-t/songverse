@@ -32,7 +32,11 @@ import {
   Flame,
   Swords,
   Info,
-  Heart
+  Heart,
+  ShieldCheck,
+  Headphones,
+  Share2,
+  ExternalLink
 } from 'lucide-react';
 import { MultiplayerRoom, Track, GameLevelNumber } from '../../types';
 import { multiplayerEngine } from '../../services/multiplayerEngine';
@@ -75,6 +79,12 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [friendsList, setFriendsList] = useState<FriendUser[]>(socialService.getFriends());
   const [invitedFriendIds, setInvitedFriendIds] = useState<Set<string>>(new Set());
+  const [roomPasscode, setRoomPasscode] = useState('');
+  const [usePasscode, setUsePasscode] = useState(false);
+  const [guestPasscodeInput, setGuestPasscodeInput] = useState('');
+  const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [exportedService, setExportedService] = useState<'spotify' | 'apple' | null>(null);
 
   const isHost = Boolean(room && room.hostId === profile.id);
   const myPlayer = room?.players.find(p => p.id === profile.id);
@@ -208,9 +218,10 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
     setNameInput(effectiveName);
     try {
       const paddedCode = clean.padStart(6, '0');
-      const joined = await multiplayerEngine.joinRoom(paddedCode, effectiveName, profile.id);
+      const joined = await multiplayerEngine.joinRoom(paddedCode, effectiveName, profile.id, guestPasscodeInput.trim() || undefined);
       setRoom(joined);
       setJoinCodeInput('');
+      setGuestPasscodeInput('');
     } catch (err: any) {
       setErrorMessage(err.message || 'Invalid or closed room code.');
     } finally {
@@ -275,6 +286,80 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
     if (isHost && room && room.status === 'lobby') {
       multiplayerEngine.setLanguageFilter(lang);
     }
+  };
+
+  const handleTogglePasscode = (enabled: boolean) => {
+    setUsePasscode(enabled);
+    if (!enabled) {
+      setRoomPasscode('');
+      multiplayerEngine.setRoomPasscode(null);
+    } else if (roomPasscode.length === 4) {
+      multiplayerEngine.setRoomPasscode(roomPasscode);
+    }
+  };
+
+  const handleUpdatePasscode = (code: string) => {
+    const clean = code.replace(/\D/g, '').slice(0, 4);
+    setRoomPasscode(clean);
+    if (usePasscode) {
+      multiplayerEngine.setRoomPasscode(clean.length === 4 ? clean : null);
+    }
+  };
+
+  const handlePreviewCatalogueTrack = async (track: Track) => {
+    if (previewTrackId === track.id && isPlayingPreview) {
+      audioEngine.stop();
+      setIsPlayingPreview(false);
+      setPreviewTrackId(null);
+      return;
+    }
+
+    try {
+      audioEngine.stop();
+      setIsPlayingPreview(true);
+      setPreviewTrackId(track.id);
+      await audioEngine.playClip(track, 2); // 3-second sample audition
+    } catch {
+      setIsPlayingPreview(false);
+      setPreviewTrackId(null);
+    }
+  };
+
+  const handleSendReaction = (emoji: '🔥' | '🤯' | '👏' | '😭' | '⚡' | '🎉' | '❤️') => {
+    multiplayerEngine.sendReaction(profile.id, emoji);
+  };
+
+  const handleRematch = async () => {
+    if (isHost && room) {
+      await multiplayerEngine.restartRematch(room.hostId);
+      setExportedService(null);
+    }
+  };
+
+  const handleExportPlaylist = (service: 'spotify' | 'apple') => {
+    if (!room) return;
+    const tracks = (room.catalogueSnapshot && room.catalogueSnapshot.length > 0)
+      ? room.catalogueSnapshot
+      : room.trackIds.map(id => multiplayerEngine.getRoomTrackById(id)).filter(Boolean) as Track[];
+
+    const trackNames = tracks.map(t => `${t.title} - ${t.artist}`).join('\n');
+    const encoded = encodeURIComponent(trackNames);
+
+    if (service === 'spotify') {
+      // Direct search query link for Spotify
+      window.open(`https://open.spotify.com/search/${encodeURIComponent(tracks[0]?.title || 'SongVerse')}`, '_blank');
+    } else {
+      // Direct Apple Music search link
+      window.open(`https://music.apple.com/search?term=${encodeURIComponent(tracks[0]?.title || 'SongVerse')}`, '_blank');
+    }
+
+    // Also copy entire track list to clipboard for instant import
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(`SongVerse Room ${room.roomCode} Match Playlist:\n` + trackNames);
+    }
+
+    setExportedService(service);
+    setTimeout(() => setExportedService(null), 4000);
   };
 
   const handleOpenInviteFriends = () => {
@@ -571,6 +656,21 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                   onChange={(e) => setJoinCodeInput(e.target.value.replace(/\D/g, ''))}
                   placeholder="000000"
                   className="w-full px-4 py-3.5 text-center tracking-[0.4em] font-mono text-3xl font-black bg-slate-50 dark:bg-sv-midnight border-2 border-slate-200 dark:border-sv-burgundy rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:border-sv-red focus:ring-4 focus:ring-sv-red/10"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-sv-red" />
+                  <span>Room Passcode (Optional)</span>
+                </label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={guestPasscodeInput}
+                  onChange={(e) => setGuestPasscodeInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="Leave empty if no PIN set by host"
+                  className="w-full px-4 py-2.5 text-center tracking-widest font-mono text-sm font-bold bg-slate-50 dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-2xl text-slate-900 dark:text-white focus:outline-none focus:border-sv-red"
                 />
               </div>
 
@@ -876,6 +976,83 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Host Feature 1: Pre-Listen / Audio Quality Audit */}
+              <div className="space-y-2 pt-1 border-t border-slate-200/60 dark:border-sv-burgundy/60">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Headphones className="w-3.5 h-3.5 text-sv-orange" />
+                    <span>Host Audio Pre-Listen & Catalogue Scrub</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    Audition 3s preview
+                  </span>
+                </div>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 p-2 bg-slate-50 dark:bg-sv-midnight rounded-2xl border border-slate-200 dark:border-sv-burgundy">
+                  {(room.catalogueSnapshot || []).slice(0, 8).map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-sv-burgundy/40 border border-slate-200/60 dark:border-sv-burgundy/60 text-xs"
+                    >
+                      <div className="truncate max-w-[200px] sm:max-w-xs">
+                        <p className="font-bold text-slate-900 dark:text-white truncate">{t.title}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{t.artist} · {t.language}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handlePreviewCatalogueTrack(t)}
+                        className="px-2.5 py-1 rounded-lg bg-sv-red/10 hover:bg-sv-red/20 text-sv-red text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                      >
+                        {previewTrackId === t.id && isPlayingPreview ? (
+                          <>
+                            <VolumeX className="w-3 h-3" />
+                            <span>Stop</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3 h-3" />
+                            <span>Audition</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Host Feature 3: Private Room 4-Digit Passcode Protection */}
+              <div className="p-3.5 bg-slate-50 dark:bg-sv-midnight rounded-2xl border border-slate-200 dark:border-sv-burgundy space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-sv-red" />
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">Require 4-Digit Room Passcode</p>
+                      <p className="text-[10px] text-slate-500">Only players with this PIN can enter the lobby</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={usePasscode}
+                    onChange={(e) => handleTogglePasscode(e.target.checked)}
+                    className="w-4 h-4 text-sv-red accent-sv-red rounded cursor-pointer"
+                  />
+                </div>
+                {usePasscode && (
+                  <div className="flex items-center gap-2 pt-1 animate-in fade-in">
+                    <input
+                      type="text"
+                      maxLength={4}
+                      value={roomPasscode}
+                      onChange={(e) => handleUpdatePasscode(e.target.value)}
+                      placeholder="e.g. 1234"
+                      className="px-3 py-1.5 text-center font-mono font-black text-sm tracking-widest bg-white dark:bg-sv-burgundy/60 border border-slate-200 dark:border-sv-burgundy rounded-xl focus:outline-none focus:border-sv-red w-32"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {roomPasscode.length === 4 ? '✓ Passcode locked & broadcasted' : 'Enter 4 digits'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Start Match & Ready State Summary */}
@@ -1414,6 +1591,42 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                 </div>
               </div>
 
+              {/* Feature 2: Live Emoji Reactions Bar during Round Summary */}
+              <div className="p-3 bg-slate-50 dark:bg-sv-midnight/80 rounded-2xl border border-slate-200 dark:border-sv-burgundy flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-sv-orange" />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Live Reactions:</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                  {(['🔥', '🤯', '👏', '😭', '⚡', '🎉', '❤️'] as const).map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleSendReaction(emoji)}
+                      className="px-2.5 py-1 text-sm bg-white dark:bg-sv-burgundy hover:scale-125 hover:bg-slate-100 dark:hover:bg-sv-burgundy-deep rounded-xl border border-slate-200 dark:border-sv-burgundy/80 shadow-2xs transition-transform cursor-pointer active:scale-95"
+                      title={`Send ${emoji} reaction`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Display recent floating/broadcast reactions */}
+              {(room.recentReactions || []).length > 0 && (
+                <div className="flex items-center justify-center gap-2 overflow-x-auto py-1">
+                  {(room.recentReactions || []).slice(-6).map((rx) => (
+                    <div
+                      key={rx.id}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-sv-midnight border border-sv-red/20 shadow-xs text-xs font-bold text-slate-800 dark:text-slate-200 animate-in fade-in zoom-in"
+                    >
+                      <span className="text-base">{rx.emoji}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{rx.playerName}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* 5-second automatic progression bar */}
               <div className="space-y-1.5 pt-2">
                 <div className="w-full bg-slate-100 dark:bg-sv-midnight h-2 rounded-full overflow-hidden border border-slate-200/60 dark:border-sv-burgundy/60 shadow-inner">
@@ -1474,12 +1687,58 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                   ))}
               </div>
 
-              <div className="pt-2">
+              {/* Feature 4: Post-Match Spotify / Apple Music Export */}
+              <div className="p-4 bg-slate-50/90 dark:bg-sv-midnight/90 border border-slate-200 dark:border-sv-burgundy rounded-2xl max-w-md mx-auto space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-sv-red" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Export Match Playlist</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {room.trackIds?.length || 0} Tracks Played
+                  </span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleExportPlaylist('spotify')}
+                    className="flex-1 py-2 px-3 bg-[#1DB954] hover:bg-[#1AA34A] text-white rounded-xl text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <span>Spotify Search</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportPlaylist('apple')}
+                    className="flex-1 py-2 px-3 bg-[#FC3C44] hover:bg-[#E0353C] text-white rounded-xl text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <span>Apple Music</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
+                {exportedService && (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold animate-in fade-in">
+                    ✓ Track list copied to clipboard and opened in {exportedService === 'spotify' ? 'Spotify' : 'Apple Music'}!
+                  </p>
+                )}
+              </div>
+
+              {/* Feature 5: 1-Click Rematch Button for Host & Return Button */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+                {isHost && (
+                  <button
+                    onClick={handleRematch}
+                    className="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-black transition-all cursor-pointer shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2 active:scale-95"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Instant Rematch (Same Players)</span>
+                  </button>
+                )}
                 <button
                   onClick={handleLeaveRoom}
-                  className="px-7 py-3.5 bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber text-white rounded-2xl text-xs font-black transition-all cursor-pointer shadow-md shadow-sv-red/25 hover:from-sv-crimson hover:to-sv-red"
+                  className="w-full sm:w-auto px-7 py-3.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-2xl text-xs font-black transition-all cursor-pointer shadow-xs"
                 >
-                  Return to Multiplayer Lobby
+                  Return to Lobby
                 </button>
               </div>
             </div>
