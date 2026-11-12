@@ -120,6 +120,15 @@ async function runOtpTests() {
   const deleteResult = await authService.confirmDeleteAccountWithOtp(deleteOtp);
   assert(deleteResult.status === 'account_deleted', 'Account permanently deleted upon providing mandatory 6-digit OTP');
 
+  // Verify transition to guest mode
+  const currentProfileAfterDelete = gameEngine.getUserProfile();
+  assert(currentProfileAfterDelete.isGuest === true, 'Player automatically transitions to Guest Mode upon account deletion');
+
+  // Test sign out transition to guest mode
+  await authService.signOut();
+  const currentProfileAfterSignOut = gameEngine.getUserProfile();
+  assert(currentProfileAfterSignOut.isGuest === true, 'Player automatically transitions to Guest Mode upon sign out');
+
   console.log('\n----------------------------------------------------');
   console.log(`Final Verification Score: ${passed} / ${total} OTP Scenarios Passed.`);
   console.log('====================================================\n');

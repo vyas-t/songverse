@@ -709,10 +709,13 @@ class GameEngineService {
    * Reset / Delete user account and profile data (GDPR / DPDP Compliance)
    */
   public clearAllUserData(): void {
-    localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
-    localStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION);
-    localStorage.removeItem(STORAGE_KEY_COMPLETED_GAMES);
-    localStorage.removeItem(STORAGE_KEY_DAILY_ATTEMPTS);
+    try {
+      localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
+      localStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION);
+      localStorage.removeItem(STORAGE_KEY_COMPLETED_GAMES);
+      localStorage.removeItem(STORAGE_KEY_DAILY_ATTEMPTS);
+      localStorage.removeItem(STORAGE_KEY_MATCH_HISTORY);
+    } catch {}
     this.userProfile = this.loadOrCreateUserProfile();
     this.activeSession = null;
   }

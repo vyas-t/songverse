@@ -149,6 +149,21 @@ class SocialService {
     } catch {}
   }
 
+  public resetAllSocialData(): void {
+    this.friends = [];
+    this.incomingRequests = [];
+    this.outgoingRequests = [];
+    this.pendingInvites = [];
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEY_LOCAL_FRIENDS);
+        localStorage.removeItem(STORAGE_KEY_LOCAL_REQUESTS);
+        localStorage.removeItem(STORAGE_KEY_LOCAL_INVITES);
+      }
+    } catch {}
+    this.notify();
+  }
+
   // --- ONLINE PRESENCE & HEARTBEAT ---
   private initPresence(): void {
     if (typeof window === 'undefined') return;

@@ -2,6 +2,7 @@ import { UserProfile, AuthProviderConfig } from '../types';
 import { gameEngine } from './gameEngine';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { emailService } from './emailService';
+import { socialService } from './socialService';
 
 export type AuthView =
   | 'login'
@@ -1269,8 +1270,11 @@ class AuthService {
 
     this.sessionToken = null;
     this.pendingEmail = null;
+    this.activeOtp = null;
     safeStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
     safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
+    safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
+    socialService.resetAllSocialData();
     gameEngine.clearAllUserData();
     this.authView = 'login';
     this.notify();
@@ -1353,12 +1357,14 @@ class AuthService {
 
     if (isSupabaseConfigured() && supabase && !currentProfile.isGuest) {
       try {
-        await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', currentProfile.id);
+        await Promise.allSettled([
+          supabase.from('game_sessions').delete().eq('user_id', currentProfile.id),
+          supabase.from('friend_requests').delete().or(`sender_id.eq.${currentProfile.id},receiver_id.eq.${currentProfile.id}`),
+          supabase.from('room_invitations').delete().or(`sender_id.eq.${currentProfile.id},recipient_id.eq.${currentProfile.id}`),
+          supabase.from('profiles').delete().eq('id', currentProfile.id)
+        ]);
       } catch (err) {
-        console.warn('[SongVerse AuthService] Failed to delete Supabase profile record:', err);
+        console.warn('[SongVerse AuthService] Failed to delete Supabase records:', err);
       }
     }
 
@@ -1391,8 +1397,11 @@ class AuthService {
 
     this.sessionToken = null;
     this.pendingEmail = null;
+    this.activeOtp = null;
     safeStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
     safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
+    safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
+    socialService.resetAllSocialData();
     gameEngine.clearAllUserData();
     this.authView = 'login';
     this.notify();
