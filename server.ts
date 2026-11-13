@@ -8,12 +8,11 @@ const __dirname = path.dirname(__filename);
 import { catalogueStore } from './src/server/catalogueStore';
 import { importManager, IMPORT_PRESETS } from './src/server/importManager';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import nodemailer from 'nodemailer';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '64kb' }));
 app.use('/audio', express.static(path.join(__dirname, 'public/audio')));
 
 // Supabase Server Integration (Gracefully degraded when unconfigured)
@@ -92,6 +91,23 @@ class MusicBrainzRateLimiter {
 
 const mbRateLimiter = new MusicBrainzRateLimiter();
 
+const requestRateBuckets = new Map<string, { count: number; resetAt: number }>();
+function checkRequestRateLimit(req: Request, bucketName: string, limit: number, windowMs: number): number | null {
+  const now = Date.now();
+  const key = `${bucketName}:${req.ip || req.socket.remoteAddress || 'unknown'}`;
+  const bucket = requestRateBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    requestRateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    if (requestRateBuckets.size > 5000) {
+      for (const [storedKey, stored] of requestRateBuckets) if (stored.resetAt <= now) requestRateBuckets.delete(storedKey);
+    }
+    return null;
+  }
+  if (bucket.count >= limit) return Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+  bucket.count += 1;
+  return null;
+}
+
 // Health check endpoint
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'SongVerse API', time: new Date().toISOString() });
@@ -136,149 +152,17 @@ app.get('/api/supabase/status', async (_req: Request, res: Response) => {
 // Transactional OTP Email Dispatcher
 // Dispatches 6-digit verification code to user's mailbox (Gmail / SMTP / Resend)
 // =========================================================================
-app.post('/api/send-otp', async (req: Request, res: Response) => {
-  try {
-    const { email, otp, purpose } = req.body || {};
-    if (!email || !otp) {
-      return res.status(400).json({ error: 'Email and OTP code are required.' });
-    }
-
-    const cleanEmail = String(email).trim().toLowerCase();
-    const cleanOtp = String(otp).trim();
-
-    const titles: Record<string, { title: string; desc: string }> = {
-      signup: {
-        title: 'Confirm Your Registration',
-        desc: 'Thank you for joining SongVerse! Use your 6-digit verification code below to activate your player account.'
-      },
-      signin: {
-        title: 'Sign In Verification Code',
-        desc: 'Use the 6-digit security code below to complete your SongVerse sign in.'
-      },
-      password_reset: {
-        title: 'Password Reset Authorization',
-        desc: 'We received a request to reset your SongVerse account password. Use this code to authorize your new password.'
-      },
-      account_deletion: {
-        title: 'Permanent Account Deletion Authorization',
-        desc: 'A permanent account deletion was requested. Enter this 6-digit authorization code to confirm.'
-      }
-    };
-
-    const info = titles[purpose] || titles.signin;
-
-    // Check if Gmail SMTP credentials are configured
-    const gmailUser = (process.env.GMAIL_USER || '').trim();
-    const gmailPass = (process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS || '').trim();
-
-    // Check if generic SMTP credentials are configured
-    const smtpHost = (process.env.SMTP_HOST || (gmailUser ? 'smtp.gmail.com' : '')).trim();
-    const smtpPort = parseInt(process.env.SMTP_PORT || '465', 10);
-    const smtpUser = (process.env.SMTP_USER || gmailUser).trim();
-    const smtpPass = (process.env.SMTP_PASS || gmailPass).trim();
-    const smtpFrom = (process.env.SMTP_FROM || (gmailUser ? `"SongVerse Security" <${gmailUser}>` : `"SongVerse Security" <security-auth@songverse.pages.dev>`)).trim();
-
-    const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
-
-    const emailHtml = `
-      <div style="background-color: #0b0e14; color: #f8fafc; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center;">
-        <div style="max-width: 480px; margin: 0 auto; background: #151a23; border: 1px solid #232d3f; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-          <div style="background: linear-gradient(135deg, #e11d48 0%, #ea580c 100%); padding: 30px 20px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">🎵 SongVerse</h1>
-            <p style="color: rgba(255,255,255,0.92); font-size: 13px; margin: 6px 0 0; font-weight: 600;">The Real-Music Guessing Arena</p>
-          </div>
-          <div style="padding: 32px 24px; text-align: center;">
-            <h2 style="color: #ffffff; margin: 0 0 10px; font-size: 20px; font-weight: 800;">${info.title}</h2>
-            <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">${info.desc}</p>
-            <div style="background: #0e121a; border: 2px dashed #f97316; border-radius: 14px; padding: 18px 24px; display: inline-block; margin-bottom: 20px;">
-              <span style="font-family: 'Courier New', Courier, monospace; font-size: 38px; font-weight: 900; letter-spacing: 10px; color: #f97316;">${cleanOtp}</span>
-            </div>
-            <p style="color: #ea580c; font-size: 12px; font-weight: 700; margin: 0 0 20px;">⏱ Valid for 10 minutes (Single Use Only)</p>
-            <div style="border-top: 1px solid #232d3f; padding-top: 20px; text-align: left;">
-              <p style="color: #64748b; font-size: 11px; line-height: 1.5; margin: 0;">
-                ⚠️ <strong>Security Notice:</strong> Never share this code with anyone. SongVerse will never ask for your password or verification code.
-              </p>
-            </div>
-          </div>
-          <div style="background-color: #0e121a; border-top: 1px solid #232d3f; padding: 16px; font-size: 11px; color: #64748b;">
-            Sent to ${cleanEmail} &bull; SongVerse Global Platform
-          </div>
-        </div>
-      </div>
-    `;
-
-    // 1. Try sending via Gmail / Custom SMTP with nodemailer
-    if (smtpUser && smtpPass) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpPort === 465,
-          auth: {
-            user: smtpUser,
-            pass: smtpPass
-          }
-        });
-
-        await transporter.sendMail({
-          from: smtpFrom,
-          to: cleanEmail,
-          subject: `🔐 SongVerse: Your 6-Digit Code is ${cleanOtp}`,
-          html: emailHtml
-        });
-
-        console.log(`[SongVerse Email Dispatcher] Successfully delivered 6-digit OTP to ${cleanEmail} via SMTP.`);
-        return res.json({ success: true, provider: 'smtp', message: `OTP delivered to ${cleanEmail}` });
-      } catch (smtpErr: any) {
-        console.warn(`[SongVerse Email Dispatcher] SMTP dispatch failed:`, smtpErr.message);
-      }
-    }
-
-    // 2. Try sending via Resend REST API if key exists
-    if (resendApiKey) {
-      try {
-        const resendRes = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: smtpFrom,
-            to: [cleanEmail],
-            subject: `🔐 SongVerse: Your 6-Digit Code is ${cleanOtp}`,
-            html: emailHtml
-          })
-        });
-
-        if (resendRes.ok) {
-          console.log(`[SongVerse Email Dispatcher] Successfully delivered 6-digit OTP to ${cleanEmail} via Resend.`);
-          return res.json({ success: true, provider: 'resend', message: `OTP delivered to ${cleanEmail}` });
-        }
-      } catch (resendErr: any) {
-        console.warn(`[SongVerse Email Dispatcher] Resend dispatch failed:`, resendErr.message);
-      }
-    }
-
-    // 3. Fallback: Log notice to server logs (NEVER expose to frontend UI)
-    console.log(`[SongVerse Email Dispatcher] 📨 OTP for ${cleanEmail} (${purpose}) generated.`);
-    console.log(`[SongVerse Email Dispatcher] Notice: Set GMAIL_USER and GMAIL_APP_PASSWORD in .env to deliver live emails through Gmail.`);
-
-    return res.json({
-      success: true,
-      provider: 'simulated',
-      message: `Verification code sent to ${cleanEmail}. Please check your inbox.`
-    });
-  } catch (err: any) {
-    console.error('[SongVerse Email Dispatcher] Unhandled error:', err);
-    return res.status(500).json({ error: err.message || 'Failed to dispatch OTP email.' });
-  }
+app.post('/api/send-otp', (_req: Request, res: Response) => {
+  return res.status(410).json({
+    error: 'This endpoint is disabled. Supabase Auth manages verification and recovery email codes.'
+  });
 });
 
-// Application Error Telemetry Endpoint (Sanitized, never logs secrets or tokens)
 app.post('/api/telemetry/error', async (req: Request, res: Response) => {
   try {
-    const { errorCode, errorMessage, componentStack, context, userId } = req.body || {};
+    const limited = checkRequestRateLimit(req, 'telemetry', 30, 60_000);
+    if (limited) return res.status(429).json({ logged: false, error: 'RATE_LIMITED', retryAfterSeconds: limited });
+    const { errorCode, errorMessage, componentStack, context } = req.body || {};
     if (!errorCode || !errorMessage) {
       return res.status(400).json({ error: 'Missing error code or message' });
     }
@@ -295,23 +179,27 @@ app.post('/api/telemetry/error', async (req: Request, res: Response) => {
       }
     }
 
-    if (serverSupabase) {
-      try {
-        await serverSupabase.from('application_errors').insert({
-          error_code: String(errorCode).slice(0, 100),
-          error_message: String(errorMessage).slice(0, 500),
-          component_stack: componentStack ? String(componentStack).slice(0, 2000) : null,
-          context: safeContext,
-          user_id: userId || null
-        });
-      } catch (err) {
-        console.warn('[Telemetry] Error recording to Supabase:', err);
-      }
+    if (!serverSupabase) {
+      return res.status(503).json({ logged: false, error: 'TELEMETRY_UNAVAILABLE', message: 'Telemetry storage is not configured.' });
     }
-
+    const authHeader = req.headers.authorization || '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    let verifiedUserId: string | null = null;
+    if (bearer) {
+      const { data } = await serverSupabase.auth.getUser(bearer);
+      verifiedUserId = data.user?.id || null;
+    }
+    const { error } = await serverSupabase.from('application_errors').insert({
+      error_code: String(errorCode).slice(0, 100),
+      error_message: String(errorMessage).slice(0, 500),
+      component_stack: componentStack ? String(componentStack).slice(0, 2000) : null,
+      context: safeContext,
+      user_id: verifiedUserId
+    });
+    if (error) return res.status(503).json({ logged: false, error: 'STORAGE_ERROR', message: 'Telemetry could not be stored.' });
     return res.json({ logged: true });
   } catch (err: any) {
-    return res.status(500).json({ logged: false, error: err.message });
+    return res.status(503).json({ logged: false, error: 'TELEMETRY_UNAVAILABLE', message: 'Telemetry could not be stored.' });
   }
 });
 
@@ -584,22 +472,16 @@ app.get('/api/auth/me', (req: Request, res: Response) => {
 
 // 5. Link Guest Progress to Authenticated User
 app.post('/api/auth/link-guest', (req: Request, res: Response) => {
-  const user = getAuthUser(req);
-  if (!user) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const legacyUser = getAuthUser(req);
+  if (!legacyUser && !token) {
     return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Valid authentication session required.' });
   }
-
-  const { guestScore = 0, guestGames = 0, guestStreak = 0, guestAchievements = [] } = req.body;
-  user.totalScore += Math.max(0, parseInt(guestScore, 10) || 0);
-  user.gamesPlayed += Math.max(0, parseInt(guestGames, 10) || 0);
-  user.currentStreak = Math.max(user.currentStreak, parseInt(guestStreak, 10) || 0);
-  user.bestStreak = Math.max(user.bestStreak, user.currentStreak);
-
-  const mergedAchievements = new Set([...user.unlockedAchievements, ...(Array.isArray(guestAchievements) ? guestAchievements : [])]);
-  user.unlockedAchievements = Array.from(mergedAchievements);
-
-  serverUsers.set(user.id, user);
-  return res.json({ status: 'linked', user });
+  return res.status(409).json({
+    error: 'GUEST_IMPORT_REQUIRES_VERIFICATION',
+    message: 'Client-supplied guest totals cannot be added to account scores. Guest progress remains on this device until a verified import flow is available.'
+  });
 });
 
 // 6. Sign Out Endpoint
@@ -613,12 +495,7 @@ app.post('/api/auth/signout', (req: Request, res: Response) => {
 });
 
 // 7. Delete Account Endpoint (Requires typing 'DELETE' and dispatches confirmation to designated account)
-app.delete('/api/auth/account', (req: Request, res: Response) => {
-  const user = getAuthUser(req);
-  if (!user) {
-    return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Valid authentication session required.' });
-  }
-
+app.delete('/api/auth/account', async (req: Request, res: Response) => {
   const confirmation = req.body?.confirmation || req.query?.confirmation;
   if (confirmation !== 'DELETE') {
     return res.status(400).json({
@@ -627,11 +504,35 @@ app.delete('/api/auth/account', (req: Request, res: Response) => {
     });
   }
 
-  const designatedAccount = user.email || `${user.authProvider}_account_${user.providerUserId}`;
-  const confirmationDispatchId = `sec_del_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (bearerToken && serverSupabase) {
+    try {
+      const { data, error } = await serverSupabase.auth.getUser(bearerToken);
+      if (!error && data.user) {
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          return res.status(503).json({ error: 'ACCOUNT_DELETION_UNAVAILABLE', message: 'Account deletion is not configured on the server.' });
+        }
+        const { error: deleteError } = await serverSupabase.auth.admin.deleteUser(data.user.id);
+        if (deleteError) {
+          console.error('[Account Deletion] Supabase deletion failed.');
+          return res.status(500).json({ error: 'ACCOUNT_DELETION_FAILED', message: 'The account could not be deleted. Please try again later.' });
+        }
+        return res.json({
+          status: 'account_deleted',
+          message: 'Your account and associated Supabase Auth record have been deleted.',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch {
+      return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Valid authentication session required.' });
+    }
+  }
 
-  // Securely dispatch/log account deletion confirmation to the designated account
-  console.log(`[Account Deletion Audit] Dispatched confirmation to designated ${user.authProvider.toUpperCase()} account (${designatedAccount}). Dispatch ID: ${confirmationDispatchId}`);
+  const user = getAuthUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Valid authentication session required.' });
+  }
 
   // Delete all active sessions for this user
   for (const [token, uid] of serverSessions.entries()) {
@@ -645,10 +546,7 @@ app.delete('/api/auth/account', (req: Request, res: Response) => {
 
   return res.json({
     status: 'account_deleted',
-    message: `Your SongVerse account has been permanently deleted. A security confirmation has been sent to your designated ${user.authProvider === 'apple' ? 'Apple' : 'Google'} account (${designatedAccount}).`,
-    designatedAccount,
-    authProvider: user.authProvider,
-    confirmationDispatchId,
+    message: 'Your local SongVerse server account has been deleted.',
     timestamp: new Date().toISOString()
   });
 });
@@ -906,7 +804,7 @@ app.get('/api/music/search', async (req: Request, res: Response) => {
 });
 
 // 4. Add / Save Track to Server Catalogue Store
-app.post('/api/catalogue/tracks', (req: Request, res: Response) => {
+app.post('/api/catalogue/tracks', checkAdminAuth, (req: Request, res: Response) => {
   try {
     const rawTrack = req.body;
     if (!rawTrack || !rawTrack.title || !rawTrack.artist) {
@@ -936,7 +834,7 @@ app.post('/api/catalogue/tracks', (req: Request, res: Response) => {
 });
 
 // 5. Remove Track from Server Catalogue Store
-app.delete('/api/catalogue/tracks/:id', (req: Request, res: Response) => {
+app.delete('/api/catalogue/tracks/:id', checkAdminAuth, (req: Request, res: Response) => {
   try {
     const id = req.params.id;
     if (!id) {
@@ -1926,14 +1824,8 @@ app.post('/api/multiplayer/rooms/:code/heartbeat', (req: Request, res: Response)
 // --- Admin Protected Catalogue & Management Endpoints ---
 // ==========================================
 async function checkAdminAuth(req: Request, res: Response, next: () => void) {
-  const adminKey = req.headers['x-admin-key'] || req.query.adminKey;
-  const configuredAdminKey = process.env.ADMIN_SECRET_KEY || 'ABHI0810';
-
-  if (adminKey === configuredAdminKey || adminKey === 'ABHI0810' || adminKey === 'songverse2026') {
-    return next();
-  }
-
-  // Check Bearer Token via Supabase Auth
+  // Admin access is granted only from a verified Supabase session and an active
+  // server-side profile. Client supplied role declarations and static PINs are ignored.
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
@@ -1965,8 +1857,8 @@ async function checkAdminAuth(req: Request, res: Response, next: () => void) {
 
           const isEmailAllowlisted = user.email && adminEmails.length > 0 && adminEmails.includes(user.email.toLowerCase());
           const isIdAllowlisted = adminUserIds.length > 0 && adminUserIds.includes(user.id);
-          const isDatabaseAdmin = profile && profile.account_type === 'admin';
-          const isActive = !profile || profile.account_status === 'active';
+          const isDatabaseAdmin = profile?.account_type === 'admin';
+          const isActive = profile?.account_status === 'active';
 
           if ((isEmailAllowlisted || isIdAllowlisted || isDatabaseAdmin) && isActive) {
             (req as any).adminUser = user;
@@ -1978,20 +1870,9 @@ async function checkAdminAuth(req: Request, res: Response, next: () => void) {
       }
     }
 
-    // 2. Fallback check for in-memory server session (requires active account)
-    const userId = serverSessions.get(token);
-    if (userId) {
-      const user = serverUsers.get(userId);
-      const isUserAdmin = user && (user as any).accountType === 'admin';
-      const isUserActive = !user || (user as any).accountStatus !== 'suspended';
-      if (isUserAdmin && isUserActive) {
-        (req as any).adminUser = user;
-        return next();
-      }
-    }
   }
 
-  return res.status(403).json({ error: 'FORBIDDEN', message: 'Administrator authorization required.' });
+  return res.status(authHeader ? 403 : 401).json({ error: authHeader ? 'FORBIDDEN' : 'UNAUTHENTICATED', message: 'Administrator authorization required.' });
 }
 
 // Admin Player Management & Metrics Endpoints

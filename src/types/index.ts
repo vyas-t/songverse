@@ -1,4 +1,4 @@
-export type GameMode = 'classic' | 'daily' | 'practice' | 'category' | 'multiplayer';
+export type GameMode = 'classic' | 'daily' | 'practice' | 'category' | 'multiplayer' | 'solo' | 'competitive' | 'casual';
 
 export type GameLevelNumber = 1 | 2 | 3 | 4;
 
@@ -46,6 +46,8 @@ export interface LicensingRecord {
 // Complete Unified Track (Composite interface preserving 100% backwards-compatibility)
 export interface Track extends TrackMetadata, AudioStreamSource, LicensingRecord {
   provider: 'songverse-authorized' | 'open-music-archive' | 'musicbrainz-open-metadata' | 'community-submission' | 'b2b-licensed-cleared' | 'apple-itunes';
+  /** Legacy Apple catalogue alias retained while old saved records are migrated. */
+  previewUrl?: string;
 }
 
 
@@ -248,7 +250,7 @@ export interface AdminPlayerRecord {
 
 export interface AdminDashboardMetrics {
   totalRegisteredUsers: number;
-  totalGuestPlayers: number;
+  totalGuestPlayers: number | null;
   verifiedAccounts: number;
   unverifiedAccounts: number;
   activeAccounts: number;
@@ -304,6 +306,8 @@ export interface PlayerGuessEvent {
 
 export interface RoomCatalogueStats {
   totalEligibleTracks: number;
+  totalTracks?: number;
+  artistsCount?: number;
   languages: string[];
   hostName: string;
   validatedAt: number;
@@ -313,14 +317,21 @@ export interface RoomCatalogueStats {
 export interface MatchHistoryItem {
   id: string;
   roomCode?: string;
-  mode: 'solo' | 'competitive' | 'casual';
-  finalScore: number;
+  mode?: 'solo' | 'competitive' | 'casual';
+  gameMode?: 'solo' | 'competitive' | 'casual' | 'classic' | 'daily' | 'practice' | 'category' | 'multiplayer';
+  finalScore?: number;
+  score?: number;
   placement?: number;
+  rank?: number;
   totalPlayers?: number;
-  roundsCompleted: number;
-  totalRounds: number;
-  accuracy: number;
-  completedAt: number;
+  roundsCompleted?: number;
+  totalRounds?: number;
+  roundsWon?: number;
+  correctGuesses?: number;
+  accuracy?: number;
+  completedAt?: number;
+  playedAt?: string;
+  details?: string;
 }
 
 export interface MultiplayerPlayer {

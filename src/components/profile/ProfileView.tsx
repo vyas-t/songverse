@@ -62,10 +62,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [usernameSaving, setUsernameSaving] = useState(false);
   
-  // Account deletion modal state with Mandatory 6-digit OTP
+  // Account deletion requires an authenticated session and explicit typed confirmation.
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
-  const [deletionOtpInput, setDeletionOtpInput] = useState('');
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletionSuccessNotice, setDeletionSuccessNotice] = useState<{
@@ -110,7 +109,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
   const filteredHistory = matchHistory.filter(m => {
     if (historyFilter === 'all') return true;
-    return m.gameMode === historyFilter;
+    return (m.gameMode || m.mode) === historyFilter;
   });
 
   const handleSaveName = async (e: React.FormEvent) => {
@@ -180,19 +179,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
   const handleOpenDeleteModal = () => {
     setDeletionError(null);
     setDeleteInput('');
-    setDeletionOtpInput('');
-    authService.requestAccountDeletionOtp();
     setDeleteModalOpen(true);
   };
 
   const handleConfirmDeleteAccount = async () => {
     setDeletionError(null);
-    const cleanOtp = deletionOtpInput.trim();
-    if (!cleanOtp || cleanOtp.length !== 6) {
-      setDeletionError('Mandatory 6-digit authorization OTP is required.');
-      return;
-    }
-
     if (deleteInput.trim() !== 'DELETE') {
       setDeletionError('Please type "DELETE" exactly to confirm.');
       return;
@@ -200,7 +191,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
     setIsDeleting(true);
     try {
-      const result = await authService.confirmDeleteAccountWithOtp(cleanOtp);
+      const result = await authService.deleteAccount('DELETE');
       setDeletionSuccessNotice({
         message: result.message,
         designatedAccount: result.designatedAccount,
@@ -208,7 +199,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
       });
       setDeleteModalOpen(false);
       setDeleteInput('');
-      setDeletionOtpInput('');
       const fresh = gameEngine.getUserProfile();
       setProfile(fresh);
       onDataReset();
@@ -599,18 +589,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-sv-burgundy/40">
             {filteredHistory.slice(0, 15).map((match) => (
+              (() => {
+                const mode = match.gameMode || match.mode || 'solo';
+                const playedAt = match.playedAt || new Date(match.completedAt || Date.now()).toISOString();
+                const score = match.score ?? match.finalScore ?? 0;
+                const totalRounds = match.totalRounds ?? match.roundsCompleted ?? 0;
+                return (
               <div key={match.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 shadow-xs ${
-                    match.gameMode === 'competitive'
+                    mode === 'competitive'
                       ? 'bg-gradient-to-tr from-sv-amber to-sv-gold text-slate-950'
-                      : match.gameMode === 'casual'
+                      : mode === 'casual'
                       ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                       : 'bg-sv-red/10 text-sv-red dark:text-sv-warm-orange border border-sv-red/20'
                   }`}>
-                    {match.gameMode === 'competitive' ? (
+                    {mode === 'competitive' ? (
                       <Trophy className="w-4 h-4" />
-                    ) : match.gameMode === 'casual' ? (
+                    ) : mode === 'casual' ? (
                       <Sparkles className="w-4 h-4" />
                     ) : (
                       <Disc3 className="w-4 h-4" />
@@ -620,7 +616,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                   <div className="truncate">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900 dark:text-white capitalize">
-                        {match.details || `${match.gameMode} Match`}
+                        {match.details || `${mode} Match`}
                       </span>
                       {match.rank && (
                         <span className="text-[10px] font-black font-mono text-sv-amber bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 px-1.5 py-0.2 rounded">
@@ -634,20 +630,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                       )}
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5 font-medium">
-                      {new Date(match.playedAt).toLocaleDateString()} at {new Date(match.playedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {match.totalRounds} rounds
+                      {new Date(playedAt).toLocaleDateString()} at {new Date(playedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {totalRounds} rounds
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center sm:flex-col sm:items-end justify-between text-right shrink-0">
                   <div className="font-black text-sv-red dark:text-sv-gold font-mono text-sm tabular-nums">
-                    {match.score} pts
+                    {score} pts
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                    {match.roundsWon ?? match.correctGuesses ?? 0} / {match.totalRounds} correct
+                    {match.roundsWon ?? match.correctGuesses ?? 0} / {totalRounds} correct
                   </div>
                 </div>
               </div>
+                );
+              })()
             ))}
           </div>
         )}
@@ -700,7 +698,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-left">
               <Mail className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div className="text-[11px] text-rose-800 leading-relaxed">
-                A mandatory 6-digit authorization code has been dispatched to your email (<strong>{profile.email || 'your account'}</strong>). Please check your inbox or spam folder.
+              Account deletion requires an active signed-in session. Type DELETE below to confirm.
               </div>
             </div>
 
@@ -714,14 +712,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1 text-slate-600">
               <div className="flex items-center gap-1.5 font-semibold text-slate-800">
                 <Mail className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Security Confirmation Notice:</span>
+                <span>Account Security:</span>
               </div>
               <p className="text-[11px]">
                 {profile.isGuest ? (
                   <span>Guest account: Local storage data will be purged.</span>
                 ) : (
                   <span>
-                    A confirmation notification will be dispatched to your linked account (<strong className="text-slate-800">{profile.email || 'account'}</strong>).
+                    Your current authenticated session will be used to authorize deletion of the account (<strong className="text-slate-800">{profile.email || 'account'}</strong>).
                   </span>
                 )}
               </p>
@@ -730,23 +728,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
             <div className="space-y-3 pt-1">
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-slate-800">
-                  1. Enter 6-Digit Authorization OTP (Mandatory):
-                </label>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  value={deletionOtpInput}
-                  onChange={(e) => setDeletionOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="••••••"
-                  className="w-full px-3.5 py-2 text-center text-lg font-mono font-black tracking-widest border border-slate-300 rounded-xl focus:outline-none focus:border-rose-600 focus:ring-1 focus:ring-rose-600"
-                  autoFocus
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-800">
-                  2. Type <span className="font-mono text-rose-700 font-black">DELETE</span> to confirm:
+                  Type <span className="font-mono text-rose-700 font-black">DELETE</span> to confirm:
                 </label>
                 <input
                   type="text"
@@ -771,9 +753,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
               <button
                 type="button"
                 onClick={handleConfirmDeleteAccount}
-                disabled={deletionOtpInput.trim().length !== 6 || deleteInput !== 'DELETE' || isDeleting}
+                disabled={deleteInput !== 'DELETE' || isDeleting}
                 className={`px-5 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
-                  deletionOtpInput.trim().length === 6 && deleteInput === 'DELETE' && !isDeleting
+                  deleteInput === 'DELETE' && !isDeleting
                     ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs cursor-pointer'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 }`}

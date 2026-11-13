@@ -28,7 +28,7 @@ export const LeaderboardView: React.FC = () => {
           accuracy: userProfile.accuracy,
           streak: userProfile.currentStreak,
           dateAchieved: new Date().toISOString().split('T')[0],
-          gameMode: 'classic'
+          gameMode: 'classic' as const
         }]);
       } else {
         setEntries(data);
@@ -45,7 +45,7 @@ export const LeaderboardView: React.FC = () => {
     loadLeaderboard(activeTab);
   }, [activeTab]);
 
-  const userCompetitiveMatches = (userProfile.matchHistory || []).filter(m => m.gameMode === 'competitive');
+  const userCompetitiveMatches = (userProfile.matchHistory || []).filter(m => (m.gameMode || m.mode) === 'competitive');
   const friends = socialService.getFriends();
 
   // Build friend leaderboard entries (ranking user and accepted friends)
@@ -59,7 +59,7 @@ export const LeaderboardView: React.FC = () => {
       accuracy: userProfile.accuracy,
       streak: userProfile.currentStreak,
       dateAchieved: new Date().toISOString().split('T')[0],
-      gameMode: 'classic'
+      gameMode: 'classic' as const
     },
     ...friends.map(f => ({
       rank: 1,
@@ -70,7 +70,7 @@ export const LeaderboardView: React.FC = () => {
       accuracy: 0,
       streak: f.currentStreak,
       dateAchieved: new Date().toISOString().split('T')[0],
-      gameMode: 'classic'
+      gameMode: 'classic' as const
     }))
   ]
     .sort((a, b) => b.score - a.score)
@@ -92,10 +92,10 @@ export const LeaderboardView: React.FC = () => {
         userId: userProfile.id,
         displayName: `${userProfile.displayName} (You)`,
         avatarSeed: userProfile.avatarSeed,
-        score: Math.max(...userCompetitiveMatches.map(m => m.score)),
+        score: Math.max(...userCompetitiveMatches.map(m => m.score ?? m.finalScore ?? 0)),
         accuracy: userProfile.accuracy,
         streak: userProfile.bestStreak,
-        dateAchieved: userCompetitiveMatches[0].playedAt.split('T')[0],
+        dateAchieved: (userCompetitiveMatches[0].playedAt || new Date(userCompetitiveMatches[0].completedAt || Date.now()).toISOString()).split('T')[0],
         gameMode: 'competitive'
       }] : []))
     : displayedEntries;

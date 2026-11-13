@@ -1,5 +1,6 @@
 import { Track, PaginatedResult, CatalogueFilterOptions, CSVImportValidationResult } from '../types';
 import { INITIAL_TRACK_CATALOGUE } from './initialCatalogue';
+import { isSupabaseConfigured, supabase } from './supabaseClient';
 
 export { INITIAL_TRACK_CATALOGUE };
 const STORAGE_KEY_USER_CATALOGUE = 'songverse_user_catalogue_v2';
@@ -511,18 +512,8 @@ class MusicCatalogueService {
     this.saveToStorage();
     this.notify();
 
-    // Async sync with server
-    try {
-      if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-        fetch('/api/catalogue/tracks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newTrack)
-        }).catch(() => {});
-      }
-    } catch {
-      // Ignored
-    }
+    // Personal additions remain local unless the signed-in administrator saves a shared catalogue entry.
+    void this.syncAdminTrackMutation('POST', newTrack);
 
     return { added: true, track: newTrack };
   }
@@ -535,18 +526,30 @@ class MusicCatalogueService {
       this.saveToStorage();
       this.notify();
 
-      // Async sync with server
-      try {
-        if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-          fetch(`/api/catalogue/tracks/${encodeURIComponent(id)}`, {
-            method: 'DELETE'
-          }).catch(() => {});
-        }
-      } catch {
-        // Ignored
-      }
+      // Personal removal remains local; only an administrator can alter the shared catalogue.
+      void this.syncAdminTrackMutation('DELETE', { id });
     }
     return { removed, id };
+  }
+
+  private async syncAdminTrackMutation(method: 'POST' | 'DELETE', value: Track | { id: string }): Promise<void> {
+    if (typeof window === 'undefined' || !isSupabaseConfigured() || !supabase) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const id = method === 'DELETE' ? encodeURIComponent((value as { id: string }).id) : '';
+      await fetch(method === 'DELETE' ? `/api/catalogue/tracks/${id}` : '/api/catalogue/tracks', {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        ...(method === 'POST' ? { body: JSON.stringify(value) } : {})
+      });
+    } catch {
+      // Local changes are already stored. A remote admin mutation failure is not reported as saved.
+    }
   }
 
   public addMusicBrainzTrack(data: {

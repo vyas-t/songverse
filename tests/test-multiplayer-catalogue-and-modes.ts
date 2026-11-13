@@ -128,12 +128,17 @@ async function runSongVerse2UpgradeTestSuite() {
     previewUrl: 'https://cdn.songverse.test/future.mp3',
     genre: 'Pop',
     language: 'English',
-    streamingLinks: { spotify: '', appleMusic: '', youtubeMusic: '' },
+    decade: '2020s',
+    country: 'Global',
+    artworkGradient: 'from-amber-500 to-rose-600',
     playbackStatus: 'verified_audio',
     availabilityStatus: 'available',
-    source: 'itunes',
-    curated: false,
-    popularity: 80
+    clipStartSeconds: 0,
+    licenceReference: 'TEST-TRACK-999',
+    licenceType: 'Apple iTunes Promotional Preview (30s)',
+    attributionText: 'Test preview source',
+    regionRestrictions: [],
+    provider: 'apple-itunes'
   };
   musicCatalogue.addTrack(mockNewTrack);
 

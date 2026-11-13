@@ -1192,7 +1192,7 @@ class MultiplayerEngineService {
 
       // Record match history for the local player
       try {
-        const myId = this.localPlayerId;
+        const myId = this.currentUserId;
         const myPlayer = this.activeRoom.players.find(p => p.id === myId);
         if (myPlayer) {
           const sorted = [...this.activeRoom.players].sort((a, b) => (b.score || 0) - (a.score || 0));

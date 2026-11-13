@@ -93,14 +93,11 @@ interface ImportPreset {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
-  // Admin access gate: check if current authenticated user has active admin accountType or verified with admin PIN
+  // Client-side gating is only a convenience; every admin API also checks the session and role.
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     const user = authService.getState().user;
-    if (user && user.accountType === 'admin' && user.accountStatus === 'active') return true;
-    return sessionStorage.getItem('songverse_admin_auth') === 'ABHI0810';
+    return Boolean(user && user.accountType === 'admin' && user.accountStatus === 'active');
   });
-  const [adminPinInput, setAdminPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'players' | 'catalogue' | 'metrics' | 'imports' | 'migration' | 'tests' | 'csv' | 'daily'>('overview');
   const [testResults, setTestResults] = useState<AutomatedTestResult[]>([]);
@@ -160,13 +157,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
   const getAdminHeaders = (): Record<string, string> => {
     const sessionToken = authService.getState().sessionToken;
-    const adminPin = sessionStorage.getItem('songverse_admin_auth');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
-    if (adminPin) {
-      headers['x-admin-key'] = adminPin;
-    }
     if (sessionToken) {
       headers['Authorization'] = `Bearer ${sessionToken}`;
     }
@@ -220,7 +213,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
           setAdminMetrics({
             totalRegisteredUsers,
-            totalGuestPlayers: 1,
+            totalGuestPlayers: null,
             verifiedAccounts,
             unverifiedAccounts,
             activeAccounts,
@@ -554,21 +547,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     return () => clearInterval(interval);
   }, [activeTab, importStatus?.status]);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPinInput.trim() === 'ABHI0810') {
-      setIsAdminAuthenticated(true);
-      sessionStorage.setItem('songverse_admin_auth', 'ABHI0810');
-      setPinError(false);
-    } else {
-      setPinError(true);
-    }
-  };
-
   const handleAdminLogout = () => {
-    sessionStorage.removeItem('songverse_admin_auth');
     setIsAdminAuthenticated(false);
-    setAdminPinInput('');
   };
 
   const handleRunTests = async () => {
@@ -731,54 +711,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
               Admin & 18-Test Runner
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              This console is private and restricted. Please enter the authorized access code to unlock system controls and automated test runner.
+              This console requires an authenticated account with active administrator permissions. Sign in with an authorized account, then reopen this panel.
             </p>
           </div>
-
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Authorized Access Code
-              </label>
-              <input
-                type="password"
-                value={adminPinInput}
-                onChange={(e) => {
-                  setAdminPinInput(e.target.value);
-                  if (pinError) setPinError(false);
-                }}
-                placeholder="Enter access code"
-                className={`w-full px-4 py-3 rounded-xl border text-sm font-mono tracking-widest bg-slate-50 dark:bg-sv-navy text-slate-900 dark:text-white focus:outline-none transition-all ${
-                  pinError
-                    ? 'border-rose-500 ring-1 ring-rose-500'
-                    : 'border-slate-300 dark:border-sv-burgundy focus:border-sv-red'
-                }`}
-                autoFocus
-              />
-              {pinError && (
-                <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 font-medium mt-1">
-                  <span>Invalid access code. Please enter the authorized code.</span>
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-sv-navy rounded-xl transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2.5 bg-sv-red hover:bg-sv-crimson text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-sv-red/20 flex items-center gap-2"
-              >
-                <Unlock className="w-3.5 h-3.5" />
-                <span>Authenticate & Enter</span>
-              </button>
-            </div>
-          </form>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-sv-navy rounded-xl transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -800,7 +744,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                   Global Song Catalogue & Ingestion Console
                 </h2>
                 <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-mono font-semibold flex items-center gap-1">
-                  <Unlock className="w-3 h-3" /> Admin Mode (ABHI0810)
+                  <Unlock className="w-3 h-3" /> Admin Mode
                 </span>
               </div>
               <p className="text-xs text-slate-500">

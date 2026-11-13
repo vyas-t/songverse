@@ -5,6 +5,7 @@
  * SongVerse Complete Authentication, Player Database & Admin Dashboard Test Suite
  */
 
+import { readFileSync } from 'node:fs';
 import { authService, getAuthRedirectUri } from '../src/services/authService';
 import { gameEngine } from '../src/services/gameEngine';
 
@@ -135,7 +136,7 @@ async function runAuthAndAdminTests() {
     try {
       await authService.requestPasswordReset('');
     } catch (err: any) {
-      if (err.message.includes('enter your email address')) {
+      if (err.message.includes('valid email address')) {
         rejected = true;
       }
     }
@@ -167,17 +168,23 @@ async function runAuthAndAdminTests() {
 
   // 10. Admin Authorization Gate
   {
-    const reqHeaders: Record<string, string> = { 'x-admin-key': 'WRONG_KEY' };
-    const isAccepted = reqHeaders['x-admin-key'] === 'ABHI0810';
-    assert(!isAccepted, 'Unauthorized admin access attempt with invalid key is blocked');
+    const ui = readFileSync(new URL('../src/components/admin/AdminPanel.tsx', import.meta.url), 'utf8');
+    const express = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
+    const edge = readFileSync(new URL('../functions/api/admin/metrics.ts', import.meta.url), 'utf8');
+    const staticBypassRemoved = !ui.includes('ABHI0810') && !ui.includes('songverse_admin_auth')
+      && !express.includes("adminKey === 'ABHI0810'") && !express.includes("adminKey === 'songverse2026'")
+      && !edge.includes("adminKey === 'ABHI0810'") && !edge.includes("adminKey === 'songverse2026'");
+    assert(staticBypassRemoved, 'Admin endpoints no longer accept a bundled static PIN');
   }
 
   // 11. Database RLS Protection: Ordinary user self-promotion blocked
   {
-    const originalAccountType: string = 'player';
-    const attemptedUpdate: string = 'admin';
-    const canPromoteSelf = originalAccountType === attemptedUpdate;
-    assert(!canPromoteSelf, 'Ordinary user cannot self-promote to admin role (RLS WITH CHECK enforced)');
+    const migration = readFileSync(new URL('../supabase/migrations/20261113000000_songverse_security_hardening.sql', import.meta.url), 'utf8');
+    const profileUpdateGrant = migration.match(/GRANT UPDATE \(([\s\S]*?)\) ON TABLE public\.profiles/);
+    const protectsRoleColumn = migration.includes('REVOKE UPDATE ON TABLE public.profiles FROM anon, authenticated')
+      && migration.includes('prevent_profile_privilege_changes')
+      && Boolean(profileUpdateGrant && !profileUpdateGrant[1].includes('account_type'));
+    assert(protectsRoleColumn, 'Profile role changes are excluded from client column grants and guarded by a trigger');
   }
 
   // 12. Privacy Protection: Leaderboard Public View Excludes Emails

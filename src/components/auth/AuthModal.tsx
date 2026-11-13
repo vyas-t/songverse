@@ -162,8 +162,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     }
 
     try {
-      const code = await authService.requestPasswordReset(email);
-      setResetOtpInput(code || '');
+      await authService.requestPasswordReset(email);
     } catch (err: any) {
       setLocalError(err.message || 'Password reset request failed.');
     }
@@ -209,10 +208,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       return;
     }
     try {
-      const newCode = await authService.resendVerificationEmail(target);
-      if (newCode) {
-        setOtpInput(newCode);
-      }
+      await authService.resendVerificationEmail(target);
     } catch (err: any) {
       setLocalError(err.message || 'Failed to resend code.');
     }

@@ -22,6 +22,20 @@ export interface RoundShareItem {
   artist?: string;
 }
 
+function buildMatrixLines(
+  roundHistory: RoundShareItem[],
+  totalRounds: number,
+  roundsWon: number
+): string[] {
+  if (roundHistory.length > 0) {
+    return roundHistory.map((round) => {
+      const emoji = !round.isWon ? '🟥' : round.level <= 2 ? '🟩' : round.level === 3 ? '🟧' : '🟨';
+      return `R${round.roundNumber}: ${emoji} (${round.isWon ? `${round.points} pts • L${round.level}` : 'Missed'})`;
+    });
+  }
+  return ['🟩 '.repeat(roundsWon) + '🟥 '.repeat(Math.max(0, totalRounds - roundsWon))];
+}
+
 interface ShareResultModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -54,27 +68,11 @@ export function formatShareCardText(params: {
   };
   const modeTitle = modeTitles[params.gameMode] || 'SongVerse Arena';
 
-  const matrixLines: string[] = [];
-  if (params.roundHistory && params.roundHistory.length > 0) {
-    params.roundHistory.forEach((r) => {
-      let emoji = '🟥';
-      if (r.isWon) {
-        if (r.level === 1) emoji = '🟩';
-        else if (r.level === 2) emoji = '🟩';
-        else if (r.level === 3) emoji = '🟧';
-        else emoji = '🟨';
-      }
-      matrixLines.push(`R${r.roundNumber}: ${emoji} (${r.isWon ? `${r.points} pts • L${r.level}` : 'Missed'})`);
-    });
-  } else if (params.history && params.history.length > 0) {
-    params.history.forEach((h) => {
-      matrixLines.push(`R${h.round}: ${h.won ? '🟩' : '🟥'}`);
-    });
-  } else {
-    const total = params.totalRounds || 5;
-    const won = params.roundsWon || 0;
-    matrixLines.push('🟩 '.repeat(won) + '🟥 '.repeat(Math.max(0, total - won)));
-  }
+  const matrixLines = params.roundHistory?.length
+    ? buildMatrixLines(params.roundHistory, params.totalRounds || 5, params.roundsWon || 0)
+    : params.history?.length
+      ? params.history.map((h) => `R${h.round}: ${h.won ? '🟩' : '🟥'}`)
+      : buildMatrixLines([], params.totalRounds || 5, params.roundsWon || 0);
 
   const scoreDisplay = params.totalScore
     ? `${params.score} / ${params.totalScore} pts`
@@ -118,6 +116,7 @@ export const ShareResultModal: React.FC<ShareResultModalProps> = ({
   };
 
   const modeTitle = modeTitles[gameMode] || 'SongVerse Arena';
+  const matrixLines = buildMatrixLines(roundHistory, totalRounds, roundsWon);
 
   const shareText = formatShareCardText({
     gameMode,

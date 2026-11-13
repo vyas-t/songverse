@@ -150,7 +150,7 @@ async function runSocialTests() {
   };
   const selfAddRes = await socialService.sendFriendRequest(mySelfFriendUser);
   assert(
-    !selfAddRes.success && selfAddRes.error?.includes('yourself'),
+    !selfAddRes.success && Boolean(selfAddRes.error?.includes('yourself')),
     'Adding yourself as a friend is strictly prevented'
   );
 
@@ -268,7 +268,7 @@ async function runSocialTests() {
   gameEngine.updateUserProfile({ isGuest: true });
   const guestInvite = await socialService.inviteFriendToRoom(playerA, '123456');
   assert(
-    !guestInvite.success && guestInvite.error?.includes('Sign in'),
+    !guestInvite.success && Boolean(guestInvite.error?.includes('Sign in')),
     'Guest users cannot invite or add friends without registered account'
   );
 

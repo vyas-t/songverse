@@ -1,141 +1,64 @@
 /**
- * =========================================================================
- * SONGVERSE 6-DIGIT OTP SECURITY VERIFICATION SUITE
- * =========================================================================
- * Tests:
- * 1. Random 6-digit OTP generation (format, 6-numeric characters)
- * 2. OTP expiration (10 minutes)
- * 3. Sign-in / Sign-up OTP verification (rejection of bad OTP, acceptance of valid OTP)
- * 4. Password reset mandatory 6-digit OTP verification (rejection of bad OTP, acceptance of valid OTP)
- * 5. Account deletion mandatory 6-digit OTP authorization (rejection of bad OTP, acceptance of valid OTP)
+ * Security regression checks for Supabase-managed verification and recovery.
+ * These checks do not contact Supabase or send email.
  */
-
+import { readFileSync } from 'node:fs';
 import { authService } from '../src/services/authService';
 import { gameEngine } from '../src/services/gameEngine';
 
-// Polyfill localStorage if in headless node
 if (typeof localStorage === 'undefined' || localStorage === null) {
   const store: Record<string, string> = {};
   (global as any).localStorage = {
     getItem: (key: string) => store[key] || null,
-    setItem: (key: string, value: string) => { store[key] = value.toString(); },
+    setItem: (key: string, value: string) => { store[key] = String(value); },
     removeItem: (key: string) => { delete store[key]; },
-    clear: () => { Object.keys(store).forEach(k => delete store[k]); }
+    clear: () => { Object.keys(store).forEach(key => delete store[key]); }
   };
 }
 
-let passed = 0;
-let total = 0;
+async function run() {
+  const source = readFileSync(new URL('../src/services/authService.ts', import.meta.url), 'utf8');
+  const emailService = readFileSync(new URL('../src/services/emailService.ts', import.meta.url), 'utf8');
+  const edgeOtp = readFileSync(new URL('../functions/api/send-otp.ts', import.meta.url), 'utf8');
 
-function assert(condition: boolean, title: string, details?: string) {
-  total++;
-  if (condition) {
-    passed++;
-    console.log(`[✓ PASS] Scenario ${total}: ${title}`);
-    if (details) console.log(`       Details:  ${details}`);
-  } else {
-    console.error(`[✗ FAIL] Scenario ${total}: ${title}`);
-    if (details) console.error(`       Details:  ${details}`);
-    throw new Error(`Test failed: ${title}`);
+  if (source.includes('generateOtp(') || source.includes('songverse_auth_active_otp')) {
+    throw new Error('Browser-generated OTP storage must remain absent.');
   }
-}
-
-async function runOtpTests() {
-  console.log('\n====================================================');
-  console.log('  SONGVERSE — 6-DIGIT OTP SECURITY TEST SUITE');
-  console.log('====================================================\n');
-
-  // --- 1. OTP FORMAT & GENERATION ---
-  console.log('--- 1. OTP GENERATION & SPECIFICATION ---');
-  const code = authService.generateOtp('testuser@songverse.io', 'signin');
-  assert(/^\d{6}$/.test(code), 'Generated OTP is strictly a 6-digit numeric string', `Code: ${code}`);
-
-  const activeOtp = authService.getActiveOtp();
-  assert(activeOtp !== null && activeOtp.code === code, 'Active OTP is securely tracked in auth state');
-  assert(activeOtp!.expiresAt > Date.now(), 'Active OTP has valid future expiration');
-
-  // --- 2. SIGN-IN / SIGN-UP OTP VERIFICATION ---
-  console.log('\n--- 2. SIGN-IN & REGISTRATION 6-DIGIT OTP ---');
-  let badOtpRejected = false;
-  try {
-    await authService.verifySignInOtp('000000');
-  } catch (err: any) {
-    badOtpRejected = err.message.includes('Incorrect') || err.message.includes('Invalid');
+  if (!source.includes('supabase.auth.verifyOtp') || !source.includes('supabase.auth.resend')) {
+    throw new Error('Signup verification must use Supabase Auth.');
   }
-  assert(badOtpRejected, 'Incorrect 6-digit OTP is strictly rejected during sign in');
+  if (!source.includes('supabase.auth.resetPasswordForEmail') || !source.includes('if (updateError) throw updateError')) {
+    throw new Error('Password recovery must use Supabase Auth and surface update failures.');
+  }
+  if (!emailService.includes('success: false') || !edgeOtp.includes('status: 410')) {
+    throw new Error('The caller-supplied OTP mail endpoint must be disabled.');
+  }
 
-  // Format validation
-  let shortOtpRejected = false;
+  let invalidFormatRejected = false;
   try {
     await authService.verifySignInOtp('123');
-  } catch (err: any) {
-    shortOtpRejected = err.message.includes('valid 6-digit');
+  } catch (error: any) {
+    invalidFormatRejected = error.message.includes('valid 6-digit');
   }
-  assert(shortOtpRejected, 'OTP with less than 6 digits is rejected');
+  if (!invalidFormatRejected) throw new Error('Malformed verification codes must be rejected.');
 
-  // Correct OTP verification
-  const validUser = await authService.verifySignInOtp(code);
-  assert(validUser.email === 'testuser@songverse.io', 'Valid 6-digit OTP successfully verifies and logs in player');
-  assert(authService.getActiveOtp() === null, 'Active OTP is consumed and cleared upon successful sign in');
-
-  // --- 3. PASSWORD RESET MANDATORY OTP ---
-  console.log('\n--- 3. MANDATORY 6-DIGIT OTP PASSWORD RESET ---');
-  const resetOtp = await authService.requestPasswordReset('forgot@songverse.io');
-  assert(/^\d{6}$/.test(resetOtp), 'Password reset issues a random 6-digit OTP code', `Reset OTP: ${resetOtp}`);
-
-  let badResetRejected = false;
+  let missingProviderRejected = false;
   try {
-    await authService.resetPasswordWithOtp({
-      email: 'forgot@songverse.io',
-      otp: '999999',
-      newPassword: 'Password123',
-      confirmPassword: 'Password123'
-    });
-  } catch (err: any) {
-    badResetRejected = err.message.includes('Invalid') || err.message.includes('rejected');
+    await authService.requestPasswordReset('user@example.com');
+  } catch (error: any) {
+    missingProviderRejected = error.message.includes('Supabase authentication is not configured');
   }
-  assert(badResetRejected, 'Password reset without correct 6-digit OTP is strictly rejected');
+  if (!missingProviderRejected) throw new Error('Recovery must fail clearly when Auth is not configured.');
 
-  await authService.resetPasswordWithOtp({
-    email: 'forgot@songverse.io',
-    otp: resetOtp,
-    newPassword: 'NewPassword123',
-    confirmPassword: 'NewPassword123'
-  });
-  assert(true, 'Password successfully reset upon entering verified 6-digit OTP');
+  authService.playAsGuest();
+  const deletion = await authService.deleteAccount('DELETE');
+  if (deletion.status !== 'account_deleted') throw new Error('Guest deletion should complete locally.');
+  if (!gameEngine.getUserProfile().isGuest) throw new Error('Guest deletion should leave a guest profile.');
 
-  // --- 4. ACCOUNT DELETION MANDATORY OTP ---
-  console.log('\n--- 4. MANDATORY 6-DIGIT OTP ACCOUNT DELETION ---');
-  const deleteOtp = authService.requestAccountDeletionOtp();
-  assert(/^\d{6}$/.test(deleteOtp), 'Account deletion issues mandatory 6-digit authorization OTP', `Delete OTP: ${deleteOtp}`);
-
-  let badDeleteRejected = false;
-  try {
-    await authService.confirmDeleteAccountWithOtp('111111');
-  } catch (err: any) {
-    badDeleteRejected = err.message.includes('Invalid') || err.message.includes('aborted');
-  }
-  assert(badDeleteRejected, 'Account deletion with incorrect 6-digit OTP is strictly blocked');
-
-  const deleteResult = await authService.confirmDeleteAccountWithOtp(deleteOtp);
-  assert(deleteResult.status === 'account_deleted', 'Account permanently deleted upon providing mandatory 6-digit OTP');
-
-  // Verify transition to guest mode
-  const currentProfileAfterDelete = gameEngine.getUserProfile();
-  assert(currentProfileAfterDelete.isGuest === true, 'Player automatically transitions to Guest Mode upon account deletion');
-
-  // Test sign out transition to guest mode
-  await authService.signOut();
-  const currentProfileAfterSignOut = gameEngine.getUserProfile();
-  assert(currentProfileAfterSignOut.isGuest === true, 'Player automatically transitions to Guest Mode upon sign out');
-
-  console.log('\n----------------------------------------------------');
-  console.log(`Final Verification Score: ${passed} / ${total} OTP Scenarios Passed.`);
-  console.log('====================================================\n');
-  process.exit(0);
+  console.log('Supabase OTP regression checks passed.');
 }
 
-runOtpTests().catch(err => {
-  console.error('Test error:', err);
-  process.exit(1);
+run().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
 });

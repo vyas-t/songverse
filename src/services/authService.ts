@@ -1,7 +1,6 @@
 import { UserProfile, AuthProviderConfig } from '../types';
 import { gameEngine } from './gameEngine';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import { emailService } from './emailService';
 import { socialService } from './socialService';
 
 export type AuthView =
@@ -11,14 +10,6 @@ export type AuthView =
   | 'verified_success'
   | 'forgot_password'
   | 'reset_password';
-
-export interface ActiveOtpRecord {
-  code: string;
-  email: string;
-  purpose: 'signin' | 'signup' | 'password_reset' | 'account_deletion';
-  expiresAt: number;
-  attemptsLeft: number;
-}
 
 export interface AuthState {
   user: UserProfile;
@@ -34,12 +25,10 @@ export interface AuthState {
   pendingEmail: string | null;
   resendCooldownSeconds: number;
   successNotice: string | null;
-  hasActiveOtp?: boolean;
 }
 
 const STORAGE_KEY_AUTH_TOKEN = 'songverse_auth_session_token';
 const STORAGE_KEY_PENDING_EMAIL = 'songverse_auth_pending_email';
-const STORAGE_KEY_ACTIVE_OTP = 'songverse_auth_active_otp_v1';
 
 const safeStorage = {
   getItem: (key: string): string | null => {
@@ -112,7 +101,6 @@ class AuthService {
   private resendCooldownSeconds = 0;
   private resendTimer: any = null;
   private successNotice: string | null = null;
-  private activeOtp: ActiveOtpRecord | null = null;
 
   private providers: {
     google: AuthProviderConfig;
@@ -164,15 +152,6 @@ class AuthService {
     if (typeof window !== 'undefined') {
       this.sessionToken = safeStorage.getItem(STORAGE_KEY_AUTH_TOKEN);
       this.pendingEmail = safeStorage.getItem(STORAGE_KEY_PENDING_EMAIL);
-      try {
-        const rawOtp = safeStorage.getItem(STORAGE_KEY_ACTIVE_OTP);
-        if (rawOtp) {
-          const parsed = JSON.parse(rawOtp);
-          if (parsed.expiresAt > Date.now()) {
-            this.activeOtp = parsed;
-          }
-        }
-      } catch {}
       this.fetchProvidersStatus();
       this.initSupabaseAuthListener();
       this.detectCallbackOrResetUrl();
@@ -191,7 +170,6 @@ class AuthService {
   }
 
   public getState(): AuthState {
-    const validOtp = this.getActiveOtp();
     return {
       user: gameEngine.getUserProfile(),
       sessionToken: this.sessionToken,
@@ -201,8 +179,7 @@ class AuthService {
       authView: this.authView,
       pendingEmail: this.pendingEmail,
       resendCooldownSeconds: this.resendCooldownSeconds,
-      successNotice: this.successNotice,
-      hasActiveOtp: Boolean(validOtp)
+      successNotice: this.successNotice
     };
   }
 
@@ -492,11 +469,13 @@ class AuthService {
         } else {
           // If profile exists, ensure username is populated in database if missing
           if (!remoteProfileData.username && localProfile.username) {
-            await supabase
+            const { error: usernameSyncError } = await supabase
               .from('profiles')
               .update({ username: localProfile.username })
-              .eq('id', sbUser.id)
-              .catch(() => {});
+              .eq('id', sbUser.id);
+            if (usernameSyncError) {
+              console.warn('[SongVerse AuthService] Failed to sync profile username:', usernameSyncError.message);
+            }
           }
         }
       } catch (err) {
@@ -725,17 +704,15 @@ class AuthService {
         throw new Error('An account with this email address already exists. Please sign in or reset your password.');
       }
 
-      // Mandatory 6-digit random security OTP for sign up
       const isConfirmed = Boolean(data.user?.email_confirmed_at);
       if (!isConfirmed) {
-        const otpCode = this.generateOtp(cleanEmail, 'signup');
         this.pendingEmail = cleanEmail;
         safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
         this.authView = 'verification_pending';
-        this.successNotice = 'A 6-digit verification code has been dispatched to your email address.';
+        this.successNotice = 'Check your email for the verification code or secure confirmation link from Supabase Auth.';
         this.startResendCooldown(60);
         this.notify();
-        return { requiresVerification: true, email: cleanEmail, otp: otpCode };
+        return { requiresVerification: true, email: cleanEmail };
       }
 
       // If pre-confirmed
@@ -784,11 +761,12 @@ class AuthService {
           throw new Error('Incorrect email or password. Please try again or use password reset.');
         }
         if (error.message.includes('Email not confirmed')) {
-          const otpCode = this.generateOtp(cleanEmail, 'signin');
+          const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: cleanEmail });
+          if (resendError) throw resendError;
           this.pendingEmail = cleanEmail;
           safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
           this.authView = 'verification_pending';
-          this.successNotice = 'A 6-digit sign-in code has been dispatched to your email address.';
+          this.successNotice = 'Check your email for the verification code or secure confirmation link from Supabase Auth.';
           this.startResendCooldown(60);
           this.notify();
           throw new Error('Please enter the 6-digit OTP code to verify and complete sign in.');
@@ -802,11 +780,12 @@ class AuthService {
 
       // Check if email confirmed
       if (!data.user.email_confirmed_at) {
-        const otpCode = this.generateOtp(cleanEmail, 'signin');
+        const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: cleanEmail });
+        if (resendError) throw resendError;
         this.pendingEmail = cleanEmail;
         safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
         this.authView = 'verification_pending';
-        this.successNotice = `Your 6-digit sign-in OTP is: ${otpCode}`;
+        this.successNotice = 'Check your email for the verification code or secure confirmation link from Supabase Auth.';
         this.startResendCooldown(60);
         this.notify();
         throw new Error('Please enter the 6-digit OTP code to verify and complete sign in.');
@@ -827,124 +806,58 @@ class AuthService {
     }
   }
 
-  /**
-   * Issue a random 6-digit security OTP code
-   */
-  public generateOtp(email: string, purpose: 'signin' | 'signup' | 'password_reset' | 'account_deletion'): string {
-    const cleanEmail = email.trim().toLowerCase();
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    this.activeOtp = {
-      code,
-      email: cleanEmail,
-      purpose,
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes valid
-      attemptsLeft: 5
-    };
-    safeStorage.setItem(STORAGE_KEY_ACTIVE_OTP, JSON.stringify(this.activeOtp));
-    this.pendingEmail = cleanEmail;
-    safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
-    this.startResendCooldown(60);
-
-    // Dispatch 6-digit OTP email to user's mailbox (Gmail / SMTP / Resend)
-    emailService.sendOtpEmail({
-      email: cleanEmail,
-      otp: code,
-      purpose
-    }).catch(err => {
-      console.warn('[SongVerse AuthService] OTP email dispatch warning:', err?.message || err);
-    });
-
-    this.notify();
-    return code;
-  }
-
-  public getActiveOtp(): ActiveOtpRecord | null {
-    if (this.activeOtp && this.activeOtp.expiresAt < Date.now()) {
-      this.activeOtp = null;
-      safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
-    }
-    return this.activeOtp;
-  }
-
-  /**
-   * Verify 6-digit OTP for Sign In / Registration
-   */
+  /** Verify a Supabase-managed email confirmation code. */
   public async verifySignInOtp(inputCode: string): Promise<UserProfile> {
-    const cleanCode = (inputCode || '').trim();
-    if (!cleanCode || cleanCode.length !== 6 || !/^\d{6}$/.test(cleanCode)) {
+    const token = (inputCode || '').trim();
+    const email = (this.pendingEmail || safeStorage.getItem(STORAGE_KEY_PENDING_EMAIL) || '').trim().toLowerCase();
+    if (!/^\d{6}$/.test(token)) {
       throw new Error('Please enter a valid 6-digit verification code.');
     }
-
-    const currentOtp = this.getActiveOtp();
-    if (!currentOtp) {
-      throw new Error('No active verification code found or code expired. Please request a new code.');
+    if (!email || !isSupabaseConfigured() || !supabase) {
+      throw new Error('No active Supabase verification request was found. Request a new verification email.');
     }
 
-    if (currentOtp.purpose !== 'signin' && currentOtp.purpose !== 'signup') {
-      throw new Error('Verification code is not valid for sign in.');
-    }
-
-    if (currentOtp.code !== cleanCode) {
-      currentOtp.attemptsLeft -= 1;
-      safeStorage.setItem(STORAGE_KEY_ACTIVE_OTP, JSON.stringify(currentOtp));
-      if (currentOtp.attemptsLeft <= 0) {
-        this.activeOtp = null;
-        safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
-        throw new Error('Maximum verification attempts exceeded. Please request a new code.');
-      }
-      throw new Error(`Incorrect verification code. ${currentOtp.attemptsLeft} attempts remaining.`);
-    }
-
-    // Success! Clear OTP
-    this.activeOtp = null;
-    safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
-
-    // Update player profile to verified
-    const localProfile = gameEngine.getUserProfile();
-    const updated = gameEngine.updateUserProfile({
-      email: currentOtp.email,
-      isGuest: false,
-      authProvider: 'email'
-    });
-
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({
-            email_verified: true,
-            last_login_at: new Date().toISOString()
-          })
-          .eq('id', updated.id);
-      } catch {}
-    }
-
-    this.pendingEmail = null;
-    safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
-    this.successNotice = 'Email verified successfully with 6-digit OTP!';
-    this.authView = 'verified_success';
+    this.isLoading = true;
+    this.error = null;
     this.notify();
-    return updated;
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+      if (error) throw error;
+      if (!data.user) throw new Error('Supabase did not return a verified account.');
+
+      const profile = await this.syncProfileFromSupabaseUser(data.user);
+      this.pendingEmail = null;
+      safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
+      this.successNotice = 'Email verified successfully.';
+      this.authView = 'verified_success';
+      this.notify();
+      return profile;
+    } catch (err: any) {
+      this.error = err.message || 'Email verification failed.';
+      this.notify();
+      throw err;
+    } finally {
+      this.isLoading = false;
+      this.notify();
+    }
   }
 
-  /**
-   * Resend Verification OTP with rate limit cooldown
-   */
-  public async resendVerificationEmail(customEmail?: string): Promise<string> {
+  /** Resend verification using Supabase Auth, which owns OTP generation and verification. */
+  public async resendVerificationEmail(customEmail?: string): Promise<void> {
     if (this.resendCooldownSeconds > 0) {
       throw new Error(`Please wait ${this.resendCooldownSeconds} seconds before requesting another code.`);
     }
+    const email = (customEmail || this.pendingEmail || '').trim().toLowerCase();
+    if (!email) throw new Error('Please enter your email address to receive a verification email.');
+    if (!isSupabaseConfigured() || !supabase) throw new Error('Supabase authentication is not configured.');
 
-    const emailToUse = (customEmail || this.pendingEmail || '').trim().toLowerCase();
-    if (!emailToUse) {
-      throw new Error('Please enter your email address to receive a verification code.');
-    }
-
-    const otpCode = this.generateOtp(emailToUse, 'signup');
-    this.successNotice = 'A new 6-digit verification code has been dispatched to your email address.';
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) throw error;
+    this.pendingEmail = email;
+    safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, email);
+    this.successNotice = 'A new verification email was requested from Supabase Auth.';
     this.startResendCooldown(60);
     this.notify();
-    return otpCode;
   }
 
   private startResendCooldown(seconds: number): void {
@@ -962,27 +875,31 @@ class AuthService {
     }, 1000);
   }
 
-  /**
-   * Password Reset: Send random 6-digit security OTP code
-   */
-  public async requestPasswordReset(email: string): Promise<string> {
+  /** Request a Supabase-managed password recovery email. */
+  public async requestPasswordReset(email: string): Promise<void> {
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail) {
-      throw new Error('Please enter your email address to reset your password.');
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new Error('Please enter a valid email address to reset your password.');
+    }
+    if (!isSupabaseConfigured() || !supabase) {
+      throw new Error('Supabase authentication is not configured.');
     }
 
     this.isLoading = true;
     this.error = null;
     this.notify();
-
     try {
-      const otpCode = this.generateOtp(cleanEmail, 'password_reset');
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: getAuthRedirectUri('/auth/callback?type=recovery')
+      });
+      if (error) throw error;
+      this.pendingEmail = cleanEmail;
+      safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
       this.authView = 'reset_password';
-      this.successNotice = `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox.`;
+      this.successNotice = 'If an account matches that address, Supabase Auth will send a password recovery email.';
       this.notify();
-      return otpCode;
     } catch (err: any) {
-      this.error = err.message || 'Failed to request password reset OTP.';
+      this.error = err.message || 'Failed to request password recovery.';
       this.notify();
       throw err;
     } finally {
@@ -991,60 +908,39 @@ class AuthService {
     }
   }
 
-  /**
-   * Reset Password with Mandatory 6-Digit OTP Verification
-   */
+  /** Verify the Supabase recovery token, then persist the new password. */
   public async resetPasswordWithOtp(params: {
     email?: string;
     otp: string;
     newPassword: string;
     confirmPassword: string;
   }): Promise<void> {
-    const cleanOtp = (params.otp || '').trim();
-    if (!cleanOtp || cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
-      throw new Error('Mandatory 6-digit security OTP is required for password reset.');
-    }
-
-    const currentOtp = this.getActiveOtp();
-    if (!currentOtp || currentOtp.purpose !== 'password_reset') {
-      throw new Error('No active password reset OTP found or code expired. Please request a new code.');
-    }
-
-    if (currentOtp.code !== cleanOtp) {
-      currentOtp.attemptsLeft -= 1;
-      safeStorage.setItem(STORAGE_KEY_ACTIVE_OTP, JSON.stringify(currentOtp));
-      if (currentOtp.attemptsLeft <= 0) {
-        this.activeOtp = null;
-        safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
-        throw new Error('Maximum OTP verification attempts exceeded. Please request a new code.');
-      }
-      throw new Error(`Invalid 6-digit OTP code. ${currentOtp.attemptsLeft} attempts remaining.`);
-    }
-
-    if (params.newPassword.length < 8) {
-      throw new Error('Password must be at least 8 characters long.');
-    }
+    const token = (params.otp || '').trim();
+    const email = (params.email || this.pendingEmail || '').trim().toLowerCase();
+    if (!/^\d{6}$/.test(token)) throw new Error('Enter the 6-digit code sent by Supabase Auth.');
+    if (!email) throw new Error('The recovery email address is missing. Request a new recovery email.');
+    if (params.newPassword.length < 8) throw new Error('Password must be at least 8 characters long.');
     if (!/[A-Za-z]/.test(params.newPassword) || !/[0-9]/.test(params.newPassword)) {
       throw new Error('Password must contain at least one letter and one number.');
     }
-    if (params.newPassword !== params.confirmPassword) {
-      throw new Error('Passwords do not match. Please re-enter.');
-    }
+    if (params.newPassword !== params.confirmPassword) throw new Error('Passwords do not match. Please re-enter.');
+    if (!isSupabaseConfigured() || !supabase) throw new Error('Supabase authentication is not configured.');
 
     this.isLoading = true;
     this.error = null;
     this.notify();
-
     try {
-      if (isSupabaseConfigured() && supabase) {
-        try {
-          await supabase.auth.updateUser({ password: params.newPassword });
-        } catch {}
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' });
+        if (verifyError) throw verifyError;
       }
-
-      this.activeOtp = null;
-      safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
-      this.successNotice = 'Password reset successfully with 6-digit OTP! You can now sign in.';
+      const { error: updateError } = await supabase.auth.updateUser({ password: params.newPassword });
+      if (updateError) throw updateError;
+      this.pendingEmail = null;
+      safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
+      this.successNotice = 'Password updated successfully. You can now sign in with your new password.';
       this.authView = 'login';
       this.notify();
     } catch (err: any) {
@@ -1057,34 +953,22 @@ class AuthService {
     }
   }
 
-  /**
-   * Update Password after recovery link confirmation
-   */
+  /** Persist a password after Supabase has established a valid recovery session. */
   public async updatePassword(newPassword: string, confirmPassword: string): Promise<void> {
-    if (newPassword.length < 8) {
-      throw new Error('Password must be at least 8 characters long.');
-    }
+    if (newPassword.length < 8) throw new Error('Password must be at least 8 characters long.');
     if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
       throw new Error('Password must contain at least one letter and one number.');
     }
-    if (newPassword !== confirmPassword) {
-      throw new Error('Passwords do not match. Please re-enter.');
-    }
+    if (newPassword !== confirmPassword) throw new Error('Passwords do not match. Please re-enter.');
+    if (!isSupabaseConfigured() || !supabase) throw new Error('Supabase authentication is not configured.');
 
     this.isLoading = true;
     this.error = null;
     this.notify();
-
     try {
-      if (isSupabaseConfigured() && supabase) {
-        try {
-          await supabase.auth.updateUser({
-            password: newPassword
-          });
-        } catch {}
-      }
-
-      this.successNotice = 'Password successfully updated! You can now sign in with your new password.';
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      this.successNotice = 'Password updated successfully. You can now sign in with your new password.';
       this.authView = 'login';
       this.notify();
     } catch (err: any) {
@@ -1098,70 +982,14 @@ class AuthService {
   }
 
   /**
-   * Link Guest Progress to Newly Authenticated Account
+   * Guest score totals are client-controlled and cannot be trusted as account
+   * records. Keep the local profile available, but do not write aggregate scores
+   * to Supabase until a server-validated game-history import exists.
    */
-  public async linkGuestData(targetUserId: string, guest: UserProfile): Promise<void> {
-    if (!guest || (guest.totalScore === 0 && guest.gamesPlayed === 0)) {
-      return;
-    }
-
-    // Direct Supabase update if configured
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const { data: current } = await supabase
-          .from('profiles')
-          .select('total_score, games_played, rounds_won, current_streak, best_streak')
-          .eq('id', targetUserId)
-          .maybeSingle();
-
-        // Safely merge only if guest has higher or additional achievements
-        const newScore = Math.max(current?.total_score || 0, guest.totalScore);
-        const newGames = Math.max(current?.games_played || 0, guest.gamesPlayed);
-        const newWins = Math.max(current?.rounds_won || 0, guest.roundsWon);
-        const newStreak = Math.max(current?.current_streak || 0, guest.currentStreak);
-        const newBestStreak = Math.max(current?.best_streak || 0, guest.bestStreak);
-
-        await supabase
-          .from('profiles')
-          .update({
-            total_score: newScore,
-            games_played: newGames,
-            rounds_won: newWins,
-            current_streak: newStreak,
-            best_streak: newBestStreak,
-            unlocked_achievements: guest.unlockedAchievements || []
-          })
-          .eq('id', targetUserId);
-      } catch (err) {
-        console.warn('[SongVerse AuthService] Failed to link guest data directly to Supabase:', err);
-      }
-    }
-
-    // Also notify server endpoint if session token exists
-    if (this.sessionToken) {
-      try {
-        await fetch('/api/auth/link-guest', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.sessionToken}`
-          },
-          body: JSON.stringify({
-            guestScore: guest.totalScore,
-            guestGames: guest.gamesPlayed,
-            guestStreak: guest.currentStreak,
-            guestAchievements: guest.unlockedAchievements
-          })
-        });
-      } catch {
-        // Non-blocking
-      }
-    }
+  public async linkGuestData(_targetUserId: string, _guest: UserProfile): Promise<void> {
+    return;
   }
 
-  /**
-   * Update Display Name for Authenticated Account
-   */
   public async updateDisplayName(newName: string): Promise<UserProfile> {
     const cleanName = newName.trim();
     if (!cleanName || cleanName.length < 2 || cleanName.length > 30) {
@@ -1270,10 +1098,8 @@ class AuthService {
 
     this.sessionToken = null;
     this.pendingEmail = null;
-    this.activeOtp = null;
     safeStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
     safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
-    safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
     socialService.resetAllSocialData();
     gameEngine.clearAllUserData();
     this.authView = 'login';
@@ -1281,51 +1107,10 @@ class AuthService {
   }
 
   /**
-   * Request mandatory 6-digit OTP for Account Deletion
-   */
-  public requestAccountDeletionOtp(): string {
-    const profile = gameEngine.getUserProfile();
-    const targetEmail = profile.email || `${profile.displayName.toLowerCase().replace(/\s+/g, '')}@songverse.player`;
-    const code = this.generateOtp(targetEmail, 'account_deletion');
-    this.successNotice = 'A 6-digit authorization code has been dispatched to your email address.';
-    this.notify();
-    return code;
-  }
-
-  /**
-   * Confirm account deletion with mandatory 6-digit OTP
-   */
-  public async confirmDeleteAccountWithOtp(otp: string): Promise<{
-    status: string;
-    message: string;
-    designatedAccount?: string;
-    authProvider?: string;
-    confirmationDispatchId?: string;
-  }> {
-    const cleanOtp = (otp || '').trim();
-    if (!cleanOtp || cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
-      throw new Error('Mandatory 6-digit authorization OTP is required to delete your account.');
-    }
-
-    const currentOtp = this.getActiveOtp();
-    if (!currentOtp || currentOtp.purpose !== 'account_deletion') {
-      throw new Error('No active deletion authorization code found. Please request a new code.');
-    }
-
-    if (currentOtp.code !== cleanOtp) {
-      throw new Error('Invalid 6-digit authorization OTP code. Account deletion aborted.');
-    }
-
-    this.activeOtp = null;
-    safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
-    return this.deleteAccount('DELETE');
-  }
-
-  /**
    * Delete Account: Permanently purges server records and local storage.
    * Requires typing 'DELETE' exactly.
    */
-  public async deleteAccount(confirmation: string, otp?: string): Promise<{
+  public async deleteAccount(confirmation: string): Promise<{
     status: string;
     message: string;
     designatedAccount?: string;
@@ -1336,55 +1121,25 @@ class AuthService {
       throw new Error('You must type "DELETE" exactly to confirm account deletion.');
     }
 
-    if (otp) {
-      const cleanOtp = otp.trim();
-      const currentOtp = this.getActiveOtp();
-      if (currentOtp && currentOtp.purpose === 'account_deletion' && currentOtp.code !== cleanOtp) {
-        throw new Error('Invalid 6-digit authorization OTP code. Account deletion aborted.');
-      }
-    }
-
     const currentProfile = gameEngine.getUserProfile();
-    let result = {
-      status: 'account_deleted',
-      message: currentProfile.isGuest
-        ? 'Guest profile and all locally stored gameplay history have been permanently deleted.'
-        : `Your account has been deleted and a security confirmation has been dispatched to your ${currentProfile.authProvider || 'designated'} account (${currentProfile.email || 'account'}).`,
-      designatedAccount: currentProfile.email,
-      authProvider: currentProfile.authProvider,
-      confirmationDispatchId: `sec_del_${Date.now()}`
-    };
-
-    if (isSupabaseConfigured() && supabase && !currentProfile.isGuest) {
-      try {
-        await Promise.allSettled([
-          supabase.from('game_sessions').delete().eq('user_id', currentProfile.id),
-          supabase.from('friend_requests').delete().or(`sender_id.eq.${currentProfile.id},receiver_id.eq.${currentProfile.id}`),
-          supabase.from('room_invitations').delete().or(`sender_id.eq.${currentProfile.id},recipient_id.eq.${currentProfile.id}`),
-          supabase.from('profiles').delete().eq('id', currentProfile.id)
-        ]);
-      } catch (err) {
-        console.warn('[SongVerse AuthService] Failed to delete Supabase records:', err);
+    let result: { status: string; message: string; designatedAccount?: string; authProvider?: string; confirmationDispatchId?: string };
+    if (currentProfile.isGuest) {
+      result = { status: 'account_deleted', message: 'Guest profile and locally stored gameplay history have been deleted.' };
+    } else {
+      if (!this.sessionToken) throw new Error('A valid signed-in session is required to delete this account.');
+      const response = await fetch('/api/auth/account', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.sessionToken}`
+        },
+        body: JSON.stringify({ confirmation: 'DELETE' })
+      });
+      const responseBody = await response.json().catch(() => ({}));
+      if (!response.ok || responseBody.status !== 'account_deleted') {
+        throw new Error(responseBody.message || responseBody.error || 'The account deletion request failed.');
       }
-    }
-
-    if (this.sessionToken) {
-      try {
-        const res = await fetch('/api/auth/account', {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.sessionToken}`
-          },
-          body: JSON.stringify({ confirmation: 'DELETE' })
-        });
-        if (res.ok) {
-          const serverResult = await res.json();
-          result = { ...result, ...serverResult };
-        }
-      } catch {
-        // Fallback to local purge
-      }
+      result = responseBody;
     }
 
     if (isSupabaseConfigured() && supabase) {
@@ -1397,10 +1152,8 @@ class AuthService {
 
     this.sessionToken = null;
     this.pendingEmail = null;
-    this.activeOtp = null;
     safeStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
     safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
-    safeStorage.removeItem(STORAGE_KEY_ACTIVE_OTP);
     socialService.resetAllSocialData();
     gameEngine.clearAllUserData();
     this.authView = 'login';

@@ -1,135 +1,33 @@
-/**
- * Cloudflare Pages Function: POST /api/admin/players/:id/status
- * Update player suspension status
- */
+/** Cloudflare Pages Function: POST /api/admin/players/:id/status */
+import { authorizeAdmin } from '../../../../_shared/admin';
+import { json, readJson } from '../../../../_shared/http';
+import { SupabaseEnv } from '../../../../_shared/supabase';
 
-import { createClient } from '@supabase/supabase-js';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-interface Env {
-  SUPABASE_URL?: string;
-  VITE_SUPABASE_URL?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
-  SUPABASE_ANON_KEY?: string;
-  VITE_SUPABASE_ANON_KEY?: string;
-  ADMIN_SECRET_KEY?: string;
-  ADMIN_EMAILS?: string;
-  ADMIN_USER_IDS?: string;
+export async function onRequestPost(context: { request: Request; env: SupabaseEnv; params: { id: string } }): Promise<Response> {
+  const auth = await authorizeAdmin(context.request, context.env, 'admin-player-status');
+  if (!auth.ok) return auth.response;
+  const targetId = context.params.id;
+  if (!UUID.test(targetId)) return json({ error: 'INVALID_USER_ID', message: 'A valid user ID is required.' }, 400);
+  if (targetId === auth.user.id) return json({ error: 'SELF_STATUS_CHANGE_DENIED', message: 'Administrators cannot change their own account status.' }, 400);
+  const parsed = await readJson(context.request, 4_000);
+  if (parsed.error) return parsed.error;
+  const status = parsed.value?.status;
+  const reason = typeof parsed.value?.reason === 'string' ? parsed.value.reason.trim().slice(0, 500) : 'Status updated via administrator dashboard';
+  if (status !== 'active' && status !== 'suspended') return json({ error: 'INVALID_STATUS', message: 'Status must be active or suspended.' }, 400);
+
+  const { data: target, error: targetReadError } = await auth.service.from('profiles').select('id').eq('id', targetId).maybeSingle();
+  if (targetReadError) return json({ error: 'DB_READ_ERROR', message: 'Target account could not be checked.' }, 503);
+  if (!target) return json({ error: 'USER_NOT_FOUND', message: 'The requested account does not exist.' }, 404);
+  const { error: updateError } = await auth.service.from('profiles').update({ account_status: status, updated_at: new Date().toISOString() }).eq('id', targetId);
+  if (updateError) return json({ error: 'DB_UPDATE_ERROR', message: 'The account status was not changed.' }, 503);
+  const { error: auditError } = await auth.service.from('admin_audit_logs').insert({
+    admin_id: auth.user.id,
+    action: status === 'suspended' ? 'suspend_user' : 'reactivate_user',
+    target_user_id: targetId,
+    details: { reason }
+  });
+  if (auditError) return json({ error: 'AUDIT_LOG_FAILED', message: 'The status changed, but the audit record could not be written. Contact an administrator before retrying.', mutationApplied: true }, 503);
+  return json({ success: true, userId: targetId, status });
 }
-
-export const onRequestPost = async (context: { request: Request; env: Env; params: { id: string } }) => {
-  const { request, env, params } = context;
-  const targetId = params.id;
-
-  const supabaseUrl = (env.SUPABASE_URL || env.VITE_SUPABASE_URL || '').trim();
-  const supabaseKey = (env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '').trim();
-
-  const adminSecret = env.ADMIN_SECRET_KEY || 'ABHI0810';
-  const adminKey = request.headers.get('x-admin-key');
-  const authHeader = request.headers.get('authorization');
-
-  let isAuthorized = false;
-  let adminUserId: string | null = null;
-
-  if (adminKey && (adminKey === adminSecret || adminKey === 'ABHI0810' || adminKey === 'songverse2026')) {
-    isAuthorized = true;
-  }
-
-  let supabaseClient: any = null;
-  if (supabaseUrl && supabaseKey) {
-    supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false }
-    });
-  }
-
-  if (!isAuthorized && authHeader && authHeader.startsWith('Bearer ') && supabaseClient) {
-    const token = authHeader.substring(7);
-    try {
-      const { data: { user }, error } = await supabaseClient.auth.getUser(token);
-      if (!error && user) {
-        adminUserId = user.id;
-        const { data: profile } = await supabaseClient
-          .from('profiles')
-          .select('account_type, account_status')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profile?.account_status === 'suspended') {
-          return new Response(JSON.stringify({ error: 'ACCOUNT_SUSPENDED', message: 'Account is suspended.' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-
-        const adminEmails = env.ADMIN_EMAILS ? env.ADMIN_EMAILS.toLowerCase().split(',').map(e => e.trim()) : [];
-        const adminUserIds = env.ADMIN_USER_IDS ? env.ADMIN_USER_IDS.split(',').map(id => id.trim()) : [];
-
-        const isEmailMatch = user.email && adminEmails.includes(user.email.toLowerCase());
-        const isIdMatch = adminUserIds.includes(user.id);
-        const isDbAdmin = profile?.account_type === 'admin';
-        const isActive = !profile || profile.account_status === 'active';
-
-        if ((isEmailMatch || isIdMatch || isDbAdmin) && isActive) {
-          isAuthorized = true;
-        }
-      }
-    } catch {}
-  }
-
-  if (!isAuthorized) {
-    return new Response(JSON.stringify({ error: 'UNAUTHORIZED', message: 'Administrator authorization required.' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  if (!supabaseClient) {
-    return new Response(JSON.stringify({ error: 'CONFIG_ERROR', message: 'Supabase is not configured.' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  try {
-    const body: any = await request.json().catch(() => ({}));
-    const nextStatus = body.status;
-    const reason = body.reason || 'Status updated via administrator dashboard';
-
-    if (nextStatus !== 'active' && nextStatus !== 'suspended') {
-      return new Response(JSON.stringify({ error: 'INVALID_STATUS', message: 'Status must be active or suspended.' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const { error } = await supabaseClient
-      .from('profiles')
-      .update({ account_status: nextStatus, updated_at: new Date().toISOString() })
-      .eq('id', targetId);
-
-    if (error) {
-      return new Response(JSON.stringify({ error: 'DB_UPDATE_ERROR', message: error.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    try {
-      await supabaseClient.from('admin_audit_logs').insert({
-        admin_id: adminUserId,
-        action: nextStatus === 'suspended' ? 'suspend_user' : 'reactivate_user',
-        target_user_id: targetId,
-        details: { reason }
-      });
-    } catch {}
-
-    return new Response(JSON.stringify({ success: true, userId: targetId, status: nextStatus }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: 'UPDATE_EXCEPTION', message: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-};

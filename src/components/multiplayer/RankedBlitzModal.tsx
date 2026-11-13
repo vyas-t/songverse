@@ -276,9 +276,11 @@ export const RankedBlitzModal: React.FC<RankedBlitzModalProps> = ({
             {!roundAnswered ? (
               <div className="space-y-3">
                 <SongSearchInput
-                  onSelectSong={(track) => {
+                  selectedTrack={selectedTrack}
+                  onClearSelection={() => setSelectedTrack(null)}
+                  onSelectTrack={(track) => {
                     setSelectedTrack(track);
-                    const isCorrect = track.id === currentTrack.id;
+                    const isCorrect = track.id === currentTrack?.id;
                     handleGuess(isCorrect);
                   }}
                   disabled={roundAnswered}

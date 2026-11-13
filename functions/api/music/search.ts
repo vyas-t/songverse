@@ -1,8 +1,12 @@
 
 /** Cloudflare Pages Function: GET /api/music/search */
+import { rateLimit } from '../../_shared/http';
+
 type Track = Record<string, unknown>;
 
 export async function onRequestGet(context: any): Promise<Response> {
+  const limited = rateLimit(context.request, 'music-search', 30);
+  if (limited) return limited;
   const url = new URL(context.request.url);
   const q = (
     url.searchParams.get("q") ||
@@ -32,6 +36,7 @@ export async function onRequestGet(context: any): Promise<Response> {
         Accept: "application/json",
         "User-Agent": "Mozilla/5.0 SongVerse/1.0",
       },
+      signal: AbortSignal.timeout(7_000),
     });
 
     if (!response.ok) {
@@ -81,11 +86,11 @@ export async function onRequestGet(context: any): Promise<Response> {
 }
 
 function mapAppleTrack(item: any): Track | null {
-  if (!item || item.trackId == null) return null;
+  if (!item || item.trackId == null || !item.trackName || !item.artistName) return null;
 
   const year = item.releaseDate
     ? Number.parseInt(String(item.releaseDate).slice(0, 4), 10)
-    : 2024;
+    : undefined;
   const audio =
     typeof item.previewUrl === "string" &&
     /^https:\/\//i.test(item.previewUrl)
@@ -95,8 +100,8 @@ function mapAppleTrack(item: any): Track | null {
     typeof item.artworkUrl100 === "string"
       ? item.artworkUrl100.replace(/100x100bb\.(jpg|png)$/i, "600x600bb.$1")
       : undefined;
-  const title = cleanText(item.trackName || "Unknown Title");
-  const artist = cleanText(item.artistName || "Unknown Artist");
+  const title = cleanText(item.trackName);
+  const artist = cleanText(item.artistName);
 
   return {
     id: `itunes_${item.trackId}`,
@@ -104,9 +109,9 @@ function mapAppleTrack(item: any): Track | null {
     title,
     artist,
     album: cleanText(item.collectionName || "Single"),
-    releaseYear: Number.isFinite(year) ? year : 2024,
-    country: item.country || "Global",
-    genre: item.primaryGenreName || "Pop",
+    releaseYear: Number.isFinite(year) ? year : undefined,
+    country: item.country || undefined,
+    genre: item.primaryGenreName || undefined,
     language: detectLanguage(`${title} ${artist}`, item.country),
     artworkUrl: artwork || item.artworkUrl100,
     audioUrl: audio,
@@ -134,7 +139,7 @@ function detectLanguage(text: string, country?: string): string {
   if (/[\u0980-\u09FF]/.test(text) || /\b(bengali|bangla)\b/i.test(text)) return "Bengali";
   if (/[\u0A00-\u0A7F]/.test(text) || /\b(punjabi|bhangra)\b/i.test(text)) return "Punjabi";
   if (/\b(spanish|español|bad bunny|shakira|despacito|reggaeton)\b/i.test(text) || ["ES", "MX", "CO", "AR"].includes(country || "")) return "Spanish";
-  return "English";
+  return "Unassigned";
 }
 
 function json(

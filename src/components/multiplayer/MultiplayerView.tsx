@@ -690,7 +690,7 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                           <span className="truncate">{theme.name}</span>
                           <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 shrink-0">{theme.visualizerTheme}</span>
                         </div>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{theme.subtitle}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{theme.tagline}</span>
                       </button>
                     );
                   })}

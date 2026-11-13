@@ -624,7 +624,9 @@ class GameEngineService {
 
       // Asynchronously sync to Supabase if authenticated and not a guest
       if (isSupabaseConfigured() && supabase && !this.userProfile.isGuest) {
-        supabase.from('match_history').insert({
+        void (async () => {
+          try {
+            const { error } = await supabase.from('match_history').insert({
           user_id: this.userProfile.id,
           game_mode: item.gameMode,
           score: item.score,
@@ -633,8 +635,13 @@ class GameEngineService {
           rank: item.rank ?? null,
           total_players: item.totalPlayers ?? 1,
           room_code: item.roomCode ?? null,
-          played_at: item.playedAt || new Date().toISOString()
-        }).then(() => {}).catch(() => {});
+              played_at: item.playedAt || new Date().toISOString()
+            });
+            if (error) console.warn('[SongVerse GameEngine] Match history save failed:', error.message);
+          } catch (error) {
+            console.warn('[SongVerse GameEngine] Match history save failed:', error);
+          }
+        })();
       }
     } catch {
       // Storage error

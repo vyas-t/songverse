@@ -60,7 +60,7 @@ async function runTests() {
   });
   assert(Boolean(match.opponent && match.opponent.displayName), 'Matched with simulated opponent');
   assert(match.totalRounds === 3, '1v1 Blitz consists of authoritative 3 rounds');
-  assert(Boolean(matchStatus && matchStatus.includes('challenger')), 'Match status updated through matchmaking sequence');
+  assert(String(matchStatus || '').includes('challenger'), 'Match status updated through matchmaking sequence');
 
   // ----------------------------------------------------
   // TEST 2: Pure Web Audio SFX Service (Feature 3)

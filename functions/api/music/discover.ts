@@ -4,6 +4,8 @@
  * Searches Apple iTunes for up to 5 playable previews per artist.
  */
 
+import { json, rateLimit } from '../../_shared/http';
+
 const ARTISTS = [
   { name: "Taylor Swift", language: "English" },
   { name: "The Weeknd", language: "English" },
@@ -23,7 +25,20 @@ const ARTISTS = [
   { name: "Yo Yo Honey Singh", language: "Punjabi" },
 ] as const;
 
+const ARTISTS_BY_LANGUAGE: Record<string, { name: string; language: string }[]> = {
+  English: ARTISTS.filter((artist) => artist.language === 'English'),
+  Spanish: [{ name: 'Bad Bunny', language: 'Spanish' }, { name: 'Rosalia', language: 'Spanish' }, { name: 'Shakira', language: 'Spanish' }],
+  Punjabi: [{ name: 'Karan Aujla', language: 'Punjabi' }, { name: 'Diljit Dosanjh', language: 'Punjabi' }, { name: 'AP Dhillon', language: 'Punjabi' }, { name: 'Yo Yo Honey Singh', language: 'Punjabi' }],
+  Hindi: [{ name: 'Arijit Singh', language: 'Hindi' }, { name: 'Shreya Ghoshal', language: 'Hindi' }, { name: 'Pritam', language: 'Hindi' }, { name: 'Arpit Bala', language: 'Hindi' }],
+  Telugu: [{ name: 'Sid Sriram', language: 'Telugu' }, { name: 'Devi Sri Prasad', language: 'Telugu' }, { name: 'S. Thaman', language: 'Telugu' }, { name: 'M. M. Keeravani', language: 'Telugu' }],
+  Tamil: [{ name: 'Anirudh Ravichander', language: 'Tamil' }, { name: 'A. R. Rahman', language: 'Tamil' }, { name: 'Yuvan Shankar Raja', language: 'Tamil' }],
+  Malayalam: [{ name: 'Sushin Shyam', language: 'Malayalam' }, { name: 'Vineeth Sreenivasan', language: 'Malayalam' }, { name: 'Gopi Sundar', language: 'Malayalam' }],
+  Kannada: [{ name: 'Charan Raj', language: 'Kannada' }, { name: 'Raghu Dixit', language: 'Kannada' }, { name: 'Vijay Prakash', language: 'Kannada' }],
+  Bengali: [{ name: 'Anupam Roy', language: 'Bengali' }, { name: 'Arijit Singh', language: 'Bengali' }]
+};
+
 const SONGS_PER_ARTIST = 5;
+type Artist = { name: string; language: string };
 
 function normalize(value: unknown): string {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -41,7 +56,7 @@ function matchesArtist(actual: string, requested: string): boolean {
   return false;
 }
 
-function mapAppleTrack(item: any, artist: typeof ARTISTS[number]): any | null {
+function mapAppleTrack(item: any, artist: Artist): any | null {
   if (!item?.trackId || !item?.trackName || !item?.artistName) return null;
 
   const audio = item.previewUrl;
@@ -51,7 +66,7 @@ function mapAppleTrack(item: any, artist: typeof ARTISTS[number]): any | null {
   const parsedYear = item.releaseDate
     ? Number.parseInt(String(item.releaseDate).slice(0, 4), 10)
     : NaN;
-  const year = Number.isFinite(parsedYear) ? parsedYear : 2024;
+  const year = Number.isFinite(parsedYear) ? parsedYear : undefined;
 
   const artwork = typeof item.artworkUrl100 === "string"
     ? item.artworkUrl100.replace(/100x100bb\.(jpg|png)$/i, "600x600bb.$1")
@@ -65,10 +80,9 @@ function mapAppleTrack(item: any, artist: typeof ARTISTS[number]): any | null {
     artist: String(item.artistName),
     album: String(item.collectionName || "Single"),
     releaseYear: year,
-    decade: `${Math.floor(year / 10) * 10}s`,
-    country: "Global",
+    decade: year ? `${Math.floor(year / 10) * 10}s` : undefined,
     language: artist.language,
-    genre: String(item.primaryGenreName || "Pop"),
+    genre: item.primaryGenreName ? String(item.primaryGenreName) : undefined,
     artworkUrl: artwork || item.artworkUrl100,
     audioUrl: audio,
     audioAssetUrl: audio,
@@ -88,7 +102,7 @@ function mapAppleTrack(item: any, artist: typeof ARTISTS[number]): any | null {
   };
 }
 
-async function searchArtist(artist: typeof ARTISTS[number]) {
+async function searchArtist(artist: Artist) {
   const url = new URL("https://itunes.apple.com/search");
   url.searchParams.set("term", artist.name);
   url.searchParams.set("entity", "song");
@@ -151,10 +165,17 @@ async function searchArtist(artist: typeof ARTISTS[number]) {
   return { tracks: [], error: `${artist.name}: request attempts exhausted` };
 }
 
-export async function onRequestGet(): Promise<Response> {
-  const cacheKey = new Request(
-    "https://songverse-cache.invalid/api/music/discover/artist-hits-v3"
-  );
+export async function onRequestGet(context: { request: Request }): Promise<Response> {
+  const limited = rateLimit(context.request, 'music-discover', 3, 60_000);
+  if (limited) return limited;
+  const params = new URL(context.request.url).searchParams;
+  const requested = (params.get('languages') || params.get('language') || '').split(',').map(value => value.trim()).filter(Boolean);
+  const selected = requested.length
+    ? requested.flatMap(language => ARTISTS_BY_LANGUAGE[language] || [])
+    : [...ARTISTS];
+  const uniqueArtists = Array.from(new Map(selected.map(artist => [artist.name.toLowerCase(), artist])).values());
+  if (requested.length && uniqueArtists.length === 0) return json({ error: 'UNSUPPORTED_LANGUAGE', message: 'No discovery artists are configured for the requested language.', count: 0, artists: [], tracks: [] }, 400);
+  const cacheKey = new Request(`https://songverse-cache.invalid/api/music/discover/artist-hits-v4?languages=${encodeURIComponent(requested.length ? [...requested].sort().join(',') : 'all')}`);
   const cache = (globalThis as any).caches?.default;
 
   if (cache) {
@@ -175,7 +196,7 @@ export async function onRequestGet(): Promise<Response> {
   const errors: string[] = [];
   const artistCounts: Record<string, number> = {};
 
-  for (const artist of ARTISTS) {
+  for (const artist of uniqueArtists) {
     const result = await searchArtist(artist);
     artistCounts[artist.name] = result.tracks.length;
     tracks.push(...result.tracks);
@@ -193,8 +214,8 @@ export async function onRequestGet(): Promise<Response> {
   const response = new Response(
     JSON.stringify({
       count: unique.length,
-      targetCount: ARTISTS.length * SONGS_PER_ARTIST,
-      artists: ARTISTS.map((artist) => artist.name),
+      targetCount: uniqueArtists.length * SONGS_PER_ARTIST,
+      artists: uniqueArtists.map((artist) => artist.name),
       artistCounts,
       tracks: unique,
       ...(unique.length === 0
