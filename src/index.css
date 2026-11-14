@@ -3,22 +3,22 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
 
 @theme {
-  /* SongVerse Master 10-Color Foundation Palette */
-  --color-sv-midnight: #03071E;
-  --color-sv-navy: #03071E;
-  --color-sv-dark-wine: #370617;
-  --color-sv-burgundy-deep: #370617;
-  --color-sv-burgundy: #6A040F;
-  --color-sv-crimson: #9D0208;
-  --color-sv-vivid-red: #D00000;
-  --color-sv-red: #D00000;
-  --color-sv-red-orange: #DC2F02;
-  --color-sv-orange: #E85D04;
-  --color-sv-amber: #F48C06;
-  --color-sv-golden-orange: #FAA307;
-  --color-sv-warm-orange: #FAA307;
-  --color-sv-warm-gold: #FFBA08;
-  --color-sv-gold: #FFBA08;
+  /* SongVerse cosmic palette */
+  --color-sv-midnight: #090816;
+  --color-sv-navy: #090816;
+  --color-sv-dark-wine: #171326;
+  --color-sv-burgundy-deep: #171326;
+  --color-sv-burgundy: #302544;
+  --color-sv-crimson: #7138B7;
+  --color-sv-vivid-red: #9B5CEB;
+  --color-sv-red: #9B5CEB;
+  --color-sv-red-orange: #C46AF2;
+  --color-sv-orange: #FF8A5B;
+  --color-sv-amber: #FFB86B;
+  --color-sv-golden-orange: #F6C98F;
+  --color-sv-warm-orange: #F6C98F;
+  --color-sv-warm-gold: #8DE7F2;
+  --color-sv-gold: #8DE7F2;
 }
 
 @layer base {
@@ -26,44 +26,65 @@
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'Space Grotesk', monospace;
 
-    /* Light theme — refined high-contrast palette */
-    --app-bg: #FAF8F5;
+    /* Light theme — pearl glass with cool violet accents */
+    --app-bg: #F5F3FA;
     --app-card: #FFFFFF;
-    --app-card-subtle: #FDF6F0;
-    --app-text: #0E1326;
-    --app-text-muted: #64748B;
-    --app-border: #E8E2D9;
+    --app-card-subtle: #F0ECF8;
+    --app-text: #191426;
+    --app-text-muted: #69647A;
+    --app-border: #E1DCEC;
 
     /* 10-Color Palette Variables */
-    --sv-midnight: #03071E;
-    --sv-dark-wine: #370617;
-    --sv-burgundy: #6A040F;
-    --sv-crimson: #9D0208;
-    --sv-vivid-red: #D00000;
-    --sv-red-orange: #DC2F02;
-    --sv-orange: #E85D04;
-    --sv-amber: #F48C06;
-    --sv-golden-orange: #FAA307;
-    --sv-warm-gold: #FFBA08;
+    --sv-midnight: #090816;
+    --sv-dark-wine: #171326;
+    --sv-burgundy: #302544;
+    --sv-crimson: #7138B7;
+    --sv-vivid-red: #9B5CEB;
+    --sv-red: #9B5CEB;
+    --sv-red-orange: #C46AF2;
+    --sv-orange: #FF8A5B;
+    --sv-amber: #FFB86B;
+    --sv-golden-orange: #F6C98F;
+    --sv-warm-gold: #8DE7F2;
+
+    /* Accent text colors meet contrast needs on pearl surfaces. */
+    --color-sv-red: #7443B0;
+    --color-sv-vivid-red: #7443B0;
+    --color-sv-red-orange: #9345A8;
+    --color-sv-orange: #A84421;
+    --color-sv-amber: #795400;
+    --color-sv-golden-orange: #795400;
+    --color-sv-warm-orange: #795400;
+    --color-sv-warm-gold: #116574;
+    --color-sv-gold: #116574;
 
     /* Atmospheric Gradients */
-    --sv-gradient-sunset: linear-gradient(135deg, #03071E 0%, #370617 25%, #6A040F 50%, #DC2F02 75%, #FFBA08 100%);
-    --sv-gradient-warm: linear-gradient(135deg, #9D0208 0%, #E85D04 60%, #FFBA08 100%);
-    --sv-gradient-gold: linear-gradient(135deg, #F48C06 0%, #FAA307 50%, #FFBA08 100%);
-    --sv-shadow-warm: 0 16px 40px -8px rgba(55, 6, 23, 0.14);
-    --sv-shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
-    --sv-glow-coral: 0 0 28px rgba(220, 47, 2, 0.25);
-    --sv-glow-gold: 0 0 28px rgba(255, 186, 8, 0.3);
+    --sv-gradient-sunset: linear-gradient(135deg, #090816 0%, #302544 30%, #7138B7 65%, #C46AF2 82%, #8DE7F2 100%);
+    --sv-gradient-warm: linear-gradient(135deg, #7138B7 0%, #C46AF2 60%, #FF8A5B 100%);
+    --sv-gradient-gold: linear-gradient(135deg, #FF8A5B 0%, #FFB86B 50%, #8DE7F2 100%);
+    --sv-shadow-warm: 0 20px 55px -14px rgba(89, 47, 143, 0.32);
+    --sv-shadow-glass: 0 12px 42px 0 rgba(38, 24, 67, 0.12);
+    --sv-glow-coral: 0 0 32px rgba(155, 92, 235, 0.24);
+    --sv-glow-gold: 0 0 30px rgba(141, 231, 242, 0.24);
   }
 
   [data-theme="dark"], html.dark, .dark {
-    /* Dark theme — deep midnight & luxurious dark wine */
-    --app-bg: #03071E;
-    --app-card: #0F040B;
-    --app-card-subtle: #1C0512;
-    --app-text: #FFF8F2;
-    --app-text-muted: #E29D7C;
-    --app-border: #370617;
+    /* Dark theme — deep space with restrained violet and cyan light */
+    --app-bg: #090816;
+    --app-card: #151223;
+    --app-card-subtle: #1C182D;
+    --app-text: #F7F4FF;
+    --app-text-muted: #B6AEC9;
+    --app-border: #332A48;
+    --color-sv-red: #A878F0;
+    --color-sv-vivid-red: #A878F0;
+    --color-sv-red-orange: #D07AF3;
+    --color-sv-orange: #FF9B73;
+    --color-sv-amber: #FFC078;
+    --color-sv-golden-orange: #F6C98F;
+    --color-sv-warm-orange: #F6C98F;
+    --color-sv-warm-gold: #8DE7F2;
+    --color-sv-gold: #8DE7F2;
     --sv-shadow-warm: 0 18px 45px -8px rgba(0, 0, 0, 0.6);
     --sv-shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
     color-scheme: dark;
@@ -83,9 +104,9 @@
     font-family: var(--font-sans);
     background-color: var(--app-bg);
     background-image:
-      radial-gradient(circle at 12% 15%, rgba(208, 0, 0, 0.06), transparent 42%),
-      radial-gradient(circle at 88% 20%, rgba(232, 93, 4, 0.08), transparent 38%),
-      radial-gradient(circle at 50% 85%, rgba(255, 186, 8, 0.04), transparent 46%);
+      radial-gradient(circle at 12% 15%, rgba(155, 92, 235, 0.11), transparent 42%),
+      radial-gradient(circle at 88% 20%, rgba(141, 231, 242, 0.08), transparent 38%),
+      radial-gradient(circle at 50% 85%, rgba(255, 138, 91, 0.05), transparent 46%);
     color: var(--app-text);
     overflow-x: hidden;
     transition: background-color 0.28s ease, color 0.28s ease;
@@ -93,13 +114,27 @@
     text-rendering: optimizeLegibility;
   }
 
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.48;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(172, 143, 220, 0.24) 1px, transparent 1.5px),
+      linear-gradient(115deg, transparent 0 47%, rgba(141, 231, 242, 0.025) 47.1% 47.2%, transparent 47.3% 100%);
+    background-size: 62px 62px, 100% 100%;
+    mask-image: linear-gradient(to bottom, black, transparent 88%);
+  }
+
   ::selection {
-    background: rgba(220, 47, 2, 0.28);
+    background: color-mix(in srgb, var(--sv-red) 30%, transparent);
     color: var(--app-text);
   }
 
   :focus-visible {
-    outline: 2px solid var(--sv-amber);
+    outline: 2px solid var(--sv-warm-gold);
     outline-offset: 3px;
   }
 
@@ -144,16 +179,16 @@
 }
 
 .sv-glass-panel {
-  background: color-mix(in srgb, var(--app-card) 85%, transparent);
-  border: 1px solid color-mix(in srgb, var(--sv-warm-gold) 15%, var(--app-border));
+  background: color-mix(in srgb, var(--app-card) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-warm-gold) 22%, var(--app-border));
   box-shadow: var(--sv-shadow-glass);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
 
 .sv-glass-card {
-  background: color-mix(in srgb, var(--app-card) 92%, transparent);
-  border: 1px solid color-mix(in srgb, #ffffff 12%, var(--app-border));
+  background: color-mix(in srgb, var(--app-card) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-red) 14%, var(--app-border));
   box-shadow: var(--sv-shadow-glass);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -167,8 +202,8 @@
 }
 
 .sv-glass-pill {
-  background: color-mix(in srgb, var(--app-card) 75%, transparent);
-  border: 1px solid color-mix(in srgb, #ffffff 18%, var(--app-border));
+  background: color-mix(in srgb, var(--app-card) 68%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sv-warm-gold) 20%, var(--app-border));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -436,5 +471,253 @@
   .sv-interactive-card:hover,
   .sv-glass-card:hover {
     transform: none !important;
+  }
+}
+
+/* SONGVERSE immersive interface system */
+#root {
+  min-height: 100vh;
+}
+
+.sv-app-shell {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  background-color: transparent !important;
+}
+
+.sv-route-view {
+  position: relative;
+  min-width: 0;
+}
+
+.sv-route-view > div:first-child {
+  animation: sv-route-enter 520ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+
+@keyframes sv-route-enter {
+  from { opacity: 0.72; transform: translate3d(0, 10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.sv-universe-scene {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.28;
+  transition: opacity 450ms ease;
+}
+
+.sv-universe-scene--hero {
+  opacity: 0.78;
+}
+
+.sv-universe-scene__fallback {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(113, 56, 183, 0.16), transparent 36%),
+    radial-gradient(ellipse at 76% 54%, rgba(141, 231, 242, 0.055), transparent 28%),
+    radial-gradient(ellipse at 20% 70%, rgba(196, 106, 242, 0.07), transparent 34%);
+}
+
+.sv-universe-scene__fallback::before,
+.sv-universe-scene__fallback::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(72vw, 820px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(155, 92, 235, 0.12);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotateX(64deg) rotateZ(-18deg);
+  box-shadow: 0 0 0 32px rgba(155, 92, 235, 0.018), inset 0 0 90px rgba(141, 231, 242, 0.035);
+}
+
+.sv-universe-scene__fallback::after {
+  width: min(48vw, 560px);
+  border-color: rgba(141, 231, 242, 0.14);
+  transform: translate(-50%, -50%) rotateX(70deg) rotateZ(22deg);
+}
+
+.sv-universe-scene__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sv-app-shell [class*="bg-white"],
+.sv-app-shell [class*="bg-slate-50"],
+.sv-app-shell [class*="bg-slate-100"] {
+  background-color: color-mix(in srgb, var(--app-card) 80%, transparent);
+  border-color: color-mix(in srgb, var(--app-border) 78%, var(--sv-red));
+  box-shadow: var(--sv-shadow-glass);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.sv-app-shell [class*="border-slate-200"],
+.sv-app-shell [class*="border-slate-100"] {
+  border-color: color-mix(in srgb, var(--app-border) 78%, var(--sv-red));
+}
+
+.sv-app-shell input,
+.sv-app-shell textarea,
+.sv-app-shell select {
+  background-color: color-mix(in srgb, var(--app-card) 86%, transparent);
+  color: var(--app-text);
+}
+
+.sv-navbar {
+  background-color: color-mix(in srgb, var(--app-bg) 72%, transparent) !important;
+  border-color: color-mix(in srgb, var(--sv-red) 22%, var(--app-border)) !important;
+  box-shadow: 0 8px 32px rgba(14, 9, 28, 0.08);
+}
+
+.sv-footer {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(155, 92, 235, 0.15), transparent 55%),
+    linear-gradient(180deg, #11101E 0%, #090816 100%);
+  border-color: rgba(141, 231, 242, 0.16);
+}
+
+.sv-landing-page {
+  isolation: isolate;
+}
+
+.sv-landing-page::before,
+.sv-landing-page::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.sv-landing-page::before {
+  width: min(76vw, 920px);
+  height: min(76vw, 920px);
+  max-height: 80vh;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--sv-red) 16%, transparent);
+  box-shadow:
+    0 0 0 38px color-mix(in srgb, var(--sv-red) 2.4%, transparent),
+    0 0 0 98px color-mix(in srgb, var(--sv-warm-gold) 2%, transparent),
+    inset 0 0 100px color-mix(in srgb, var(--sv-red) 5%, transparent);
+  opacity: 0.72;
+}
+
+.sv-landing-page::after {
+  width: min(48vw, 560px);
+  height: min(48vw, 560px);
+  max-height: 56vh;
+  left: 50%;
+  top: 26%;
+  transform: translateX(-50%) rotateX(67deg) rotateZ(-18deg);
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--sv-warm-gold) 22%, transparent);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--sv-red) 14%, transparent);
+  opacity: 0.52;
+}
+
+.sv-landing-hero {
+  position: relative;
+  width: min(100%, 72rem);
+  isolation: isolate;
+}
+
+.sv-landing-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  inset: 8% 6% 18%;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(155, 92, 235, 0.13), transparent 56%),
+    radial-gradient(ellipse at 68% 53%, rgba(141, 231, 242, 0.07), transparent 52%);
+  filter: blur(22px);
+}
+
+.sv-landing-title {
+  text-wrap: balance;
+  text-shadow: 0 18px 60px rgba(70, 37, 110, 0.12);
+}
+
+.sv-mode-grid {
+  perspective: 1200px;
+}
+
+.sv-mode-card {
+  min-height: 188px;
+  border-color: color-mix(in srgb, var(--sv-red) 26%, var(--app-border)) !important;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--app-card) 92%, transparent), color-mix(in srgb, var(--app-card-subtle) 82%, transparent)) !important;
+  box-shadow: 0 18px 46px rgba(23, 14, 43, 0.12), inset 0 1px rgba(255, 255, 255, 0.26);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 260ms ease, border-color 260ms ease;
+}
+
+.sv-mode-card:hover {
+  transform: translateY(-5px) rotateX(2deg);
+  border-color: color-mix(in srgb, var(--sv-warm-gold) 48%, var(--app-border)) !important;
+  box-shadow: 0 25px 58px rgba(37, 20, 68, 0.19), 0 0 28px color-mix(in srgb, var(--sv-red) 12%, transparent);
+}
+
+.sv-audio-demo {
+  border-color: color-mix(in srgb, var(--sv-warm-gold) 28%, var(--app-border)) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--app-card) 88%, transparent), color-mix(in srgb, var(--app-card-subtle) 76%, transparent)) !important;
+  box-shadow: 0 20px 56px rgba(19, 12, 38, 0.14), inset 0 1px rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+@media (max-width: 767px) {
+  .sv-universe-scene {
+    opacity: 0.18;
+  }
+
+  .sv-universe-scene--hero {
+    opacity: 0.48;
+  }
+
+  .sv-landing-page::before {
+    width: 120vw;
+    height: 120vw;
+    top: 24%;
+  }
+
+  .sv-landing-page::after {
+    width: 78vw;
+    height: 78vw;
+    top: 30%;
+  }
+
+  .sv-mode-card {
+    min-height: 0;
+  }
+
+  .sv-audio-demo {
+    padding: 1.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sv-universe-scene {
+    transition: none;
+  }
+
+  .sv-mode-card:hover {
+    transform: none;
   }
 }

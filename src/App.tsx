@@ -28,6 +28,10 @@ import { audioEngine } from './services/audioEngine';
 import { musicCatalogue } from './services/musicCatalogue';
 import { authService } from './services/authService';
 
+const LazyUniverseScene = React.lazy(() =>
+  import('./components/scene/UniverseScene').then((module) => ({ default: module.UniverseScene }))
+);
+
 const DISCOVERY_LANGUAGES = [
   'English',
   'Telugu',
@@ -135,7 +139,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF8F5] dark:bg-sv-midnight text-slate-900 dark:text-slate-100 font-sans selection:bg-sv-red/20 selection:text-sv-red transition-colors duration-200">
+    <div className="sv-app-shell min-h-screen flex flex-col bg-[var(--app-bg)] text-slate-900 dark:text-slate-100 font-sans selection:bg-sv-red/20 selection:text-sv-red transition-colors duration-200">
+
+      <React.Suspense fallback={<div className="sv-universe-scene__fallback" aria-hidden="true" />}>
+        <LazyUniverseScene active={currentView === 'landing'} />
+      </React.Suspense>
 
       {/* Top 3-Zone Navigation */}
       <Navbar
@@ -149,7 +157,7 @@ export default function App() {
       />
 
       {/* Main View Router */}
-      <main className="flex-1">
+      <main className={`flex-1 sv-route-view sv-route-${currentView}`}>
         {currentView === 'landing' && (
           <LandingPage
             onStartPlay={handleStartPlay}

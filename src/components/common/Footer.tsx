@@ -13,7 +13,7 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenAdmin
 }) => {
   return (
-    <footer className="bg-sv-midnight text-slate-400 text-xs border-t border-sv-burgundy/80 mt-24 relative overflow-hidden">
+    <footer className="sv-footer bg-sv-midnight text-slate-400 text-xs border-t border-sv-burgundy/80 mt-24 relative overflow-hidden">
       {/* Subtle bottom ambient glow */}
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-32 bg-gradient-to-t from-sv-burgundy/20 to-transparent blur-3xl pointer-events-none" />
 

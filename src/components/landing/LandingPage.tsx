@@ -150,7 +150,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
   };
 
   return (
-    <div className="relative overflow-hidden min-h-[calc(100vh-80px)] flex flex-col justify-between">
+    <div className="sv-landing-page relative overflow-hidden min-h-[calc(100vh-80px)] flex flex-col justify-between">
       
       {/* Background Ambient Glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[360px] bg-gradient-to-tr from-sv-red/10 via-sv-orange/10 to-sv-gold/5 blur-[120px] pointer-events-none -z-10 rounded-full" />
@@ -202,7 +202,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
       </div>
 
       {/* CENTRAL HERO SECTION */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 text-center space-y-9 z-20">
+      <div className="sv-landing-hero max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 text-center space-y-9 z-20">
         
         {/* Brand Tag Pill + Optional Guide Trigger */}
         <div className="flex flex-wrap items-center justify-center gap-2">
@@ -226,7 +226,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
 
         {/* Hero Title */}
         <div className="space-y-4">
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-[1.05]">
+          <h1 className="sv-landing-title text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-slate-900 dark:text-white uppercase leading-[1.05]">
             CAN YOU GUESS THE SONG IN{' '}
             <span className="bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber bg-clip-text text-transparent underline decoration-sv-amber decoration-4 underline-offset-8">
               1 SECOND?
@@ -238,12 +238,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
         </div>
 
         {/* GAME MODES SELECTION CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-2 text-left">
+        <div className="sv-mode-grid grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-2 text-left">
           
           {/* Classic Solo Mode */}
           <button
             onClick={() => handleStartPlayClean('classic')}
-            className="group relative p-5 rounded-3xl bg-gradient-to-b from-white to-slate-50/80 dark:from-sv-burgundy-deep dark:to-sv-midnight border-2 border-sv-red/40 dark:border-sv-red/50 shadow-md hover:shadow-xl hover:border-sv-red hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+            className="sv-mode-card group relative p-5 rounded-3xl bg-gradient-to-b from-white to-slate-50/80 dark:from-sv-burgundy-deep dark:to-sv-midnight border-2 border-sv-red/40 dark:border-sv-red/50 shadow-md hover:shadow-xl hover:border-sv-red hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between"
           >
             <div className="absolute top-4 right-4 text-[10px] font-black uppercase font-mono px-2 py-0.5 rounded-full bg-sv-red text-white shadow-xs">
               Popular
@@ -268,7 +268,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
           {/* Daily Seeded Challenge */}
           <button
             onClick={() => handleNavigateClean('daily')}
-            className="group relative p-5 rounded-3xl bg-white dark:bg-sv-burgundy-deep/80 border border-slate-200 dark:border-sv-burgundy shadow-xs hover:shadow-lg hover:border-sv-orange hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+            className="sv-mode-card group relative p-5 rounded-3xl bg-white dark:bg-sv-burgundy-deep/80 border border-slate-200 dark:border-sv-burgundy shadow-xs hover:shadow-lg hover:border-sv-orange hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between"
           >
             <div className="absolute top-4 right-4 text-[10px] font-bold uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
               Daily Seed
@@ -293,7 +293,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
           {/* Multiplayer Room */}
           <button
             onClick={() => handleNavigateClean('multiplayer')}
-            className="group relative p-5 rounded-3xl bg-white dark:bg-sv-burgundy-deep/80 border border-slate-200 dark:border-sv-burgundy shadow-xs hover:shadow-lg hover:border-sv-red hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+            className="sv-mode-card group relative p-5 rounded-3xl bg-white dark:bg-sv-burgundy-deep/80 border border-slate-200 dark:border-sv-burgundy shadow-xs hover:shadow-lg hover:border-sv-red hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between"
           >
             <div className="absolute top-4 right-4 text-[10px] font-bold uppercase font-mono px-2 py-0.5 rounded-full bg-sv-red/10 text-sv-red dark:text-sv-warm-orange border border-sv-red/20">
               Up to 20
@@ -318,7 +318,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartPlay, onNavigat
         </div>
 
         {/* 4-LEVEL PROGRESSIVE SCORING MATRIX & INTERACTIVE AUDIO TEST */}
-        <div className="bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl p-6 sm:p-7 shadow-sm max-w-2xl mx-auto space-y-4">
+        <div className="sv-audio-demo bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl p-6 sm:p-7 shadow-sm max-w-2xl mx-auto space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-sv-burgundy pb-3.5">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-sv-red animate-ping" />
