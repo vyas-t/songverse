@@ -11,7 +11,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test": "tsx tests/verify-gameplay.ts",
-    "test:pages-functions": "tsx tests/test-pages-functions.ts"
+    "test:pages-functions": "tsx tests/test-pages-functions.ts",
+    "test:google-oauth": "tsx tests/test-google-oauth.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

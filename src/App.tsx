@@ -69,10 +69,10 @@ export default function App() {
     return () => unsubCookies();
   }, []);
 
-  // Subscribe to authentication state updates (e.g. auto-open modal on email confirmation success or password reset)
+  // Open the auth modal for successful callbacks, recovery, and provider cancellation/errors.
   useEffect(() => {
     const unsubAuth = authService.subscribe((state) => {
-      if (state.authView === 'verified_success' || state.authView === 'reset_password') {
+      if (state.authView === 'verified_success' || state.authView === 'reset_password' || state.callbackFeedback) {
         setAuthModalOpen(true);
       }
       refreshProfile();
@@ -235,7 +235,10 @@ export default function App() {
       {/* Authentication Modal */}
       <AuthModal
         isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
+        onClose={() => {
+          setAuthModalOpen(false);
+          if (authService.getState().callbackFeedback) authService.setAuthView('login');
+        }}
         onSuccess={() => refreshProfile()}
       />
 

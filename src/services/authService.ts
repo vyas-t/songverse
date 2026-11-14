@@ -25,10 +25,12 @@ export interface AuthState {
   pendingEmail: string | null;
   resendCooldownSeconds: number;
   successNotice: string | null;
+  callbackFeedback: boolean;
 }
 
 const STORAGE_KEY_AUTH_TOKEN = 'songverse_auth_session_token';
 const STORAGE_KEY_PENDING_EMAIL = 'songverse_auth_pending_email';
+const PRODUCTION_SITE_ORIGIN = 'https://songverse.pages.dev';
 
 const safeStorage = {
   getItem: (key: string): string | null => {
@@ -94,6 +96,118 @@ export function getAuthRedirectUri(path: string = '/auth/callback'): string {
   return `https://songverse.pages.dev${cleanPath}`;
 }
 
+/** All Google OAuth callbacks return to the canonical production SONGVERSE website. */
+export function getOAuthRedirectUri(): string {
+  return `${PRODUCTION_SITE_ORIGIN}/auth/callback`;
+}
+
+/** Start OAuth on production so PKCE state is stored on the same origin that redeems the callback. */
+export function getGoogleOAuthHandoffUrl(currentOrigin: string): string | null {
+  return currentOrigin === PRODUCTION_SITE_ORIGIN ? null : `${PRODUCTION_SITE_ORIGIN}/?auth=google`;
+}
+
+export type ParsedAuthCallback =
+  | { kind: 'error'; code: string | null; description: string | null }
+  | { kind: 'authorization_code'; code: string; type: string | null }
+  | { kind: 'token_hash'; tokenHash: string; type: string }
+  | { kind: 'implicit_session'; accessToken: string; refreshToken: string; type: string | null }
+  | { kind: 'none' };
+
+/** Parse Supabase callback data without exposing or logging token values. */
+export function parseAuthCallbackUrl(input: string): ParsedAuthCallback {
+  let url: URL;
+  try {
+    url = new URL(input, 'https://songverse.pages.dev');
+  } catch {
+    return { kind: 'none' };
+  }
+
+  const query = new URLSearchParams(url.search);
+  const fragment = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash);
+  const value = (name: string) => query.get(name) || fragment.get(name);
+  const errorCode = value('error_code') || value('error');
+  const errorDescription = value('error_description');
+  if (errorCode || errorDescription) {
+    return { kind: 'error', code: errorCode, description: errorDescription };
+  }
+
+  const type = value('type');
+  const code = value('code');
+  if (code) return { kind: 'authorization_code', code, type };
+
+  const tokenHash = value('token_hash');
+  if (tokenHash && type) return { kind: 'token_hash', tokenHash, type };
+
+  const accessToken = value('access_token');
+  const refreshToken = value('refresh_token');
+  if (accessToken && refreshToken) {
+    return { kind: 'implicit_session', accessToken, refreshToken, type };
+  }
+
+  return { kind: 'none' };
+}
+
+export function formatAuthCallbackError(code: string | null, description: string | null): string {
+  const normalizedCode = (code || '').toLowerCase();
+  const normalizedDescription = (description || '').toLowerCase();
+  if (
+    normalizedCode === 'access_denied' ||
+    normalizedCode === 'user_cancelled' ||
+    normalizedCode === 'user_canceled' ||
+    normalizedDescription.includes('cancelled') ||
+    normalizedDescription.includes('canceled')
+  ) {
+    return 'Sign-in was cancelled. You can try again or continue with email or Guest Mode.';
+  }
+  return description || 'Authentication could not be completed. Please try again.';
+}
+
+type GoogleOAuthClient = Pick<NonNullable<typeof supabase>, 'auth'>;
+
+/** Shared call used by the UI and tests to ensure OAuth goes through Supabase Auth. */
+export async function requestGoogleOAuth(client: GoogleOAuthClient, redirectTo: string): Promise<void> {
+  const { error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent'
+      }
+    }
+  });
+  if (error) throw error;
+}
+
+export function mergeSupabaseUserProfile(
+  localProfile: UserProfile,
+  sbUser: any,
+  remoteProfileData: any = null,
+): UserProfile {
+  const metadata = sbUser.user_metadata || {};
+  const provider = (sbUser.app_metadata?.provider as any) || (sbUser.identities?.[0]?.provider as any) || 'email';
+  return {
+    ...localProfile,
+    id: sbUser.id,
+    email: sbUser.email,
+    emailVerified: Boolean(sbUser.email_confirmed_at),
+    displayName: remoteProfileData?.display_name || metadata.display_name || metadata.full_name || metadata.name || localProfile.displayName,
+    username: remoteProfileData?.username || localProfile.username || undefined,
+    avatarSeed: remoteProfileData?.avatar_seed || localProfile.avatarSeed,
+    avatarUrl: remoteProfileData?.avatar_url || metadata.avatar_url || metadata.picture || localProfile.avatarUrl,
+    authProvider: provider,
+    accountType: (remoteProfileData?.account_type as any) || 'player',
+    accountStatus: (remoteProfileData?.account_status as any) || 'active',
+    isGuest: false,
+    totalScore: Math.max(localProfile.totalScore || 0, remoteProfileData?.total_score || 0),
+    gamesPlayed: Math.max(localProfile.gamesPlayed || 0, remoteProfileData?.games_played || 0),
+    roundsWon: Math.max(localProfile.roundsWon || 0, remoteProfileData?.rounds_won || 0),
+    currentStreak: Math.max(localProfile.currentStreak || 0, remoteProfileData?.current_streak || 0),
+    bestStreak: Math.max(localProfile.bestStreak || 0, remoteProfileData?.best_streak || 0),
+    linkedAt: Date.now()
+  };
+}
+
 class AuthService {
   private sessionToken: string | null = null;
   private authView: AuthView = 'login';
@@ -147,14 +261,31 @@ class AuthService {
   private listeners: Set<(state: AuthState) => void> = new Set();
   private isLoading = false;
   private error: string | null = null;
+  private callbackFeedback = false;
+  private oauthCallbackPending = false;
+  private oauthCallbackIsRecovery = false;
+  private googleOAuthInFlight = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
+      const autoStartGoogleOAuth = window.location.origin === PRODUCTION_SITE_ORIGIN &&
+        new URLSearchParams(window.location.search).get('auth') === 'google';
+      if (autoStartGoogleOAuth) {
+        try {
+          window.history.replaceState(null, '', '/');
+        } catch {}
+      }
       this.sessionToken = safeStorage.getItem(STORAGE_KEY_AUTH_TOKEN);
       this.pendingEmail = safeStorage.getItem(STORAGE_KEY_PENDING_EMAIL);
+      const callback = parseAuthCallbackUrl(window.location.href);
+      this.oauthCallbackPending = callback.kind === 'authorization_code';
+      this.oauthCallbackIsRecovery = callback.kind === 'authorization_code' && callback.type === 'recovery';
       this.fetchProvidersStatus();
       this.initSupabaseAuthListener();
       this.detectCallbackOrResetUrl();
+      if (autoStartGoogleOAuth) {
+        void this.signInWithGoogleOAuth().catch(() => {});
+      }
     }
   }
 
@@ -179,7 +310,8 @@ class AuthService {
       authView: this.authView,
       pendingEmail: this.pendingEmail,
       resendCooldownSeconds: this.resendCooldownSeconds,
-      successNotice: this.successNotice
+      successNotice: this.successNotice,
+      callbackFeedback: this.callbackFeedback
     };
   }
 
@@ -187,11 +319,13 @@ class AuthService {
     this.authView = view;
     this.error = null;
     this.successNotice = null;
+    this.callbackFeedback = false;
     this.notify();
   }
 
   public clearError(): void {
     this.error = null;
+    this.callbackFeedback = false;
     this.notify();
   }
 
@@ -231,8 +365,9 @@ class AuthService {
           this.sessionToken = session.access_token;
           safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, session.access_token);
 
-          // If this was an email confirmation or OAuth callback
-          if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          if (this.oauthCallbackPending && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+            await this.completeAuthorizationCodeCallback(session.access_token);
+          } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
             await this.syncProfileFromSupabaseUser(session.user);
           }
         } else if (event === 'SIGNED_OUT') {
@@ -254,25 +389,15 @@ class AuthService {
     const hash = window.location.hash || '';
     const search = window.location.search || '';
     const pathname = window.location.pathname || '';
-
-    // Password reset hash detection
-    if (pathname.includes('reset-password') || hash.includes('type=recovery') || search.includes('type=recovery')) {
-      this.authView = 'reset_password';
-      this.notify();
-      return;
-    }
-
-    // Inspect hash and search parameters for errors or callback payloads
+    const parsedCallback = parseAuthCallbackUrl(window.location.href);
     const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : hash);
     const searchParams = new URLSearchParams(search.startsWith('?') ? search.substring(1) : search);
-
-    const errorMsg = hashParams.get('error_description') || searchParams.get('error_description') ||
-                     hashParams.get('error') || searchParams.get('error');
-    const errorCode = hashParams.get('error_code') || searchParams.get('error_code');
+    const tokenType = searchParams.get('type') || hashParams.get('type');
 
     // 1. Explicit error handling: Expired, invalid, or already-used verification links
-    if (errorMsg || errorCode) {
-      const decoded = errorMsg ? decodeURIComponent(errorMsg.replace(/\+/g, ' ')) : 'Authentication link failed.';
+    if (parsedCallback.kind === 'error') {
+      const decoded = formatAuthCallbackError(parsedCallback.code, parsedCallback.description);
+      const errorCode = parsedCallback.code;
       const isExpired = errorCode === 'otp_expired' || decoded.toLowerCase().includes('expired');
       const isAlreadyUsed = decoded.toLowerCase().includes('already') || decoded.toLowerCase().includes('invalid');
 
@@ -287,17 +412,37 @@ class AuthService {
         this.authView = 'login';
       }
 
-      try {
-        window.history.replaceState(null, '', '/');
-      } catch {}
+      this.callbackFeedback = true;
+      this.oauthCallbackPending = false;
+      this.isLoading = false;
+      this.cleanAuthCallbackUrl();
       this.notify();
       return;
     }
 
-    // 2. OTP Token Hash verification (Supabase verifyOtp)
-    const tokenHash = searchParams.get('token_hash') || hashParams.get('token_hash');
-    const tokenType = searchParams.get('type') || hashParams.get('type');
-    const authCode = searchParams.get('code') || hashParams.get('code');
+    // 2. OAuth/email PKCE callbacks are exchanged automatically by Supabase's URL detection.
+    // Wait for that exchange instead of submitting the one-time code a second time.
+    if (parsedCallback.kind === 'authorization_code') {
+      this.oauthCallbackPending = true;
+      this.oauthCallbackIsRecovery = parsedCallback.type === 'recovery';
+      if (!isSupabaseConfigured() || !supabase) {
+        this.failAuthorizationCodeCallback('Supabase authentication is not configured. Please check the public Supabase environment settings.');
+        return;
+      }
+      supabase.auth.getSession().then(({ data, error }) => {
+        if (data.session?.user) {
+          void this.completeAuthorizationCodeCallback(data.session.access_token);
+        } else {
+          this.failAuthorizationCodeCallback(error?.message || 'Google sign-in could not be completed. Please try again.');
+        }
+      }).catch((error: any) => {
+        this.failAuthorizationCodeCallback(error?.message || 'Google sign-in could not be completed. Please try again.');
+      });
+      return;
+    }
+
+    // 3. Email OTP callback (Supabase verifyOtp)
+    const tokenHash = parsedCallback.kind === 'token_hash' ? parsedCallback.tokenHash : null;
 
     if (tokenHash && tokenType && isSupabaseConfigured() && supabase) {
       if (tokenType === 'recovery') {
@@ -329,29 +474,16 @@ class AuthService {
         });
       }
       try {
-        window.history.replaceState(null, '', '/');
+        this.cleanAuthCallbackUrl();
       } catch {}
       return;
     }
 
-    // 3. PKCE Authorization Code Exchange
-    if (authCode && isSupabaseConfigured() && supabase) {
-      supabase.auth.exchangeCodeForSession(authCode).then(async ({ data, error }) => {
-        if (!error && data.user) {
-          await this.syncProfileFromSupabaseUser(data.user);
-          this.authView = 'verified_success';
-          this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
-          this.error = null;
-          this.notify();
-        } else if (error) {
-          this.error = error.message || 'Failed to verify authentication code.';
-          this.authView = 'login';
-          this.notify();
-        }
-      });
-      try {
-        window.history.replaceState(null, '', '/');
-      } catch {}
+    // Password recovery may use Supabase's implicit hash session. Supabase URL detection
+    // establishes that session; this branch only selects the existing reset UI.
+    if (pathname.includes('reset-password') || tokenType === 'recovery' || hash.includes('type=recovery') || search.includes('type=recovery')) {
+      this.authView = 'reset_password';
+      this.notify();
       return;
     }
 
@@ -362,7 +494,7 @@ class AuthService {
 
     if (hasAccessToken && isSignupType) {
       try {
-        window.history.replaceState(null, '', '/');
+        this.cleanAuthCallbackUrl();
       } catch {}
 
       if (isSupabaseConfigured() && supabase) {
@@ -383,10 +515,62 @@ class AuthService {
 
     // 5. Bare /auth/callback route without tokens — clean without fake success
     if (pathname.includes('auth/callback')) {
-      try {
-        window.history.replaceState(null, '', '/');
-      } catch {}
+      this.cleanAuthCallbackUrl();
     }
+  }
+
+  private cleanAuthCallbackUrl(): void {
+    if (typeof window === 'undefined') return;
+    const cleanPath = window.location.pathname.includes('/auth/callback') ? '/' : window.location.pathname;
+    try {
+      window.history.replaceState(null, '', cleanPath);
+    } catch {}
+  }
+
+  private async completeAuthorizationCodeCallback(accessToken: string): Promise<void> {
+    if (!this.oauthCallbackPending) return;
+    this.oauthCallbackPending = false;
+    this.sessionToken = accessToken;
+    safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, accessToken);
+    try {
+      if (!supabase) throw new Error('Supabase authentication is not configured.');
+      const { data, error } = await supabase.auth.getUser(accessToken);
+      if (error) throw error;
+      if (!data.user) throw new Error('Supabase did not return the authenticated user profile.');
+      await this.syncProfileFromSupabaseUser(data.user);
+      this.error = null;
+      if (this.oauthCallbackIsRecovery) {
+        this.authView = 'reset_password';
+        this.successNotice = null;
+      } else {
+        this.authView = 'verified_success';
+        this.successNotice = data.user.app_metadata?.provider === 'google'
+          ? 'You are signed in with Google. Welcome to SongVerse.'
+          : 'Your account is ready. Welcome to SongVerse.';
+      }
+      this.callbackFeedback = true;
+    } catch (error: any) {
+      this.error = error?.message || 'Your account was authenticated, but SongVerse could not finish loading your profile.';
+      this.authView = 'login';
+      this.callbackFeedback = true;
+    } finally {
+      this.isLoading = false;
+      this.oauthCallbackIsRecovery = false;
+      this.cleanAuthCallbackUrl();
+      this.notify();
+    }
+  }
+
+  private failAuthorizationCodeCallback(message: string): void {
+    if (!this.oauthCallbackPending) return;
+    this.oauthCallbackPending = false;
+    this.oauthCallbackIsRecovery = false;
+    this.isLoading = false;
+    this.error = message;
+    this.authView = 'login';
+    this.callbackFeedback = true;
+    this.cleanAuthCallbackUrl();
+    this.notify();
   }
 
   /**
@@ -420,7 +604,7 @@ class AuthService {
         if (!remoteProfileData) {
           const safeInsertData: any = {
             id: sbUser.id,
-            display_name: sbUser.user_metadata?.display_name || sbUser.user_metadata?.full_name || localProfile.displayName || 'GrooveExplorer',
+            display_name: sbUser.user_metadata?.display_name || sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || localProfile.displayName || 'GrooveExplorer',
             username: desiredUsername,
             avatar_seed: localProfile.avatarSeed || 'aurora',
             account_status: 'active',
@@ -434,6 +618,7 @@ class AuthService {
           const fullInsertData: any = {
             ...safeInsertData,
             email: sbUser.email,
+            avatar_url: sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture || null,
             auth_provider: provider,
             account_type: 'player',
             email_verified: isVerified,
@@ -488,26 +673,7 @@ class AuthService {
       await this.linkGuestData(sbUser.id, localProfile);
     }
 
-    const mergedProfile: UserProfile = {
-      ...localProfile,
-      id: sbUser.id,
-      email: sbUser.email,
-      emailVerified: isVerified,
-      displayName: remoteProfileData?.display_name || sbUser.user_metadata?.display_name || localProfile.displayName,
-      username: remoteProfileData?.username || localProfile.username || undefined,
-      avatarSeed: remoteProfileData?.avatar_seed || localProfile.avatarSeed,
-      avatarUrl: remoteProfileData?.avatar_url || sbUser.user_metadata?.avatar_url,
-      authProvider: provider,
-      accountType: (remoteProfileData?.account_type as any) || 'player',
-      accountStatus: (remoteProfileData?.account_status as any) || 'active',
-      isGuest: false,
-      totalScore: Math.max(localProfile.totalScore || 0, remoteProfileData?.total_score || 0),
-      gamesPlayed: Math.max(localProfile.gamesPlayed || 0, remoteProfileData?.games_played || 0),
-      roundsWon: Math.max(localProfile.roundsWon || 0, remoteProfileData?.rounds_won || 0),
-      currentStreak: Math.max(localProfile.currentStreak || 0, remoteProfileData?.current_streak || 0),
-      bestStreak: Math.max(localProfile.bestStreak || 0, remoteProfileData?.best_streak || 0),
-      linkedAt: Date.now()
-    };
+    const mergedProfile = mergeSupabaseUserProfile(localProfile, sbUser, remoteProfileData);
 
     gameEngine.updateUserProfile(mergedProfile);
     this.notify();
@@ -538,37 +704,37 @@ class AuthService {
    * Google OAuth Flow: Redirects user to Google OAuth via Supabase
    */
   public async signInWithGoogleOAuth(): Promise<void> {
+    if (this.googleOAuthInFlight) return;
+    if (this.isLoading) throw new Error('Another authentication request is already in progress.');
+    this.googleOAuthInFlight = true;
     this.isLoading = true;
     this.error = null;
+    this.callbackFeedback = false;
     this.notify();
 
     if (!isSupabaseConfigured() || !supabase) {
+      this.googleOAuthInFlight = false;
       this.isLoading = false;
       this.error = 'Supabase authentication is not configured. Please check your environment variables.';
+      this.callbackFeedback = true;
       this.notify();
       throw new Error(this.error);
     }
 
     try {
-      const redirectUri = getAuthRedirectUri('/auth/callback');
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUri,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent'
-          }
-        }
-      });
-
-      if (error) {
-        throw error;
+      const handoffUrl = typeof window !== 'undefined'
+        ? getGoogleOAuthHandoffUrl(window.location.origin)
+        : null;
+      if (handoffUrl && typeof window !== 'undefined') {
+        window.location.assign(handoffUrl);
+        return;
       }
+      await requestGoogleOAuth(supabase, getOAuthRedirectUri());
     } catch (err: any) {
+      this.googleOAuthInFlight = false;
       this.isLoading = false;
       this.error = err.message || 'Failed to initiate Google sign-in.';
+      this.callbackFeedback = true;
       this.notify();
       throw err;
     }
