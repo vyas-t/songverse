@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   formatAuthCallbackError,
+  getSupabaseConfigurationError,
   getOAuthRedirectUri,
   mergeSupabaseUserProfile,
   parseAuthCallbackUrl,
@@ -50,6 +51,16 @@ async function run() {
     getOAuthRedirectUri({ origin: 'http://localhost:5173', hostname: 'localhost' }),
     'http://localhost:5173/auth/callback',
     'Local development retains its own PKCE callback origin',
+  );
+  assert.match(
+    getSupabaseConfigurationError('songverse.pages.dev'),
+    /Cloudflare Pages.*VITE_SUPABASE_URL.*VITE_SUPABASE_ANON_KEY/i,
+    'A missing production Supabase configuration identifies the required Cloudflare build variables',
+  );
+  assert.match(
+    getSupabaseConfigurationError('localhost'),
+    /configured locally/i,
+    'A missing local configuration does not masquerade as a production failure',
   );
 
   let oauthRequest: any = null;
@@ -113,12 +124,14 @@ async function run() {
 
   const authSource = readFileSync(new URL('../src/services/authService.ts', import.meta.url), 'utf8');
   const supabaseClientSource = readFileSync(new URL('../src/services/supabaseClient.ts', import.meta.url), 'utf8');
+  const onboardingSource = readFileSync(new URL('../src/components/common/OnboardingGuide.tsx', import.meta.url), 'utf8');
   assert.ok(authSource.includes('supabase.auth.signUp('), 'Existing email registration remains wired to Supabase Auth');
   assert.ok(authSource.includes('supabase.auth.signInWithPassword('), 'Existing email/password login remains wired to Supabase Auth');
   assert.ok(authSource.includes('public playAsGuest()'), 'Existing guest entry remains available');
   assert.ok(supabaseClientSource.includes('persistSession: true'), 'Supabase session persistence remains enabled');
   assert.ok(supabaseClientSource.includes('autoRefreshToken: true'), 'Supabase session refresh remains enabled');
   assert.ok(!authSource.includes('getGoogleOAuthHandoffUrl'), 'OAuth begins directly through Supabase without a cross-origin handoff');
+  assert.ok(onboardingSource.includes('const isControlled = controlledIsOpen !== undefined || controlledOnClose !== undefined'), 'A parent-owned tutorial cannot auto-open over authentication dialogs');
 
   console.log('Google OAuth callback, redirect, provider, profile merge, and guest continuity checks passed.');
 }

@@ -83,16 +83,18 @@ class MusicBrainzService {
       };
     }
 
-    const cacheKey = `${rawQuery}::${title}::${artist}`;
+    // Results are already paginated by MusicBrainz. Caching a page under only
+    // the query and slicing it again makes page 2 reuse page-1 recordings.
+    const cacheKey = `${rawQuery}::${title}::${artist}::${reqLimit}::${reqOffset}`;
     const now = Date.now();
     const cached = this.queryCache.get(cacheKey);
-    if (cached && (now - cached.timestamp < this.cacheTtlMs) && cached.recordings.length >= reqOffset + reqLimit) {
+    if (cached && (now - cached.timestamp < this.cacheTtlMs)) {
       return {
         query: rawQuery || `${title} ${artist}`.trim(),
         count: cached.count,
         offset: reqOffset,
         limit: reqLimit,
-        recordings: cached.recordings.slice(reqOffset, reqOffset + reqLimit)
+        recordings: cached.recordings
       };
     }
 
@@ -102,8 +104,11 @@ class MusicBrainzService {
       if (rawQuery) params.set('q', rawQuery);
       if (title) params.set('title', title);
       if (artist) params.set('artist', artist);
-      params.set('limit', String(reqLimit));
-      params.set('offset', String(reqOffset));
+      // Fetch a stable window from the first result. The provider can reorder
+      // score ties when its requested limit changes; local slicing keeps pages
+      // non-overlapping for the catalogue UI.
+      params.set('limit', String(Math.min(reqOffset + reqLimit, 30)));
+      params.set('offset', '0');
 
       const baseUrl = typeof window !== 'undefined'
         ? ''
@@ -115,9 +120,9 @@ class MusicBrainzService {
         return {
           query: data.query || rawQuery,
           count: data.count || 0,
-          offset: data.offset || reqOffset,
+          offset: reqOffset,
           limit: data.limit || reqLimit,
-          recordings: this.deduplicateRecordings(data.recordings || [])
+          recordings: this.deduplicateRecordings(data.recordings || []).slice(reqOffset, reqOffset + reqLimit)
         };
       }
     } catch {
@@ -125,26 +130,20 @@ class MusicBrainzService {
     }
 
     // Direct fetch fallback with strict rate limiting and 503 retry
-    const result = await this.fetchDirectFromMusicBrainz(rawQuery, title, artist, reqLimit, reqOffset);
+    const providerLimit = Math.min(reqOffset + reqLimit, 30);
+    const fetched = await this.fetchDirectFromMusicBrainz(rawQuery, title, artist, providerLimit, 0);
+    const result: MusicBrainzSearchResult = {
+      ...fetched,
+      offset: reqOffset,
+      limit: reqLimit,
+      recordings: fetched.recordings.slice(reqOffset, reqOffset + reqLimit)
+    };
     if (result.recordings.length > 0) {
-      const existing = this.queryCache.get(cacheKey)?.recordings || [];
-      const combined = [...existing];
-      for (const r of result.recordings) {
-        if (!combined.some(c => c.id === r.id)) {
-          combined.push(r);
-        }
-      }
       this.queryCache.set(cacheKey, {
         timestamp: Date.now(),
-        recordings: combined,
-        count: Math.max(result.count, combined.length)
+        recordings: result.recordings,
+        count: result.count
       });
-      if (reqOffset > 0 && combined.length > reqOffset) {
-        return {
-          ...result,
-          recordings: combined.slice(reqOffset, reqOffset + reqLimit)
-        };
-      }
     }
     return result;
   }

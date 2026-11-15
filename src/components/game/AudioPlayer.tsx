@@ -23,7 +23,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [audioError, setAudioError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [waveformBars, setWaveformBars] = useState<number[]>(new Array(32).fill(0.18));
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(audioEngine.getIsMuted());
 
   const levelConfig = GAME_LEVELS[level];
   const maxDuration = levelConfig.durationSeconds;
@@ -74,7 +74,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const handleToggleMute = () => {
-    setIsMuted(prev => !prev);
+    setIsMuted(audioEngine.setMuted(!audioEngine.getIsMuted()));
   };
 
   const progressPercent = Math.min(100, (currentTime / maxDuration) * 100);

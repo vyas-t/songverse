@@ -596,7 +596,7 @@ app.get('/api/musicbrainz/search', async (req: Request, res: Response) => {
 
     // Execute through rate-limiting queue
     const mbData = await mbRateLimiter.schedule(async () => {
-      return await fetchMusicBrainz(luceneQuery, limit, offset);
+      return await fetchMusicBrainz(luceneQuery, Math.min(limit + offset, 30), 0);
     });
 
     // Format & normalize recordings cleanly
@@ -627,13 +627,16 @@ app.get('/api/musicbrainz/search', async (req: Request, res: Response) => {
       };
     });
 
+    const uniqueRecordings = formattedRecordings.filter((recording: any, index: number, all: any[]) =>
+      all.findIndex((candidate: any) => candidate.id === recording.id) === index
+    );
     const responsePayload = {
       query: rawQuery || `${title} ${artist}`.trim(),
       lucene: luceneQuery,
       count: mbData.count || 0,
-      offset: mbData.offset || offset,
+      offset,
       limit,
-      recordings: formattedRecordings
+      recordings: uniqueRecordings.slice(offset, offset + limit)
     };
 
     // Cache valid response

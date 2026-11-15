@@ -278,7 +278,7 @@ export default function App() {
 
       {/* Interactive Onboarding & Game Guide (Optional, non-intrusive) */}
       <OnboardingGuide
-        isOpen={guideModalOpen ? true : undefined}
+        isOpen={guideModalOpen}
         onClose={() => setGuideModalOpen(false)}
         onNavigate={handleNavigate}
       />

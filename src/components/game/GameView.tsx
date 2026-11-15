@@ -422,16 +422,16 @@ export const GameView: React.FC<GameViewProps> = ({
               disabled={isSubmitting}
             />
 
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
               <button
                 type="button"
                 onClick={handleSkipLevel}
                 disabled={isSubmitting}
-                className="px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-sv-midnight/80 dark:hover:bg-sv-burgundy border border-transparent dark:border-sv-burgundy/50 rounded-2xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-2xs"
+                className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-sv-midnight/80 dark:hover:bg-sv-burgundy border border-transparent dark:border-sv-burgundy/50 rounded-2xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-2xs"
                 title="Unlock next level with more audio while reducing available points"
               >
-                <FastForward className="w-3.5 h-3.5 text-sv-red dark:text-sv-warm-orange" />
-                <span>
+                <FastForward className="w-3.5 h-3.5 text-sv-red dark:text-sv-warm-orange shrink-0" />
+                <span className="truncate">
                   {currentRound.currentLevel === 1 && 'Skip Level 1 (Deduct: 100 → 70 pts)'}
                   {currentRound.currentLevel === 2 && 'Skip Level 2 (Deduct: 70 → 40 pts)'}
                   {currentRound.currentLevel === 3 && 'Skip Level 3 (Deduct: 40 → 20 pts)'}

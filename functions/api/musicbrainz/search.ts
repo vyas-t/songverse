@@ -33,8 +33,8 @@ export async function onRequestGet(context: { request: Request }): Promise<Respo
   const providerUrl = new URL('https://musicbrainz.org/ws/2/recording/');
   providerUrl.searchParams.set('query', lucene);
   providerUrl.searchParams.set('fmt', 'json');
-  providerUrl.searchParams.set('limit', String(limit));
-  providerUrl.searchParams.set('offset', String(offset));
+  providerUrl.searchParams.set('limit', String(Math.min(limit + offset, 30)));
+  providerUrl.searchParams.set('offset', '0');
   try {
     const response = await fetch(providerUrl, {
       headers: { Accept: 'application/json', 'User-Agent': 'SongVerse/2.2 (contact@songverse.app)' },
@@ -61,7 +61,10 @@ export async function onRequestGet(context: { request: Request }): Promise<Respo
         attributionText: 'Metadata provided by MusicBrainz under Open Database License (ODbL). Commercial audio recording protected by copyright.'
       };
     });
-    return json({ query: rawQuery || `${title} ${artist}`.trim(), lucene, count: payload.count || 0, offset: payload.offset || offset, limit, recordings }, 200, {
+    const uniqueRecordings = recordings.filter((recording: any, index: number, all: any[]) =>
+      all.findIndex((candidate: any) => candidate.id === recording.id) === index
+    );
+    return json({ query: rawQuery || `${title} ${artist}`.trim(), lucene, count: payload.count || 0, offset, limit, recordings: uniqueRecordings.slice(offset, offset + limit) }, 200, {
       'Cache-Control': 'public, max-age=60, s-maxage=600'
     });
   } catch {

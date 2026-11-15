@@ -85,6 +85,8 @@ class AudioEngineService {
   private activeAudioElement: HTMLAudioElement | null = null;
   private audioAnalyzer: AnalyserNode | null = null;
   private playbackSessionId: number = 0;
+  private isMuted: boolean = false;
+  private currentMasterGain: GainNode | null = null;
 
   public getProviderAdapters(): AudioProviderAdapter[] {
     return [...AUDIO_PROVIDER_ADAPTERS];
@@ -129,6 +131,20 @@ class AudioEngineService {
 
   public getIsPlaying(): boolean {
     return this.isPlaying;
+  }
+
+  /** Mute the currently playing authorized clip and any subsequent clip. */
+  public setMuted(muted: boolean): boolean {
+    this.isMuted = muted;
+    if (this.activeAudioElement) this.activeAudioElement.volume = muted ? 0 : 1;
+    if (this.currentMasterGain && this.audioCtx) {
+      this.currentMasterGain.gain.setValueAtTime(muted ? 0 : 0.35, this.audioCtx.currentTime);
+    }
+    return this.isMuted;
+  }
+
+  public getIsMuted(): boolean {
+    return this.isMuted;
   }
 
   /**
@@ -192,6 +208,7 @@ class AudioEngineService {
       }
     });
     this.currentSourceNodes = [];
+    this.currentMasterGain = null;
     this.isPlaying = false;
     this.notifyPlayback(false, 0, this.maxDurationSeconds);
     this.notifyWaveform(new Array(32).fill(0.15));
@@ -254,6 +271,7 @@ class AudioEngineService {
           const audio = new Audio();
           audio.crossOrigin = 'anonymous';
           audio.preload = 'auto';
+          audio.volume = this.isMuted ? 0 : 1;
           this.activeAudioElement = audio;
 
           audio.onerror = (e) => {
@@ -390,11 +408,13 @@ class AudioEngineService {
    */
   private synthesizeTrackAudio(ctx: AudioContext, track: Track, duration: number) {
     const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.35, ctx.currentTime);
-    masterGain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + Math.max(0, duration - 0.15));
+    const initialGain = this.isMuted ? 0 : 0.35;
+    masterGain.gain.setValueAtTime(initialGain, ctx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(initialGain, ctx.currentTime + Math.max(0, duration - 0.15));
     masterGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     masterGain.connect(ctx.destination);
     this.currentSourceNodes.push(masterGain);
+    this.currentMasterGain = masterGain;
 
     const now = ctx.currentTime;
     const preset = track.audioSynthesizerPreset;

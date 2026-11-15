@@ -197,6 +197,7 @@ export const LanguageSelectionView: React.FC<LanguageSelectionViewProps> = ({
     }
   };
 
+  const isOverallCatalogueEmpty = musicCatalogue.getAllTracks().length === 0;
   const isCatalogueEmpty = totalPlayableCount === 0;
 
   return (
@@ -464,15 +465,17 @@ export const LanguageSelectionView: React.FC<LanguageSelectionViewProps> = ({
             <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
               <Disc3 className="w-4 h-4 text-sv-red dark:text-sv-warm-orange" />
               <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-                Your playlist is waiting 🎵
+                {isOverallCatalogueEmpty ? 'Your playlist is waiting 🎵' : 'No songs for selected languages 🎵'}
               </h3>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Songs will appear here once added. The active song catalogue has been cleared and contains 0 tracks. Add songs via CSV or catalogue ingestion to enable active rounds.
+              {isOverallCatalogueEmpty
+                ? 'Songs will appear here once added. The active song catalogue has been cleared and contains 0 tracks. Add songs via CSV or catalogue ingestion to enable active rounds.'
+                : `No playable songs are indexed for ${activeLanguages.join(', ')}. Select English, Hindi, Punjabi, or Spanish, or click Auto-Discover below to fetch songs directly.`}
             </p>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-400 font-mono pt-1">
               <Info className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-              <span>Available songs for all languages: 0</span>
+              <span>Available songs across all languages: {musicCatalogue.getAllTracks().length}</span>
             </div>
           </div>
         ) : (

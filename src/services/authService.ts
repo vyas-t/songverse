@@ -36,6 +36,16 @@ const STORAGE_KEY_AUTH_TOKEN = 'songverse_auth_session_token';
 const STORAGE_KEY_PENDING_EMAIL = 'songverse_auth_pending_email';
 const PRODUCTION_SITE_ORIGIN = 'https://songverse.pages.dev';
 
+/** A deployment-specific error that tells operators where public client config belongs. */
+export function getSupabaseConfigurationError(hostname?: string): string {
+  const host = hostname || (typeof window !== 'undefined' ? window.location.hostname : 'this environment');
+  const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.endsWith('.local');
+  if (isLocal) {
+    return 'Supabase authentication is not configured locally. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the local development environment.';
+  }
+  return 'Authentication is not configured for this deployment. In Cloudflare Pages, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as production build variables, then redeploy.';
+}
+
 const safeStorage = {
   getItem: (key: string): string | null => {
     try {
@@ -615,7 +625,7 @@ class AuthService {
       this.oauthCallbackPending = true;
       this.oauthCallbackIsRecovery = parsedCallback.type === 'recovery';
       if (!isSupabaseConfigured() || !supabase) {
-        this.failAuthorizationCodeCallback('Supabase authentication is not configured. Please check the public Supabase environment settings.');
+        this.failAuthorizationCodeCallback(getSupabaseConfigurationError());
         return;
       }
       supabase.auth.getSession().then(({ data, error }) => {
@@ -924,7 +934,7 @@ class AuthService {
     if (!isSupabaseConfigured() || !supabase) {
       this.googleOAuthInFlight = false;
       this.isLoading = false;
-      this.error = 'Supabase authentication is not configured. Please check your environment variables.';
+      this.error = getSupabaseConfigurationError();
       this.callbackFeedback = true;
       this.notify();
       throw new Error(this.error);
@@ -1041,7 +1051,7 @@ class AuthService {
 
     try {
       if (!isSupabaseConfigured() || !supabase) {
-        throw new Error('Supabase authentication is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.');
+        throw new Error(getSupabaseConfigurationError());
       }
 
       const redirectUri = getAuthRedirectUri('/auth/callback');

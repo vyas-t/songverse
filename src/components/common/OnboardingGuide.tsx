@@ -35,6 +35,10 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({
   onClose: controlledOnClose,
   onNavigate
 }) => {
+  // A parent that supplies an onClose handler owns this modal, even while its
+  // `isOpen` value is false. Treating that state as uncontrolled caused the
+  // first-visit timer to open the tutorial over Sign In and other dialogs.
+  const isControlled = controlledIsOpen !== undefined || controlledOnClose !== undefined;
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next');
@@ -53,14 +57,14 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({
   useEffect(() => {
     try {
       const dismissed = localStorage.getItem(ONBOARDING_STORAGE_KEY);
-      if (!dismissed && controlledIsOpen === undefined) {
+      if (!dismissed && !isControlled) {
         const timer = setTimeout(() => {
           setInternalIsOpen(true);
         }, 1200);
         return () => clearTimeout(timer);
       }
     } catch {}
-  }, [controlledIsOpen]);
+  }, [isControlled]);
 
   // Audio simulation timer
   useEffect(() => {
@@ -85,7 +89,7 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({
     return () => clearInterval(interval);
   }, [isSimulatingAudio, interactiveLevel]);
 
-  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+  const isOpen = isControlled ? Boolean(controlledIsOpen) : internalIsOpen;
 
   const handleDismiss = (forever: boolean = true) => {
     if (forever) {
