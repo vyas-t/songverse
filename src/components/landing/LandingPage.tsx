@@ -185,34 +185,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             opacity: heroTitleOpacity
           }}
         >
-          {/* Top Pill Badge (60% Lime + 20% Red) */}
-          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-lime-500/40 text-lime-200 text-xs font-semibold shadow-lg">
-            <Zap className="w-3.5 h-3.5 text-lime-400 fill-current animate-pulse" />
+          {/* Top Pill Badge */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-amber-500/30 text-amber-200 text-xs font-semibold shadow-lg">
+            <Zap className="w-3.5 h-3.5 text-amber-400 fill-current animate-pulse" />
             <span className="tracking-wide">Can you identify the song in 1 second?</span>
-            <span className="text-lime-500/50">•</span>
-            <span className="font-mono text-lime-300">80+ Global Hits</span>
+            <span className="text-amber-500/50">•</span>
+            <span className="font-mono text-amber-300">80+ Global Hits</span>
           </div>
 
-          {/* Giant 3D Serif Title (60% Electric Lime Dominance) */}
+          {/* Giant 3D Serif Title */}
           <div className="space-y-2">
-            <p className="text-[11px] sm:text-xs md:text-sm font-mono tracking-[0.35em] uppercase text-lime-300/90 drop-shadow-sm font-bold">
+            <p className="text-[11px] sm:text-xs md:text-sm font-mono tracking-[0.35em] uppercase text-amber-200/90 drop-shadow-sm">
               The Sonic Odyssey
             </p>
-            <h1 className="font-cinzel text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-[0.22em] uppercase leading-none bg-gradient-to-b from-[#FFFFFF] via-[#bef264] to-[#84cc16] bg-clip-text text-transparent drop-shadow-[0_12px_45px_rgba(132,204,22,0.5)]">
+            <h1 className="font-cinzel text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-[0.22em] uppercase leading-none bg-gradient-to-b from-[#FFFDF7] via-[#FED68A] to-[#E0633B] bg-clip-text text-transparent drop-shadow-[0_12px_45px_rgba(224,99,59,0.45)]">
               SONGVERSE
             </h1>
-            <p className="text-xs sm:text-sm md:text-base font-serif italic text-lime-100/90 tracking-widest max-w-xl mx-auto pt-1">
+            <p className="text-xs sm:text-sm md:text-base font-serif italic text-amber-100/80 tracking-widest max-w-xl mx-auto pt-1">
               Where one second of music echoes across eternity
             </p>
           </div>
 
-          {/* Action CTAs (60% Lime Primary + 20% Red Accents) */}
+          {/* Action CTAs */}
           <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 pt-2">
             <button
               onClick={() => handleLaunchMode('classic')}
-              className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-full bg-gradient-to-r from-lime-500 via-emerald-500 to-lime-600 hover:from-lime-400 hover:via-emerald-400 hover:to-lime-500 text-slate-950 font-black text-sm uppercase tracking-wider shadow-[0_0_35px_rgba(163,230,53,0.5)] hover:shadow-[0_0_55px_rgba(163,230,53,0.8)] transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
+              className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-400 hover:via-rose-400 hover:to-purple-500 text-white font-black text-sm uppercase tracking-wider shadow-[0_0_35px_rgba(245,158,66,0.45)] hover:shadow-[0_0_55px_rgba(245,158,66,0.7)] transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
             >
-              <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform text-slate-950" />
+              <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
               <span>Start The Journey</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
@@ -222,16 +222,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onClick={onOpenGuide}
                 className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white text-xs font-bold uppercase tracking-wider shadow-md transition-all cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 text-lime-300" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                 <span>How It Works</span>
               </button>
             )}
 
             <button
               onClick={() => handleNavigateClean('speedrun')}
-              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 border border-rose-400/40 text-white text-xs font-black uppercase tracking-wider shadow-[0_0_25px_rgba(239,68,68,0.4)] transition-all cursor-pointer transform hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 border border-purple-400/40 text-white text-xs font-black uppercase tracking-wider shadow-[0_0_25px_rgba(155,92,235,0.4)] transition-all cursor-pointer transform hover:-translate-y-0.5"
             >
-              <Zap className="w-4 h-4 fill-current text-white animate-pulse" />
+              <Zap className="w-4 h-4 fill-current text-amber-300 animate-pulse" />
               <span>Speedrun Prototype</span>
             </button>
           </div>
@@ -277,15 +277,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           className="relative z-10 max-w-4xl mx-auto text-center space-y-6"
           style={{ y: tranquilityCardY }}
         >
-          {/* Chapter Title (60% Lime) */}
+          {/* Chapter Title */}
           <div className="space-y-1">
-            <p className="text-xs sm:text-sm font-mono tracking-[0.3em] uppercase text-lime-400 font-bold">
+            <p className="text-xs sm:text-sm font-mono tracking-[0.3em] uppercase text-cyan-300">
               Chapter I
             </p>
-            <h2 className="font-cinzel text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-[0.18em] bg-gradient-to-b from-white via-lime-200 to-lime-400 bg-clip-text text-transparent drop-shadow-[0_8px_30px_rgba(163,230,53,0.45)]">
+            <h2 className="font-cinzel text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-[0.18em] bg-gradient-to-b from-white via-cyan-100 to-teal-400 bg-clip-text text-transparent drop-shadow-[0_8px_30px_rgba(6,182,212,0.4)]">
               TRANQUILITY
             </h2>
-            <p className="text-sm sm:text-base font-serif italic text-lime-200/80 tracking-widest">
+            <p className="text-sm sm:text-base font-serif italic text-cyan-200/80 tracking-widest">
               The Sound Sanctuary
             </p>
           </div>
@@ -295,14 +295,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </p>
 
           {/* LIVE 1.0s AUDIO AUDITION WIDGET */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-black/70 backdrop-blur-xl border border-lime-500/30 shadow-[0_20px_50px_rgba(163,230,53,0.25)] max-w-2xl mx-auto space-y-4">
-            <div className="flex items-center justify-between gap-3 border-b border-lime-500/20 pb-3">
+          <div className="p-5 sm:p-6 rounded-3xl bg-black/70 backdrop-blur-xl border border-cyan-500/30 shadow-[0_20px_50px_rgba(6,182,212,0.25)] max-w-2xl mx-auto space-y-4">
+            <div className="flex items-center justify-between gap-3 border-b border-cyan-500/20 pb-3">
               <div className="flex items-center gap-2.5 text-left">
-                <div className="w-9 h-9 rounded-xl bg-lime-500/20 border border-lime-400/40 flex items-center justify-center text-lime-300">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
                   <Headphones className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-mono font-bold uppercase tracking-wider text-lime-400">
+                  <p className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-300">
                     Live Audio Audition
                   </p>
                   <p className="text-[11px] text-slate-400">
@@ -317,7 +317,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 cursor-pointer shadow-md ${
                   isPlayingAudition
                     ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse'
-                    : 'bg-gradient-to-r from-lime-500 to-emerald-500 hover:from-lime-400 hover:to-emerald-400 text-slate-950 font-black'
+                    : 'bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-extrabold'
                 }`}
               >
                 {isPlayingAudition ? (
@@ -341,8 +341,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   key={i}
                   className={`w-1 rounded-full transition-all duration-200 ${
                     isPlayingAudition
-                      ? 'bg-gradient-to-t from-lime-400 to-emerald-200'
-                      : 'bg-lime-950/60'
+                      ? 'bg-gradient-to-t from-cyan-400 to-teal-200'
+                      : 'bg-cyan-950/60'
                   }`}
                   style={{
                     height: isPlayingAudition ? `${h}%` : '20%',
@@ -362,11 +362,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   onClick={() => handleAuditionClip(tier.level)}
                   className={`p-2 rounded-xl text-center border transition-all cursor-pointer ${
                     activeAuditionTier === tier.level
-                      ? 'bg-lime-500/20 border-lime-400 text-white shadow-xs'
+                      ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-xs'
                       : 'bg-white/5 border-white/10 hover:border-white/20 text-slate-400'
                   }`}
                 >
-                  <p className="text-[10px] font-mono text-lime-400 font-bold">{tier.duration}</p>
+                  <p className="text-[10px] font-mono text-cyan-300 font-bold">{tier.duration}</p>
                   <p className="text-xs font-black text-white">{tier.points} pts</p>
                   <p className="text-[9px] text-slate-400 truncate">{tier.label}</p>
                 </button>
@@ -377,7 +377,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           {/* Scroll to Chapter II Button */}
           <button
             onClick={() => scrollToRef(biodiversityRef)}
-            className="inline-flex items-center gap-1.5 text-xs text-lime-400/80 hover:text-lime-300 transition-colors cursor-pointer group pt-2"
+            className="inline-flex items-center gap-1.5 text-xs text-cyan-300/80 hover:text-cyan-200 transition-colors cursor-pointer group pt-2"
           >
             <span>Scroll to Chapter II: Biodiversity</span>
             <ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />

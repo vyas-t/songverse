@@ -26,13 +26,13 @@ export const SpeedrunApp: React.FC<SpeedrunAppProps> = ({ onExitToSongverse }) =
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#070414] text-white flex flex-col font-sans selection:bg-amber-500/30 selection:text-amber-200 overflow-x-hidden">
+    <div className="min-h-screen w-full bg-[#08090a] text-white flex flex-col font-sans selection:bg-[#a3e635]/30 selection:text-[#bef264] overflow-x-hidden">
       
-      {/* Dynamic Animated Ambient Background Glows */}
+      {/* Dynamic Animated Ambient Background Glows (60% Lime / 20% Dark / 20% Red) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/4 w-[500px] h-[500px] bg-purple-600/15 rounded-full blur-[140px]" />
-        <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] bg-rose-600/10 rounded-full blur-[160px]" />
-        <div className="absolute -bottom-40 left-1/3 w-[550px] h-[550px] bg-amber-500/12 rounded-full blur-[150px]" />
+        <div className="absolute -top-40 left-1/4 w-[500px] h-[500px] bg-[#84cc16]/15 rounded-full blur-[140px]" />
+        <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] bg-[#ef4444]/12 rounded-full blur-[160px]" />
+        <div className="absolute -bottom-40 left-1/3 w-[550px] h-[550px] bg-[#a3e635]/10 rounded-full blur-[150px]" />
       </div>
 
       {/* Speedrun Navbar */}

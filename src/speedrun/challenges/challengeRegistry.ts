@@ -55,6 +55,62 @@ const ODD_EMOJI_SETS = [
 // Emoji sequence bank
 const EMOJI_BANK = ['⚡', '💎', '🔥', '🚀', '🍕', '🎸', '👑', '🌈', '🛸', '🎯', '👾', '🏆'];
 
+// Color tokens for Brain Glitch (Stroop test)
+export interface StroopColor {
+  id: string;
+  name: string;
+  hex: string;
+  bgClass: string;
+  borderClass: string;
+}
+
+export const STROOP_COLORS: StroopColor[] = [
+  { id: 'red', name: 'RED', hex: '#ef4444', bgClass: 'bg-red-500', borderClass: 'border-red-400' },
+  { id: 'lime', name: 'LIME', hex: '#84cc16', bgClass: 'bg-lime-500', borderClass: 'border-lime-400' },
+  { id: 'blue', name: 'BLUE', hex: '#38bdf8', bgClass: 'bg-sky-400', borderClass: 'border-sky-400' },
+  { id: 'yellow', name: 'YELLOW', hex: '#facc15', bgClass: 'bg-amber-400', borderClass: 'border-amber-400' },
+];
+
+// Wire defusal rules bank
+export interface WireRule {
+  directive: string;
+  targetWireIndex: number; // 0: Red, 1: Lime, 2: Blue, 3: Yellow
+  explanation: string;
+}
+
+export const WIRE_RULES: WireRule[] = [
+  {
+    directive: 'RULE: Cut the WIRE between Lime and Yellow!',
+    targetWireIndex: 2, // Blue
+    explanation: 'Blue wire is physically between Lime and Yellow.',
+  },
+  {
+    directive: 'RULE: If Wire 1 is RED, cut the LAST wire! Otherwise cut Wire 2.',
+    targetWireIndex: 3, // Yellow
+    explanation: 'Wire 1 is Red, so the condition triggers the last wire (Yellow).',
+  },
+  {
+    directive: 'RULE: Cut the ELECTRIC LIME wire before detonation!',
+    targetWireIndex: 1, // Lime
+    explanation: 'Cut the Electric Lime wire directly.',
+  },
+  {
+    directive: 'RULE: Cut the SECOND wire from the left!',
+    targetWireIndex: 1, // Lime
+    explanation: 'The 2nd wire is Lime.',
+  },
+  {
+    directive: 'RULE: Cut the wire matching the EMERGENCY BEACON (RED)!',
+    targetWireIndex: 0, // Red
+    explanation: 'Cut the primary Red wire.',
+  },
+  {
+    directive: 'RULE: Cut the wire furthest from Red!',
+    targetWireIndex: 3, // Yellow
+    explanation: 'Yellow is the furthest wire on the right.',
+  },
+];
+
 export class ChallengeGenerator {
   // Generate a random challenge according to the mode or difficulty
   public static generateChallenge(mode: SpeedrunMode = 'random', index: number = 0): ActiveChallenge {
@@ -67,8 +123,11 @@ export class ChallengeGenerator {
     if (mode === 'memory') {
       return this.createMemoryChallenge();
     }
-    if (mode === 'math') {
-      return this.createMathChallenge();
+    if (mode === 'brain_glitch' || mode === 'math') {
+      return this.createBrainGlitchChallenge();
+    }
+    if (mode === 'wire_defuse') {
+      return this.createWireDefuseChallenge();
     }
     if (mode === 'precision') {
       return this.createPrecisionChallenge();
@@ -80,19 +139,32 @@ export class ChallengeGenerator {
       return this.createDailyChallenge();
     }
 
-    // For random / endless mode: pick from all categories with increasing difficulty
-    const types: ChallengeCategory[] = ['typing', 'reaction', 'memory', 'math', 'precision', 'impossible'];
-    const chosenCategory = types[Math.floor(Math.random() * types.length)];
+    // For random / endless mode: pick from all high-octane adult/gamer categories
+    const pools = [
+      'typing',
+      'reaction',
+      'memory',
+      'brain_glitch',
+      'wire_defuse',
+      'qte_arrows',
+      'precision',
+      'impossible',
+    ];
+    const chosen = pools[Math.floor(Math.random() * pools.length)];
 
-    switch (chosenCategory) {
+    switch (chosen) {
       case 'typing':
         return this.createTypingChallenge();
       case 'reaction':
         return this.createReactionChallenge();
       case 'memory':
         return this.createMemoryChallenge();
-      case 'math':
-        return this.createMathChallenge();
+      case 'brain_glitch':
+        return this.createBrainGlitchChallenge();
+      case 'wire_defuse':
+        return this.createWireDefuseChallenge();
+      case 'qte_arrows':
+        return this.createQteArrowsChallenge();
       case 'precision':
         return this.createPrecisionChallenge();
       case 'impossible':
@@ -171,60 +243,111 @@ export class ChallengeGenerator {
     };
   }
 
-  // 4. MATH CHALLENGE
-  public static createMathChallenge(): ActiveChallenge {
-    // Generate 3 quick arithmetic equations
-    const equations = [];
+  // 4. BRAIN GLITCH (STROOP COGNITIVE TRAP) — REPLACES BASIC MATH
+  public static createBrainGlitchChallenge(): ActiveChallenge {
+    // Generate 3 rapid Stroop rounds
+    const rounds = [];
+    const colorKeys: ('red' | 'lime' | 'blue' | 'yellow')[] = ['red', 'lime', 'blue', 'yellow'];
+
     for (let i = 0; i < 3; i++) {
-      const isAdd = Math.random() > 0.4;
-      const isMul = Math.random() > 0.7;
-      let a = Math.floor(10 + Math.random() * 40);
-      let b = Math.floor(5 + Math.random() * 30);
-      let ans = a + b;
-      let op = '+';
+      // Pick 2 distinct colors (one for word, one for ink font color)
+      const shuffled = [...colorKeys].sort(() => 0.5 - Math.random());
+      const wordKey = shuffled[0];
+      const inkKey = shuffled[1];
 
-      if (isMul) {
-        a = Math.floor(3 + Math.random() * 9);
-        b = Math.floor(3 + Math.random() * 11);
-        ans = a * b;
-        op = '×';
-      } else if (!isAdd && a > b) {
-        ans = a - b;
-        op = '−';
-      }
+      // Round 3 is the reverse trap!
+      const isReverseTrap = i === 2;
+      const rule = isReverseTrap
+        ? '⚠️ TRAP ROUND: CLICK THE WRITTEN WORD (IGNORE INK!)'
+        : '⚡ CLICK THE COLOR OF THE INK (NOT THE WORD!)';
+      const target = isReverseTrap ? wordKey : inkKey;
 
-      // Generate 3 choices (1 correct, 2 plausible distractors)
-      const choices = [ans, ans + (Math.random() > 0.5 ? 2 : -2), ans + (Math.random() > 0.5 ? 10 : -10)]
-        .filter((v, idx, arr) => arr.indexOf(v) === idx)
-        .sort(() => 0.5 - Math.random());
-
-      // Ensure 3 choices
-      while (choices.length < 3) {
-        choices.push(ans + choices.length * 3);
-      }
-
-      equations.push({
-        prompt: `${a} ${op} ${b}`,
-        answer: ans,
-        choices: choices.sort(() => 0.5 - Math.random()),
+      rounds.push({
+        wordKey,
+        wordText: wordKey.toUpperCase(),
+        inkKey,
+        inkHex: STROOP_COLORS.find(c => c.id === inkKey)!.hex,
+        rule,
+        target,
+        isReverseTrap,
       });
     }
 
     return {
-      id: `math_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      title: 'Mental Math Blitz',
-      description: 'Solve 3 rapid arithmetic questions before time expires!',
-      instructions: 'Click the correct answer for each equation in sequence.',
-      category: 'math',
-      difficulty: 'medium',
-      timeLimitMs: 8000,
-      parTimeMs: 3800,
-      pointsBase: 140,
-      type: 'math_equations',
+      id: `brain_glitch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: 'Brain Glitch (Stroop Trap)',
+      description: 'Your brain will fight itself! Match the ink or word under extreme pressure.',
+      instructions: 'Pay attention to the rule: click ink color for rounds 1-2, word for round 3!',
+      category: 'brain_glitch',
+      difficulty: 'hard',
+      timeLimitMs: 6800,
+      parTimeMs: 2800,
+      pointsBase: 160,
+      type: 'brain_glitch',
       payload: {
-        equations,
+        rounds,
       },
     };
+  }
+
+  // 4B. WIRE DEFUSE (BOMB SQUAD LOGIC)
+  public static createWireDefuseChallenge(): ActiveChallenge {
+    const rule = WIRE_RULES[Math.floor(Math.random() * WIRE_RULES.length)];
+    const wires = [
+      { id: 'red', label: 'WIRE 1 (RED)', hex: '#ef4444', ringHex: '#dc2626' },
+      { id: 'lime', label: 'WIRE 2 (LIME)', hex: '#84cc16', ringHex: '#65a30d' },
+      { id: 'blue', label: 'WIRE 3 (BLUE)', hex: '#38bdf8', ringHex: '#0284c7' },
+      { id: 'yellow', label: 'WIRE 4 (YELLOW)', hex: '#facc15', ringHex: '#ca8a04' },
+    ];
+
+    return {
+      id: `wire_defuse_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: 'Defuse The Bomb',
+      description: 'Read the tactical directive and snip the exact wire before detonation!',
+      instructions: 'Click the single correct wire to disarm the explosive timer.',
+      category: 'wire_defuse',
+      difficulty: 'hard',
+      timeLimitMs: 4500,
+      parTimeMs: 1800,
+      pointsBase: 175,
+      type: 'wire_defuse',
+      payload: {
+        directive: rule.directive,
+        targetWireIndex: rule.targetWireIndex,
+        explanation: rule.explanation,
+        wires,
+      },
+    };
+  }
+
+  // 4C. QTE ARROW RUSH (STREET FIGHTER / DDR COMBO)
+  public static createQteArrowsChallenge(): ActiveChallenge {
+    const directions: ('up' | 'down' | 'left' | 'right')[] = ['up', 'down', 'left', 'right'];
+    const sequence: ('up' | 'down' | 'left' | 'right')[] = [];
+    for (let i = 0; i < 5; i++) {
+      sequence.push(directions[Math.floor(Math.random() * directions.length)]);
+    }
+
+    return {
+      id: `qte_arrows_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: 'QTE Arrow Rush',
+      description: 'Execute the 5-arrow combo with lightning speed using Arrow Keys, WASD, or Buttons!',
+      instructions: 'Press the exact arrow sequence displayed on screen with zero mistakes.',
+      category: 'precision',
+      difficulty: 'hard',
+      timeLimitMs: 3600,
+      parTimeMs: 1600,
+      pointsBase: 155,
+      type: 'qte_arrows',
+      payload: {
+        sequence,
+      },
+    };
+  }
+
+  // Backward compatibility alias: replace basic arithmetic with Brain Glitch
+  public static createMathChallenge(): ActiveChallenge {
+    return this.createBrainGlitchChallenge();
   }
 
   // 5. PRECISION CHALLENGE
@@ -346,13 +469,15 @@ export class ChallengeGenerator {
     }
     const seed = Math.abs(hash);
 
-    const challengeTypes = ['typing', 'reaction', 'math', 'precision', 'memory'];
+    const challengeTypes = ['typing', 'reaction', 'brain_glitch', 'wire_defuse', 'qte_arrows', 'precision', 'memory'];
     const chosen = challengeTypes[seed % challengeTypes.length];
 
     let base: ActiveChallenge;
     if (chosen === 'typing') base = this.createTypingChallenge();
     else if (chosen === 'reaction') base = this.createReactionChallenge();
-    else if (chosen === 'math') base = this.createMathChallenge();
+    else if (chosen === 'brain_glitch') base = this.createBrainGlitchChallenge();
+    else if (chosen === 'wire_defuse') base = this.createWireDefuseChallenge();
+    else if (chosen === 'qte_arrows') base = this.createQteArrowsChallenge();
     else if (chosen === 'memory') base = this.createMemoryChallenge();
     else base = this.createPrecisionChallenge();
 

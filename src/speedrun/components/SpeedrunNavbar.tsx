@@ -34,23 +34,23 @@ export const SpeedrunNavbar: React.FC<SpeedrunNavbarProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#070414]/90 backdrop-blur-xl border-b border-purple-500/20 select-none">
+    <header className="sticky top-0 z-50 w-full bg-[#08090a]/95 backdrop-blur-xl border-b border-[#84cc16]/25 select-none">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
         
         {/* Brand Logo & Back Switcher */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => onSelectTab('arena')}
-            className="flex items-center gap-2 group cursor-pointer text-left"
+            className="flex items-center gap-2.5 group cursor-pointer text-left"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shadow-[0_0_20px_rgba(245,158,66,0.45)] group-hover:scale-105 transition-transform">
-              <Zap className="w-5 h-5 fill-current animate-pulse text-amber-200" />
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#84cc16] to-[#a3e635] flex items-center justify-center text-black shadow-[0_0_20px_rgba(163,230,53,0.45)] group-hover:scale-105 transition-transform">
+              <Zap className="w-5 h-5 fill-current animate-pulse text-black" />
             </div>
             <div className="flex flex-col">
-              <span className="font-cinzel text-base sm:text-lg font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-rose-300 to-purple-300">
+              <span className="font-cinzel text-base sm:text-lg font-black tracking-widest text-white group-hover:text-[#a3e635] transition-colors">
                 SPEEDRUN
               </span>
-              <span className="text-[10px] font-mono tracking-[0.25em] uppercase text-amber-400 font-bold -mt-1">
+              <span className="text-[10px] font-mono tracking-[0.25em] uppercase text-[#ef4444] font-black -mt-1">
                 EVERYTHING
               </span>
             </div>
@@ -59,11 +59,11 @@ export const SpeedrunNavbar: React.FC<SpeedrunNavbarProps> = ({
           {/* Quick Exit Back to SongVerse */}
           <button
             onClick={onExitToSongverse}
-            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-mono transition-all cursor-pointer ml-2"
+            className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ef4444]/15 hover:bg-[#ef4444] text-[#f87171] hover:text-white border border-[#ef4444]/40 text-xs font-mono font-bold transition-all cursor-pointer ml-2 shadow-sm"
             title="Return to SongVerse Music Platform"
           >
-            <ArrowLeft className="w-3 h-3 text-rose-400" />
-            <span>SongVerse</span>
+            <ArrowLeft className="w-3 h-3" />
+            <span>Return to SongVerse</span>
           </button>
         </div>
 
@@ -81,53 +81,55 @@ export const SpeedrunNavbar: React.FC<SpeedrunNavbarProps> = ({
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-gradient-to-r from-amber-500/20 to-rose-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,66,0.25)]'
+                    ? 'bg-[#84cc16]/20 text-[#a3e635] border border-[#a3e635]/50 shadow-[0_0_15px_rgba(163,230,53,0.3)]'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#a3e635]' : 'text-slate-400'}`} />
                 <span className="hidden md:inline">{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Player Level & Sound Toggle */}
+        {/* Right Badges & Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Streak Indicator */}
+          
+          {/* Streak Counter */}
           {stats.currentStreak > 0 && (
-            <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-mono font-black">
-              <Flame className="w-3.5 h-3.5 fill-current text-rose-400 animate-bounce" />
-              <span>{stats.currentStreak}x</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ef4444]/20 border border-[#ef4444]/50 text-[#f87171] text-xs font-mono font-bold animate-pulse">
+              <Flame className="w-3.5 h-3.5 fill-current text-[#ef4444]" />
+              <span>{stats.currentStreak} Streak</span>
             </div>
           )}
 
-          {/* Player Level Pill */}
-          <button
-            onClick={() => onSelectTab('profile')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-200 text-xs font-mono font-bold hover:bg-purple-500/30 transition-all cursor-pointer"
-          >
-            <span className="text-amber-400">Lv.{stats.level}</span>
-            <span className="hidden sm:inline text-slate-300">({stats.totalScore} pts)</span>
-          </button>
+          {/* Level Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#84cc16]/20 border border-[#a3e635]/40 text-[#a3e635] text-xs font-mono font-bold">
+            <span>Lv.{stats.level}</span>
+          </div>
 
-          {/* Audio Mute Button */}
+          {/* Audio Mute Switch */}
           <button
             onClick={handleToggleMute}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-            title={muted ? 'Unmute Sound' : 'Mute Sound'}
+            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-slate-300 hover:text-[#a3e635] transition-colors cursor-pointer"
+            title={muted ? 'Unmute Sound FX' : 'Mute Sound FX'}
           >
-            {muted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            {muted ? (
+              <VolumeX className="w-4 h-4 text-[#ef4444]" />
+            ) : (
+              <Volume2 className="w-4 h-4 text-[#a3e635]" />
+            )}
           </button>
 
           {/* Mobile Back to Songverse */}
           <button
             onClick={onExitToSongverse}
-            className="lg:hidden p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-            title="Return to SongVerse"
+            className="lg:hidden p-2 rounded-xl bg-[#ef4444]/20 text-[#f87171] border border-[#ef4444]/40 hover:bg-[#ef4444] hover:text-white transition-all cursor-pointer"
+            title="Exit to SongVerse"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
+
         </div>
 
       </div>

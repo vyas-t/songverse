@@ -7,7 +7,9 @@ export type SpeedrunMode =
   | 'typing'
   | 'reaction'
   | 'memory'
-  | 'math'
+  | 'brain_glitch'
+  | 'wire_defuse'
+  | 'math' // legacy alias mapping to brain_glitch
   | 'precision'
   | 'impossible'
   | 'daily'
@@ -17,9 +19,11 @@ export type ChallengeCategory =
   | 'typing'
   | 'reaction'
   | 'memory'
-  | 'math'
+  | 'brain_glitch'
+  | 'wire_defuse'
   | 'precision'
   | 'impossible'
+  | 'math'
   | 'misc';
 
 export type ChallengeDifficulty = 'easy' | 'medium' | 'hard' | 'insane' | 'impossible';
@@ -41,6 +45,9 @@ export type ChallengeType =
   | 'target_click'
   | 'typing_sentence'
   | 'reaction_light'
+  | 'brain_glitch'
+  | 'wire_defuse'
+  | 'qte_arrows'
   | 'math_equations'
   | 'emoji_sequence'
   | 'find_odd_emoji'
