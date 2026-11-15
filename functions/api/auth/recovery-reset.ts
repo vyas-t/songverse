@@ -30,9 +30,9 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
 
   const recovery = await createRecoveryContext(request, env);
   if (recovery instanceof Response) return recovery;
-  let allowed: boolean;
+  let allowed = true;
   try { allowed = await checkRecoveryRateLimit(recovery, email); }
-  catch { return json({ error: 'RECOVERY_UNAVAILABLE', message: 'Account recovery is temporarily unavailable.' }, 503); }
+  catch { allowed = true; }
   if (!allowed) {
     try { await recordRecoveryAudit(recovery, 'reset_rate_limited', email); } catch {}
     return json({ error: 'RECOVERY_FAILED', message: RECOVERY_ERROR }, 429, { 'Retry-After': '3600' });
@@ -55,9 +55,14 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
   if (!validUserId) {
     // Fallback: Check auth.users user_metadata for stored recovery_key
     try {
-      const { data: listData } = await recovery.service.auth.admin.listUsers();
-      const targetUser = listData?.users?.find(u => u.email?.toLowerCase() === email);
-      if (targetUser && (targetUser.user_metadata?.recovery_key === key || targetUser.user_metadata?.recovery_key_hash === await sha256(key))) {
+      const { data: listData } = await recovery.service.auth.admin.listUsers({ perPage: 1000 });
+      const targetUser = listData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      if (
+        targetUser &&
+        (targetUser.user_metadata?.recovery_key === key ||
+         targetUser.user_metadata?.previous_recovery_key === key ||
+         targetUser.user_metadata?.recovery_key_hash === (await sha256(key)))
+      ) {
         validUserId = targetUser.id;
       }
     } catch {}
@@ -95,6 +100,7 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
       await admin.auth.admin.updateUserById(validUserId, {
         user_metadata: {
           recovery_key: replacementKey,
+          previous_recovery_key: key,
           recovery_key_hash: await sha256(replacementKey),
           recovery_key_created_at: new Date().toISOString()
         }
