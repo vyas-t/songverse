@@ -3,22 +3,22 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
 
 @theme {
-  /* SongVerse cosmic palette */
-  --color-sv-midnight: #090816;
-  --color-sv-navy: #090816;
-  --color-sv-dark-wine: #171326;
-  --color-sv-burgundy-deep: #171326;
-  --color-sv-burgundy: #302544;
-  --color-sv-crimson: #7138B7;
-  --color-sv-vivid-red: #9B5CEB;
-  --color-sv-red: #9B5CEB;
-  --color-sv-red-orange: #C46AF2;
-  --color-sv-orange: #FF8A5B;
-  --color-sv-amber: #FFB86B;
-  --color-sv-golden-orange: #F6C98F;
-  --color-sv-warm-orange: #F6C98F;
-  --color-sv-warm-gold: #8DE7F2;
-  --color-sv-gold: #8DE7F2;
+  /* SongVerse 60% Lime / 20% Dark / 20% Red Palette */
+  --color-sv-midnight: #08090a;
+  --color-sv-navy: #08090a;
+  --color-sv-dark-wine: #111315;
+  --color-sv-burgundy-deep: #16191c;
+  --color-sv-burgundy: #222923;
+  --color-sv-crimson: #dc2626;
+  --color-sv-vivid-red: #ef4444;
+  --color-sv-red: #84cc16;
+  --color-sv-red-orange: #a3e635;
+  --color-sv-orange: #ef4444;
+  --color-sv-amber: #bef264;
+  --color-sv-golden-orange: #a3e635;
+  --color-sv-warm-orange: #bef264;
+  --color-sv-warm-gold: #a3e635;
+  --color-sv-gold: #84cc16;
 }
 
 @layer base {
@@ -26,67 +26,66 @@
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'Space Grotesk', monospace;
 
-    /* Light theme — pearl glass with cool violet accents */
-    --app-bg: #F5F3FA;
-    --app-card: #FFFFFF;
-    --app-card-subtle: #F0ECF8;
-    --app-text: #191426;
-    --app-text-muted: #69647A;
-    --app-border: #E1DCEC;
+    /* Theme: 20% Dark Backgrounds, 60% Vibrant Electric Lime, 20% Fiery Red */
+    --app-bg: #08090a;
+    --app-card: #121513;
+    --app-card-subtle: #181d19;
+    --app-text: #f4fbf0;
+    --app-text-muted: #9eb199;
+    --app-border: #283827;
 
-    /* 10-Color Palette Variables */
-    --sv-midnight: #090816;
-    --sv-dark-wine: #171326;
-    --sv-burgundy: #302544;
-    --sv-crimson: #7138B7;
-    --sv-vivid-red: #9B5CEB;
-    --sv-red: #9B5CEB;
-    --sv-red-orange: #C46AF2;
-    --sv-orange: #FF8A5B;
-    --sv-amber: #FFB86B;
-    --sv-golden-orange: #F6C98F;
-    --sv-warm-gold: #8DE7F2;
+    /* 60% Lime / 20% Dark / 20% Red Palette Variables */
+    --sv-midnight: #08090a;
+    --sv-dark-wine: #111315;
+    --sv-burgundy: #1a221a;
+    --sv-crimson: #dc2626;
+    --sv-vivid-red: #ef4444;
+    --sv-red: #84cc16;
+    --sv-red-orange: #a3e635;
+    --sv-orange: #ef4444;
+    --sv-amber: #bef264;
+    --sv-golden-orange: #a3e635;
+    --sv-warm-gold: #84cc16;
 
-    /* Accent text colors meet contrast needs on pearl surfaces. */
-    --color-sv-red: #7443B0;
-    --color-sv-vivid-red: #7443B0;
-    --color-sv-red-orange: #9345A8;
-    --color-sv-orange: #A84421;
-    --color-sv-amber: #795400;
-    --color-sv-golden-orange: #795400;
-    --color-sv-warm-orange: #795400;
-    --color-sv-warm-gold: #116574;
-    --color-sv-gold: #116574;
+    /* Accent tokens */
+    --color-sv-red: #84cc16;
+    --color-sv-vivid-red: #a3e635;
+    --color-sv-red-orange: #a3e635;
+    --color-sv-orange: #ef4444;
+    --color-sv-amber: #bef264;
+    --color-sv-golden-orange: #a3e635;
+    --color-sv-warm-orange: #bef264;
+    --color-sv-warm-gold: #84cc16;
+    --color-sv-gold: #a3e635;
 
-    /* Atmospheric Gradients */
-    --sv-gradient-sunset: linear-gradient(135deg, #090816 0%, #302544 30%, #7138B7 65%, #C46AF2 82%, #8DE7F2 100%);
-    --sv-gradient-warm: linear-gradient(135deg, #7138B7 0%, #C46AF2 60%, #FF8A5B 100%);
-    --sv-gradient-gold: linear-gradient(135deg, #FF8A5B 0%, #FFB86B 50%, #8DE7F2 100%);
-    --sv-shadow-warm: 0 20px 55px -14px rgba(89, 47, 143, 0.32);
-    --sv-shadow-glass: 0 12px 42px 0 rgba(38, 24, 67, 0.12);
-    --sv-glow-coral: 0 0 32px rgba(155, 92, 235, 0.24);
-    --sv-glow-gold: 0 0 30px rgba(141, 231, 242, 0.24);
+    /* Gradients: 60% Lime Dominance + 20% Dark + 20% Red Accent */
+    --sv-gradient-sunset: linear-gradient(135deg, #08090a 0%, #1a221a 25%, #65a30d 55%, #a3e635 80%, #ef4444 100%);
+    --sv-gradient-warm: linear-gradient(135deg, #65a30d 0%, #a3e635 60%, #ef4444 100%);
+    --sv-gradient-gold: linear-gradient(135deg, #a3e635 0%, #bef264 50%, #84cc16 100%);
+    --sv-shadow-warm: 0 20px 55px -14px rgba(132, 204, 22, 0.4);
+    --sv-shadow-glass: 0 12px 42px 0 rgba(8, 9, 10, 0.7);
+    --sv-glow-coral: 0 0 32px rgba(163, 230, 53, 0.35);
+    --sv-glow-gold: 0 0 30px rgba(239, 68, 68, 0.35);
   }
 
   [data-theme="dark"], html.dark, .dark {
-    /* Dark theme — deep space with restrained violet and cyan light */
-    --app-bg: #090816;
-    --app-card: #151223;
-    --app-card-subtle: #1C182D;
-    --app-text: #F7F4FF;
-    --app-text-muted: #B6AEC9;
-    --app-border: #332A48;
-    --color-sv-red: #A878F0;
-    --color-sv-vivid-red: #A878F0;
-    --color-sv-red-orange: #D07AF3;
-    --color-sv-orange: #FF9B73;
-    --color-sv-amber: #FFC078;
-    --color-sv-golden-orange: #F6C98F;
-    --color-sv-warm-orange: #F6C98F;
-    --color-sv-warm-gold: #8DE7F2;
-    --color-sv-gold: #8DE7F2;
-    --sv-shadow-warm: 0 18px 45px -8px rgba(0, 0, 0, 0.6);
-    --sv-shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+    --app-bg: #08090a;
+    --app-card: #121513;
+    --app-card-subtle: #181d19;
+    --app-text: #f4fbf0;
+    --app-text-muted: #9eb199;
+    --app-border: #283827;
+    --color-sv-red: #a3e635;
+    --color-sv-vivid-red: #bef264;
+    --color-sv-red-orange: #a3e635;
+    --color-sv-orange: #ef4444;
+    --color-sv-amber: #bef264;
+    --color-sv-golden-orange: #a3e635;
+    --color-sv-warm-orange: #bef264;
+    --color-sv-warm-gold: #84cc16;
+    --color-sv-gold: #a3e635;
+    --sv-shadow-warm: 0 18px 45px -8px rgba(0, 0, 0, 0.8);
+    --sv-shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.7);
     color-scheme: dark;
   }
 

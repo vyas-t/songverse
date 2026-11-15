@@ -14,51 +14,51 @@ export const HeroSkyAndMountains: React.FC<{ className?: string }> = ({ classNam
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          {/* Sky Gradient: Deep cosmic zenith to burning golden dusk */}
+          {/* Sky Gradient: 20% Dark Zenith to 60% Electric Lime Aurora and 20% Red Horizon */}
           <linearGradient id="heroSkyGrad" x1="960" y1="0" x2="960" y2="1080" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#070414" />
-            <stop offset="25%" stopColor="#1a0a2a" />
-            <stop offset="48%" stopColor="#431444" />
-            <stop offset="68%" stopColor="#8d2b45" />
-            <stop offset="84%" stopColor="#db583b" />
-            <stop offset="93%" stopColor="#f59e42" />
-            <stop offset="100%" stopColor="#fed27d" />
+            <stop offset="0%" stopColor="#08090a" />
+            <stop offset="28%" stopColor="#0d140e" />
+            <stop offset="52%" stopColor="#1e3a1e" />
+            <stop offset="72%" stopColor="#4d7c0f" />
+            <stop offset="86%" stopColor="#65a30d" />
+            <stop offset="94%" stopColor="#a3e635" />
+            <stop offset="100%" stopColor="#bef264" />
           </linearGradient>
 
-          {/* Sinking Celestial Sun Glow */}
+          {/* Sinking Celestial Sun Glow (20% Fiery Crimson Red Accent) */}
           <radialGradient id="sunGlow" cx="960" cy="820" r="420" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#FFF9E6" stopOpacity="0.95" />
-            <stop offset="20%" stopColor="#FED27D" stopOpacity="0.8" />
-            <stop offset="50%" stopColor="#E05B38" stopOpacity="0.35" />
-            <stop offset="85%" stopColor="#6E1E48" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#070414" stopOpacity="0" />
+            <stop offset="0%" stopColor="#FFF5F5" stopOpacity="0.95" />
+            <stop offset="22%" stopColor="#fca5a5" stopOpacity="0.85" />
+            <stop offset="55%" stopColor="#ef4444" stopOpacity="0.45" />
+            <stop offset="85%" stopColor="#991b1b" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="#08090a" stopOpacity="0" />
           </radialGradient>
 
           {/* Far Mountains Depth Gradient */}
           <linearGradient id="farMountainsGrad" x1="960" y1="580" x2="960" y2="920" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#4a1d52" stopOpacity="0.85" />
-            <stop offset="55%" stopColor="#2b1138" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#150821" stopOpacity="1" />
+            <stop offset="0%" stopColor="#1e2e1e" stopOpacity="0.88" />
+            <stop offset="55%" stopColor="#101810" stopOpacity="0.96" />
+            <stop offset="100%" stopColor="#080d08" stopOpacity="1" />
           </linearGradient>
 
           {/* Mid Mountains Depth Gradient */}
           <linearGradient id="midMountainsGrad" x1="960" y1="650" x2="960" y2="1080" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#250d33" />
-            <stop offset="50%" stopColor="#150720" />
-            <stop offset="100%" stopColor="#0a0312" />
+            <stop offset="0%" stopColor="#142014" />
+            <stop offset="50%" stopColor="#0c130c" />
+            <stop offset="100%" stopColor="#060906" />
           </linearGradient>
 
           {/* Atmospheric Mist Band Gradients */}
           <linearGradient id="mistGrad1" x1="0" y1="0" x2="1920" y2="0" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#ffb370" stopOpacity="0" />
-            <stop offset="30%" stopColor="#ffb370" stopOpacity="0.25" />
-            <stop offset="70%" stopColor="#f27d52" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ffb370" stopOpacity="0" />
+            <stop offset="0%" stopColor="#a3e635" stopOpacity="0" />
+            <stop offset="30%" stopColor="#a3e635" stopOpacity="0.25" />
+            <stop offset="70%" stopColor="#84cc16" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#a3e635" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="mistGrad2" x1="0" y1="0" x2="1920" y2="0" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#ffeed4" stopOpacity="0" />
-            <stop offset="50%" stopColor="#ffeed4" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#ffeed4" stopOpacity="0" />
+            <stop offset="0%" stopColor="#bef264" stopOpacity="0" />
+            <stop offset="50%" stopColor="#bef264" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#bef264" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -170,25 +170,25 @@ export const HeroForegroundHill: React.FC<{ className?: string }> = ({ className
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          {/* Deep Foreground Silhouette Gradient */}
+          {/* Deep Foreground Silhouette Gradient (20% Dark Obsidian) */}
           <linearGradient id="fgHillGrad" x1="960" y1="120" x2="960" y2="800" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#1a0724" />
-            <stop offset="35%" stopColor="#100418" />
-            <stop offset="100%" stopColor="#05010a" />
+            <stop offset="0%" stopColor="#0d140e" />
+            <stop offset="35%" stopColor="#080c08" />
+            <stop offset="100%" stopColor="#040604" />
           </linearGradient>
 
-          {/* Golden Rim Light along Hill Edge */}
+          {/* Electric Lime Rim Light (60% Lime) */}
           <linearGradient id="hillRimLight" x1="0" y1="0" x2="1920" y2="0" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#f59e42" stopOpacity="0.2" />
-            <stop offset="30%" stopColor="#fed27d" stopOpacity="0.7" />
-            <stop offset="60%" stopColor="#ffd88a" stopOpacity="0.65" />
-            <stop offset="100%" stopColor="#f59e42" stopOpacity="0.15" />
+            <stop offset="0%" stopColor="#84cc16" stopOpacity="0.2" />
+            <stop offset="30%" stopColor="#a3e635" stopOpacity="0.85" />
+            <stop offset="60%" stopColor="#bef264" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#84cc16" stopOpacity="0.2" />
           </linearGradient>
 
           {/* Vinyl Grooves Turntable Glow */}
           <radialGradient id="turntableGlow" cx="1230" cy="385" r="75" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#8de7f2" stopOpacity="0.8" />
-            <stop offset="45%" stopColor="#9b5ceb" stopOpacity="0.4" />
+            <stop offset="0%" stopColor="#a3e635" stopOpacity="0.8" />
+            <stop offset="45%" stopColor="#ef4444" stopOpacity="0.4" />
             <stop offset="100%" stopColor="#000000" stopOpacity="0" />
           </radialGradient>
         </defs>
@@ -208,7 +208,7 @@ export const HeroForegroundHill: React.FC<{ className?: string }> = ({ className
         />
 
         {/* 3. Swaying Tall Grass & Wildflower Silhouettes (Left Ridge) */}
-        <g className="animate-grass-sway-1" fill="#0d0314" opacity="0.95">
+        <g className="animate-grass-sway-1" fill="#060906" opacity="0.95">
           <path d="M 120 450 Q 115 390 105 340 Q 115 390 125 450 Z" />
           <path d="M 132 452 Q 138 385 145 330 Q 140 388 137 452 Z" />
           <path d="M 150 455 Q 160 410 172 360 Q 158 412 154 455 Z" />
@@ -219,7 +219,7 @@ export const HeroForegroundHill: React.FC<{ className?: string }> = ({ className
         </g>
 
         {/* 4. Swaying Tall Grass & Wildflower Silhouettes (Right Ridge) */}
-        <g className="animate-grass-sway-2" fill="#0d0314" opacity="0.95">
+        <g className="animate-grass-sway-2" fill="#060906" opacity="0.95">
           <path d="M 1520 315 Q 1510 250 1495 195 Q 1515 252 1525 315 Z" />
           <path d="M 1540 318 Q 1555 258 1572 205 Q 1552 260 1545 318 Z" />
           <path d="M 1680 290 Q 1665 220 1650 160 Q 1670 222 1685 290 Z" />
@@ -228,17 +228,17 @@ export const HeroForegroundHill: React.FC<{ className?: string }> = ({ className
         </g>
 
         {/* 5. THE MUSICAL VOYAGER (Character Silhouette overlooking the soundscape) */}
-        <g id="voyager-silhouette" transform="translate(1320, 160)" fill="#07020d">
+        <g id="voyager-silhouette" transform="translate(1320, 160)" fill="#040604">
           {/* Head & Straw Hat / Explorer Cap */}
           <ellipse cx="65" cy="52" rx="14" ry="16" />
           {/* Wide-brim traveler's hat matching the reference video */}
-          <path d="M 32 46 Q 65 30 98 46 Q 65 38 32 46 Z" fill="#07020d" />
+          <path d="M 32 46 Q 65 30 98 46 Q 65 38 32 46 Z" fill="#040604" />
           <ellipse cx="65" cy="42" rx="18" ry="6" />
 
-          {/* Over-ear Glowing Headphones */}
-          <path d="M 49 46 Q 65 34 81 46" stroke="#8de7f2" strokeWidth="2.5" fill="none" />
-          <circle cx="50" cy="54" r="5.5" fill="#8de7f2" filter="drop-shadow(0 0 6px #8de7f2)" />
-          <circle cx="80" cy="54" r="5.5" fill="#8de7f2" filter="drop-shadow(0 0 6px #8de7f2)" />
+          {/* Over-ear Glowing Electric Lime Headphones (60% Lime) */}
+          <path d="M 49 46 Q 65 34 81 46" stroke="#a3e635" strokeWidth="2.5" fill="none" />
+          <circle cx="50" cy="54" r="5.5" fill="#a3e635" filter="drop-shadow(0 0 8px #a3e635)" />
+          <circle cx="80" cy="54" r="5.5" fill="#a3e635" filter="drop-shadow(0 0 8px #a3e635)" />
 
           {/* Neck & Cloak Collar */}
           <path d="M 56 68 L 74 68 L 78 80 L 52 80 Z" />
@@ -248,8 +248,8 @@ export const HeroForegroundHill: React.FC<{ className?: string }> = ({ className
 
           {/* Backpack on Back (facing rightwards/horizon) */}
           <path d="M 28 85 Q 12 105 22 145 Q 32 155 42 150 L 40 88 Z" />
-          {/* Sleeping mat / rolled blanket strapped to top of pack */}
-          <rect x="18" y="76" width="22" height="10" rx="4" />
+          {/* Sleeping mat / rolled blanket strapped to top of pack with Red accent strap */}
+          <rect x="18" y="76" width="22" height="10" rx="4" fill="#040604" stroke="#ef4444" strokeWidth="1" />
 
           {/* Legs & Boots */}
           {/* Left Leg */}
@@ -258,25 +258,25 @@ export const HeroForegroundHill: React.FC<{ className?: string }> = ({ className
           <path d="M 72 175 L 82 235 L 75 238 L 98 240 L 98 235 L 82 175 Z" />
 
           {/* Coat edge blowing gently in the wind */}
-          <path d="M 32 165 Q 16 172 8 182 Q 22 176 34 175 Z" fill="#07020d" />
+          <path d="M 32 165 Q 16 172 8 182 Q 22 176 34 175 Z" fill="#040604" />
         </g>
 
         {/* 6. ILLUMINATED VINTAGE VINYL TURNTABLE ON STONE PEDESTAL */}
         <g id="vinyl-turntable" transform="translate(1440, 245)">
           {/* Weathered Stone Pedestal */}
-          <path d="M 12 85 L 68 85 L 60 160 L 20 160 Z" fill="#0a0314" />
-          <ellipse cx="40" cy="85" rx="30" ry="8" fill="#120520" />
+          <path d="M 12 85 L 68 85 L 60 160 L 20 160 Z" fill="#080c08" />
+          <ellipse cx="40" cy="85" rx="30" ry="8" fill="#101710" />
 
           {/* Turntable Plinth */}
-          <rect x="16" y="68" width="48" height="14" rx="3" fill="#18072b" stroke="#f59e42" strokeWidth="1" />
+          <rect x="16" y="68" width="48" height="14" rx="3" fill="#141f14" stroke="#a3e635" strokeWidth="1" />
 
-          {/* Glowing Vinyl Record */}
-          <ellipse cx="36" cy="67" rx="18" ry="7" fill="#090816" stroke="#9b5ceb" strokeWidth="1.5" />
-          <ellipse cx="36" cy="67" rx="10" ry="4" stroke="#8de7f2" strokeWidth="0.8" fill="none" opacity="0.8" />
-          <circle cx="36" cy="67" r="2.5" fill="#f59e42" />
+          {/* Glowing Vinyl Record with Red Core (20% Red) & Lime Grooves (60% Lime) */}
+          <ellipse cx="36" cy="67" rx="18" ry="7" fill="#08090a" stroke="#a3e635" strokeWidth="1.5" />
+          <ellipse cx="36" cy="67" rx="10" ry="4" stroke="#bef264" strokeWidth="0.8" fill="none" opacity="0.8" />
+          <circle cx="36" cy="67" r="3" fill="#ef4444" filter="drop-shadow(0 0 6px #ef4444)" />
 
           {/* Tonearm */}
-          <path d="M 54 65 L 42 66" stroke="#fed27d" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M 54 65 L 42 66" stroke="#a3e635" strokeWidth="1.5" strokeLinecap="round" />
 
           {/* Floating Soundwave rings emitting from vinyl */}
           <ellipse
@@ -284,10 +284,10 @@ export const HeroForegroundHill: React.FC<{ className?: string }> = ({ className
             cy="67"
             rx="28"
             ry="11"
-            stroke="#8de7f2"
-            strokeWidth="1.2"
+            stroke="#a3e635"
+            strokeWidth="1.5"
             fill="none"
-            opacity="0.6"
+            opacity="0.75"
             className="animate-ping"
             style={{ animationDuration: '3s' }}
           />
@@ -312,35 +312,36 @@ export const TranquilityWaterfallScene: React.FC<{ className?: string }> = ({ cl
       >
         <defs>
           {/* Deep Abyssal Teal Canyon Gradient */}
+          {/* Deep Obsidian Gorge Gradient (20% Dark) */}
           <linearGradient id="canyonSkyGrad" x1="960" y1="0" x2="960" y2="1080" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#03141c" />
-            <stop offset="35%" stopColor="#082933" />
-            <stop offset="70%" stopColor="#0f444f" />
-            <stop offset="100%" stopColor="#061f26" />
+            <stop offset="0%" stopColor="#08090a" />
+            <stop offset="35%" stopColor="#0e1710" />
+            <stop offset="70%" stopColor="#182c1b" />
+            <stop offset="100%" stopColor="#0c160e" />
           </linearGradient>
 
-          {/* Luminous Waterfall Stream Gradient */}
+          {/* Luminous Electric Lime Waterfall Stream Gradient (60% Lime) */}
           <linearGradient id="waterfallStream" x1="0" y1="0" x2="0" y2="600" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#a7f3d0" stopOpacity="0.8" />
-            <stop offset="30%" stopColor="#38bdf8" stopOpacity="0.95" />
-            <stop offset="70%" stopColor="#06b6d4" stopOpacity="0.85" />
+            <stop offset="0%" stopColor="#d9f99d" stopOpacity="0.85" />
+            <stop offset="30%" stopColor="#a3e635" stopOpacity="0.95" />
+            <stop offset="70%" stopColor="#65a30d" stopOpacity="0.9" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="1" />
           </linearGradient>
 
           {/* Waterfall Basin Mist Pool Glow */}
           <radialGradient id="mistPoolGlow" cx="960" cy="740" r="380" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.55" />
-            <stop offset="40%" stopColor="#06b6d4" stopOpacity="0.3" />
-            <stop offset="80%" stopColor="#082933" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#03141c" stopOpacity="0" />
+            <stop offset="0%" stopColor="#a3e635" stopOpacity="0.6" />
+            <stop offset="40%" stopColor="#65a30d" stopOpacity="0.35" />
+            <stop offset="80%" stopColor="#142416" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#08090a" stopOpacity="0" />
           </radialGradient>
 
-          {/* Amber Lantern Radiance */}
+          {/* Crimson Red Lantern Radiance (20% Red Accent) */}
           <radialGradient id="lanternGlow" cx="440" cy="520" r="160" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#fffbeb" stopOpacity="1" />
-            <stop offset="25%" stopColor="#fde047" stopOpacity="0.8" />
-            <stop offset="60%" stopColor="#f59e0b" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#03141c" stopOpacity="0" />
+            <stop offset="0%" stopColor="#fecaca" stopOpacity="1" />
+            <stop offset="25%" stopColor="#ef4444" stopOpacity="0.85" />
+            <stop offset="60%" stopColor="#b91c1c" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#08090a" stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -391,29 +392,29 @@ export const TranquilityWaterfallScene: React.FC<{ className?: string }> = ({ cl
         <circle cx="960" cy="740" r="380" fill="url(#mistPoolGlow)" />
         <ellipse cx="960" cy="740" rx="320" ry="60" fill="#ffffff" fillOpacity="0.45" filter="blur(24px)" />
 
-        {/* 5. Concentric Acoustic Ripples on Sound Lake */}
-        <ellipse cx="960" cy="780" rx="140" ry="28" stroke="#38bdf8" strokeWidth="2" fill="none" opacity="0.8" className="animate-ping" style={{ animationDuration: '4s' }} />
-        <ellipse cx="960" cy="780" rx="260" ry="52" stroke="#06b6d4" strokeWidth="1.5" fill="none" opacity="0.5" className="animate-ping" style={{ animationDuration: '5.5s' }} />
-        <ellipse cx="960" cy="780" rx="380" ry="76" stroke="#a7f3d0" strokeWidth="1" fill="none" opacity="0.3" className="animate-ping" style={{ animationDuration: '7s' }} />
+        {/* 5. Concentric Acoustic Ripples on Sound Lake (60% Lime) */}
+        <ellipse cx="960" cy="780" rx="140" ry="28" stroke="#a3e635" strokeWidth="2" fill="none" opacity="0.8" className="animate-ping" style={{ animationDuration: '4s' }} />
+        <ellipse cx="960" cy="780" rx="260" ry="52" stroke="#84cc16" strokeWidth="1.5" fill="none" opacity="0.5" className="animate-ping" style={{ animationDuration: '5.5s' }} />
+        <ellipse cx="960" cy="780" rx="380" ry="76" stroke="#bef264" strokeWidth="1" fill="none" opacity="0.3" className="animate-ping" style={{ animationDuration: '7s' }} />
 
-        {/* 6. Ancient Overhanging Branches & Hanging Lantern */}
+        {/* 6. Ancient Overhanging Branches & Hanging Crimson Lantern (20% Red) */}
         <g id="mossy-branch-and-lantern">
           {/* Branch twisting from left cliff */}
           <path
             d="M 280 420 Q 380 460 450 490 Q 480 500 520 480"
-            stroke="#041217"
+            stroke="#0a0f0a"
             strokeWidth="28"
             strokeLinecap="round"
             fill="none"
           />
           {/* Hanging cord */}
-          <line x1="440" y1="490" x2="440" y2="530" stroke="#fed27d" strokeWidth="2" />
+          <line x1="440" y1="490" x2="440" y2="530" stroke="#ef4444" strokeWidth="2" />
           {/* Lantern Glow Field */}
           <circle cx="440" cy="545" r="140" fill="url(#lanternGlow)" />
           {/* Lantern Frame */}
-          <polygon points="432,530 448,530 452,555 428,555" fill="#041217" />
-          <rect x="430" y="535" width="20" height="20" fill="#fde047" rx="3" filter="drop-shadow(0 0 10px #f59e0b)" />
-          <polygon points="426,555 454,555 440,566" fill="#041217" />
+          <polygon points="432,530 448,530 452,555 428,555" fill="#040604" />
+          <rect x="430" y="535" width="20" height="20" fill="#ef4444" rx="3" filter="drop-shadow(0 0 12px #ef4444)" />
+          <polygon points="426,555 454,555 440,566" fill="#040604" />
         </g>
 
         {/* 7. THE ELDER LISTENER / SAGE SEATED ON RIVER TURTLE (From reference video) */}
@@ -454,32 +455,32 @@ export const BiodiversityForestScene: React.FC<{ className?: string }> = ({ clas
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          {/* Twilight Deep Forest Atmosphere */}
+          {/* Twilight Deep Obsidian Forest Atmosphere (20% Dark) */}
           <linearGradient id="forestSkyGrad" x1="960" y1="0" x2="960" y2="1080" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#050212" />
-            <stop offset="30%" stopColor="#120524" />
-            <stop offset="65%" stopColor="#290b42" />
-            <stop offset="100%" stopColor="#080214" />
+            <stop offset="0%" stopColor="#08090a" />
+            <stop offset="30%" stopColor="#0e1710" />
+            <stop offset="65%" stopColor="#1a331c" />
+            <stop offset="100%" stopColor="#0a120b" />
           </linearGradient>
 
-          {/* Bioluminescent Stag Antlers Radiance */}
+          {/* Bioluminescent Stag Antlers Radiance (60% Lime + 20% Red) */}
           <radialGradient id="stagAntlerGlow" cx="1380" cy="560" r="260" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#a7f3d0" stopOpacity="0.9" />
-            <stop offset="35%" stopColor="#38bdf8" stopOpacity="0.6" />
-            <stop offset="70%" stopColor="#9b5ceb" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#050212" stopOpacity="0" />
+            <stop offset="0%" stopColor="#bef264" stopOpacity="0.95" />
+            <stop offset="35%" stopColor="#a3e635" stopOpacity="0.7" />
+            <stop offset="70%" stopColor="#ef4444" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#08090a" stopOpacity="0" />
           </radialGradient>
 
           {/* Glowing Mushroom Spores Glow */}
           <radialGradient id="mushroomCyanGlow" cx="540" cy="850" r="140" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
-            <stop offset="45%" stopColor="#06b6d4" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#050212" stopOpacity="0" />
+            <stop offset="0%" stopColor="#bef264" stopOpacity="0.9" />
+            <stop offset="45%" stopColor="#84cc16" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#08090a" stopOpacity="0" />
           </radialGradient>
           <radialGradient id="mushroomPurpleGlow" cx="640" cy="880" r="120" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#c084fc" stopOpacity="0.85" />
-            <stop offset="50%" stopColor="#9333ea" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#050212" stopOpacity="0" />
+            <stop offset="0%" stopColor="#fca5a5" stopOpacity="0.9" />
+            <stop offset="50%" stopColor="#ef4444" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#08090a" stopOpacity="0" />
           </radialGradient>
         </defs>
 
