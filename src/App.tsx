@@ -28,6 +28,7 @@ import { audioEngine } from './services/audioEngine';
 import { musicCatalogue } from './services/musicCatalogue';
 import { authService } from './services/authService';
 import { SpeedrunApp } from './speedrun/SpeedrunApp';
+import { MemeCombatApp } from './memekombat/MemeCombatApp';
 
 const LazyUniverseScene = React.lazy(() =>
   import('./components/scene/UniverseScene').then((module) => ({ default: module.UniverseScene }))
@@ -82,24 +83,33 @@ export default function App() {
     return () => unsubAuth();
   }, []);
 
-  // Sync URL query/hash to support direct speedrun access: ?view=speedrun or #speedrun
+  // Sync URL query/hash to support direct speedrun or meme combat access: ?view=speedrun, ?view=memecombat, etc.
   useEffect(() => {
-    const checkSpeedrunUrl = () => {
+    const checkCustomViews = () => {
       try {
         const params = new URLSearchParams(window.location.search);
         const hash = window.location.hash.replace('#', '');
-        if (params.get('view') === 'speedrun' || hash === 'speedrun' || window.location.pathname === '/speedrun') {
+        const view = params.get('view');
+        if (view === 'speedrun' || hash === 'speedrun' || window.location.pathname === '/speedrun') {
           setCurrentView('speedrun');
+        } else if (
+          view === 'memecombat' ||
+          view === 'memebattle' ||
+          hash === 'memecombat' ||
+          hash === 'memebattle' ||
+          window.location.pathname === '/memecombat'
+        ) {
+          setCurrentView('memecombat');
         }
       } catch {}
     };
 
-    checkSpeedrunUrl();
-    window.addEventListener('popstate', checkSpeedrunUrl);
-    window.addEventListener('hashchange', checkSpeedrunUrl);
+    checkCustomViews();
+    window.addEventListener('popstate', checkCustomViews);
+    window.addEventListener('hashchange', checkCustomViews);
     return () => {
-      window.removeEventListener('popstate', checkSpeedrunUrl);
-      window.removeEventListener('hashchange', checkSpeedrunUrl);
+      window.removeEventListener('popstate', checkCustomViews);
+      window.removeEventListener('hashchange', checkCustomViews);
     };
   }, []);
 
@@ -162,7 +172,22 @@ export default function App() {
 
   // Dedicated Standalone Full-Screen View for SPEEDRUN EVERYTHING
   if (currentView === 'speedrun') {
-    return <SpeedrunApp onExitToSongverse={() => handleNavigate('landing')} />;
+    return (
+      <SpeedrunApp
+        onExitToSongverse={() => handleNavigate('landing')}
+        onOpenMemeCombat={() => handleNavigate('memecombat')}
+      />
+    );
+  }
+
+  // Dedicated Standalone Full-Screen View for MEME KOMBAT
+  if (currentView === 'memecombat' || currentView === 'memebattle') {
+    return (
+      <MemeCombatApp
+        onExitToSongverse={() => handleNavigate('landing')}
+        onOpenSpeedrun={() => handleNavigate('speedrun')}
+      />
+    );
   }
 
   return (

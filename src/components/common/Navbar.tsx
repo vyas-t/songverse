@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Menu, X, Sun, Moon, Laptop, Users, Calendar, Disc3, Trophy, Flame, Sparkles, HelpCircle, Zap } from 'lucide-react';
+import { Music, Menu, X, Sun, Moon, Laptop, Users, Calendar, Disc3, Trophy, Flame, Sparkles, HelpCircle, Zap, Swords } from 'lucide-react';
 import { GameMode } from '../../types';
 import { themeManager, ThemePreference } from '../../services/themeManager';
 
@@ -111,6 +111,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Zap className="w-3.5 h-3.5 fill-current text-amber-200 animate-pulse" />
             <span>⚡ Speedrun</span>
+          </button>
+
+          {/* MEME KOMBAT PROTOTYPE LAUNCHER */}
+          <button
+            onClick={() => handleNav('memecombat')}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 via-rose-500 to-purple-600 hover:from-amber-300 hover:to-purple-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_20px_rgba(251,191,36,0.35)] transition-all cursor-pointer transform hover:scale-105"
+            title="Play MEME KOMBAT Battle Royale prototype"
+          >
+            <Swords className="w-3.5 h-3.5 fill-current text-slate-950" />
+            <span>⚔️ Meme Kombat</span>
           </button>
 
           {/* Theme Selector Toggle */}
@@ -229,6 +239,31 @@ export const Navbar: React.FC<NavbarProps> = ({
               {link.label}
             </button>
           ))}
+          {/* Speedrun & Meme Kombat Mobile Launchers */}
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleNav('speedrun');
+              }}
+              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white font-black text-xs uppercase flex items-center justify-center gap-1.5 shadow-md"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>Speedrun</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleNav('memecombat');
+              }}
+              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-400 via-rose-500 to-purple-600 text-slate-950 font-black text-xs uppercase flex items-center justify-center gap-1.5 shadow-md"
+            >
+              <Swords className="w-3.5 h-3.5 fill-current" />
+              <span>Meme Kombat</span>
+            </button>
+          </div>
+
           <div className="pt-2 border-t border-slate-200/80 dark:border-sv-burgundy/60 flex flex-wrap items-center justify-between gap-1">
             <button
               onClick={cycleTheme}

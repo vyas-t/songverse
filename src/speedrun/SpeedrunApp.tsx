@@ -9,9 +9,10 @@ import { SpeedrunProfile } from './components/SpeedrunProfile';
 
 interface SpeedrunAppProps {
   onExitToSongverse: () => void;
+  onOpenMemeCombat?: () => void;
 }
 
-export const SpeedrunApp: React.FC<SpeedrunAppProps> = ({ onExitToSongverse }) => {
+export const SpeedrunApp: React.FC<SpeedrunAppProps> = ({ onExitToSongverse, onOpenMemeCombat }) => {
   const [currentTab, setCurrentTab] = useState<string>('arena');
   const [activeMode, setActiveMode] = useState<SpeedrunMode>('random');
 
@@ -40,6 +41,7 @@ export const SpeedrunApp: React.FC<SpeedrunAppProps> = ({ onExitToSongverse }) =
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
         onExitToSongverse={onExitToSongverse}
+        onOpenMemeCombat={onOpenMemeCombat}
       />
 
       {/* View Router */}

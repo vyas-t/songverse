@@ -1,0 +1,208 @@
+// =========================================================================
+// MEME KOMBAT — ROSTER OF COMEDIC FIGHTERS
+// =========================================================================
+
+import { Fighter } from '../types';
+
+export const FIGHTERS: Fighter[] = [
+  {
+    id: 'lord_puneet',
+    name: 'Lord Puneet',
+    parodyOf: 'Puneet Superstar',
+    title: 'The Unhinged Lord of Reels',
+    avatar: '👑🧔‍♂️',
+    origin: 'india',
+    maxHp: 110,
+    baseEnergy: 100,
+    catchphrase: 'Tum sab nalle ho, berozgar ho! System hang kar dunga!',
+    bio: 'Willing to bathe in monsoon mud puddles for 10 rupees. Immune to social shame and embarrassment.',
+    ultimateMove: {
+      name: 'Mud Splash Supernova',
+      description: 'Screams at 180 decibels and hurls dirty rainwater. Inflicts 48 damage and stuns opponent.',
+      damage: 48,
+      energyCost: 65,
+      spellEffect: 'mud_splash',
+    },
+    passiveTrait: {
+      name: 'Berozgar Hype',
+      description: 'Gains +15 Energy whenever attacked. Rage builds up rapidly.',
+    },
+    favoriteCategory: 'savage_roast',
+    themeColor: '#eab308', // Gold / Yellow
+  },
+  {
+    id: 'thala_seven',
+    name: 'Thala-7 The Omniscient',
+    parodyOf: 'MS Dhoni / Thala For A Reason',
+    title: 'Reason Behind Every Phenomenon',
+    avatar: '🗿🏏',
+    origin: 'india',
+    maxHp: 115,
+    baseEnergy: 100,
+    catchphrase: 'Bole jo koyal baagon mein... 7 letters. Thala for a reason.',
+    bio: 'No matter what happens in the universe, it always mathematically adds up to 7.',
+    ultimateMove: {
+      name: 'Helicopter 7-Fold Blast',
+      description: 'Reverses time, hits a magical helicopter shot, and deals 52 unavoidable cosmic damage.',
+      damage: 52,
+      energyCost: 70,
+      spellEffect: 'helicopter',
+    },
+    passiveTrait: {
+      name: 'Cool Mind Barrier',
+      description: 'Takes 15% less damage from high-stress emotional roasts.',
+    },
+    favoriteCategory: 'desi_nostalgia',
+    themeColor: '#38bdf8', // Blue / Sky
+  },
+  {
+    id: 'ohio_bhaiya',
+    name: 'Ohio Final Bhaiya',
+    parodyOf: 'Skibidi Toilet & Ohio Memes',
+    title: 'Interdimensional Brainrot Master',
+    avatar: '🚽🧆',
+    origin: 'international',
+    maxHp: 95,
+    baseEnergy: 120,
+    catchphrase: 'Only in Gorakhpur meets Ohio! Free Gyatt Panipuri for everyone!',
+    bio: 'A dangerous fusion of international short-form brainrot and local street snack chaos.',
+    ultimateMove: {
+      name: 'Skibidi Samosa Singularity',
+      description: 'Unleashes a vortex of dancing toilets and crunchy samosas. Deals 45 Chaos Damage.',
+      damage: 45,
+      energyCost: 60,
+      spellEffect: 'airhorn',
+    },
+    passiveTrait: {
+      name: 'Brainrot Radiation',
+      description: 'Opponent loses 4 HP each round from sheer cognitive decay.',
+    },
+    favoriteCategory: 'international_brainrot',
+    themeColor: '#ec4899', // Pink
+  },
+  {
+    id: 'moye_monk',
+    name: 'Moye Moye Monk',
+    parodyOf: 'Moye Moye Tragic Trend',
+    title: 'The Melodrama Sorcerer',
+    avatar: '🎭🌧️',
+    origin: 'international',
+    maxHp: 105,
+    baseEnergy: 100,
+    catchphrase: 'Moye moye... moye moye... Why is life so tragically cinematic?',
+    bio: 'Can turn a stubbed toe into an award-winning tragic Serbian opera with slow-motion tears.',
+    ultimateMove: {
+      name: 'Violin of Eternal Despair',
+      description: 'Plays a slow-motion sad violin melody that drains 40 HP from foe and heals self for 25 HP.',
+      damage: 40,
+      energyCost: 65,
+      spellEffect: 'violin',
+    },
+    passiveTrait: {
+      name: 'Sympathy Tears',
+      description: 'Whenever HP drops below 30%, instantly heals +20 HP.',
+    },
+    favoriteCategory: 'wholesome_cringe',
+    themeColor: '#a855f7', // Purple
+  },
+  {
+    id: 'binod_prime',
+    name: 'Binod Prime',
+    parodyOf: 'Binod Comment Phenomenon',
+    title: 'The One-Word Anomaly',
+    avatar: '🪪💬',
+    origin: 'india',
+    maxHp: 100,
+    baseEnergy: 100,
+    catchphrase: 'Binod.',
+    bio: 'Refuses to elaborate further. Simply writes "Binod" on every post on the internet.',
+    ultimateMove: {
+      name: 'Infinite Binod Tsunami',
+      description: 'Spams 10,000 "Binod" comments in 0.2 seconds. Overheats opponent’s device for 50 damage.',
+      damage: 50,
+      energyCost: 65,
+      spellEffect: 'binod_flood',
+    },
+    passiveTrait: {
+      name: 'Unbothered Aura',
+      description: 'Cannot be affected by psychological debuffs or confusion.',
+    },
+    favoriteCategory: 'desi_nostalgia',
+    themeColor: '#10b981', // Emerald
+  },
+  {
+    id: 'baigan_aditya',
+    name: 'Baigan Aditya',
+    parodyOf: 'Aayein? Baigan! Viral Boy',
+    title: 'Grandmaster of Subject Confusion',
+    avatar: '🍆❓',
+    origin: 'india',
+    maxHp: 100,
+    baseEnergy: 110,
+    catchphrase: 'Favorite subject? Aayein? Baigan!',
+    bio: 'Asked what his favorite academic subject is, he responded with complete confidence: "Baigan".',
+    ultimateMove: {
+      name: 'Baigan Confusion Ray',
+      description: 'Shoots a blinding neon eggplant laser that inflicts 42 damage and scramble enemy cards.',
+      damage: 42,
+      energyCost: 60,
+      spellEffect: 'eggplant',
+    },
+    passiveTrait: {
+      name: 'Clueless Armor',
+      description: '20% chance to completely dodge intellectual or complex roast cards.',
+    },
+    favoriteCategory: 'desi_nostalgia',
+    themeColor: '#8b5cf6', // Violet
+  },
+  {
+    id: 'harold_pain',
+    name: 'Harold The Concealer',
+    parodyOf: 'Hide The Pain Harold',
+    title: 'Senior Stock Photo Gladiator',
+    avatar: '👴😬',
+    origin: 'international',
+    maxHp: 120,
+    baseEnergy: 90,
+    catchphrase: 'Everything is fine. (It is definitely not fine, send help).',
+    bio: 'Smiling through the agony since 2011. Has starred in 40,000 corporate PowerPoint presentations.',
+    ultimateMove: {
+      name: 'Stock Photo Smile of Doom',
+      description: 'Smiles with such deep internal suffering that the opponent takes 46 cringe damage.',
+      damage: 46,
+      energyCost: 65,
+      spellEffect: 'bonk',
+    },
+    passiveTrait: {
+      name: 'Bottled Pain',
+      description: 'Reflects 15% of all received damage back to the attacker.',
+    },
+    favoriteCategory: 'wholesome_cringe',
+    themeColor: '#f97316', // Orange
+  },
+  {
+    id: 'sigma_sharmaji',
+    name: 'Sharmaji Ka Beta',
+    parodyOf: 'Indian Parents Comparison Benchmark + Sigma',
+    title: 'The 100th Percentile Nightmare',
+    avatar: '👔📈',
+    origin: 'india',
+    maxHp: 100,
+    baseEnergy: 115,
+    catchphrase: 'I woke up at 3:30 AM and already cleared IIT, NEET, and launched 4 startups.',
+    bio: 'The mythological kid your parents always bring up whenever you get 98% in exams.',
+    ultimateMove: {
+      name: 'Relative Comparison Trauma',
+      description: 'Summons your aunties and report cards. Deals 55 devastating Emotional Damage.',
+      damage: 55,
+      energyCost: 75,
+      spellEffect: 'laser',
+    },
+    passiveTrait: {
+      name: 'Academic Superiority',
+      description: 'All critical hits deal 2x damage instead of 1.5x.',
+    },
+    favoriteCategory: 'sigma_phonk',
+    themeColor: '#ef4444', // Red
+  },
+];

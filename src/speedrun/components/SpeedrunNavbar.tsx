@@ -7,12 +7,14 @@ interface SpeedrunNavbarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
   onExitToSongverse: () => void;
+  onOpenMemeCombat?: () => void;
 }
 
 export const SpeedrunNavbar: React.FC<SpeedrunNavbarProps> = ({
   currentTab,
   onSelectTab,
   onExitToSongverse,
+  onOpenMemeCombat,
 }) => {
   const [muted, setMuted] = React.useState(speedrunAudio.isMuted());
   const stats = speedrunEngine.getStats();
@@ -65,6 +67,17 @@ export const SpeedrunNavbar: React.FC<SpeedrunNavbarProps> = ({
             <ArrowLeft className="w-3 h-3" />
             <span>Return to SongVerse</span>
           </button>
+
+          {/* Quick Jump to Meme Kombat */}
+          {onOpenMemeCombat && (
+            <button
+              onClick={onOpenMemeCombat}
+              className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 hover:bg-amber-400 text-amber-300 hover:text-slate-950 border border-amber-400/40 text-xs font-mono font-bold transition-all cursor-pointer shadow-sm"
+              title="Play Meme Kombat"
+            >
+              <span>⚔️ Meme Kombat</span>
+            </button>
+          )}
         </div>
 
         {/* Navigation Links */}
