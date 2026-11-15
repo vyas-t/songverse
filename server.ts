@@ -1922,6 +1922,7 @@ async function checkAdminAuth(req: Request, res: Response, next: () => void) {
           // Check if admin by explicitly configured server environment allowlists
           const adminEmails = Array.from(new Set([
             'songverse.team@gmail.com',
+            'studyonly1267@gmail.com',
             ...(process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.toLowerCase().split(',').map(e => e.trim()).filter(Boolean) : [])
           ]));
           const adminUserIds = process.env.ADMIN_USER_IDS

@@ -33,6 +33,7 @@ export async function authorizeAdmin(request: Request, env: SupabaseEnv, bucket:
   }
   const emails = Array.from(new Set([
     'songverse.team@gmail.com',
+    'studyonly1267@gmail.com',
     ...(env.ADMIN_EMAILS || '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean)
   ]));
   const ids = (env.ADMIN_USER_IDS || '').split(',').map(value => value.trim()).filter(Boolean);

@@ -216,6 +216,7 @@ export function mergeSupabaseUserProfile(
   
   const adminEmailsEnv = Array.from(new Set([
     'songverse.team@gmail.com',
+    'studyonly1267@gmail.com',
     ...((typeof import.meta !== 'undefined' && ((import.meta as any).env?.VITE_ADMIN_EMAILS || (import.meta as any).env?.ADMIN_EMAILS)) || '')
       .toLowerCase()
       .split(',')
