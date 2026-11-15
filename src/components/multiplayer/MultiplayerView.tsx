@@ -1423,21 +1423,6 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
                     <span>{remainingSeconds}s remaining</span>
                   </div>
 
-                  {/* 2-Player Guess Tracker Badge */}
-                  <div
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                      (room.roundGuessedPlayerIds?.length || 0) >= 2
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-300'
-                        : (room.roundGuessedPlayerIds?.length || 0) === 1
-                        ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 text-indigo-700 dark:text-indigo-300'
-                        : 'bg-slate-100 dark:bg-sv-midnight border-slate-200 dark:border-sv-burgundy text-slate-700 dark:text-slate-300'
-                    }`}
-                    title="Round ends automatically when at least 2 distinct players submit a guess"
-                  >
-                    <Zap className="w-3.5 h-3.5 text-sv-warm-orange" />
-                    <span>{(room.roundGuessedPlayerIds?.length || 0)} / 2 guessed</span>
-                  </div>
-
                   {/* Round Index / Total Rounds Badge */}
                   <span className="font-mono text-xs font-black text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-sv-midnight px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-sv-burgundy">
                     Round {room.currentRoundIndex + 1} of {room.totalRounds || room.trackIds?.length || 3}
