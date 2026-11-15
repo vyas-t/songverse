@@ -691,8 +691,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
       {/* Account Deletion Confirmation Modal */}
       {deleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-rose-200 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative space-y-4">
+        <div className="sv-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-fade-in">
+          <div className="sv-modal-surface bg-white border border-rose-200 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative space-y-4">
             
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
@@ -785,8 +785,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
 
       {/* Sign Out Confirmation Modal */}
       {signOutModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl relative space-y-5 text-center">
+        <div className="sv-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-fade-in">
+          <div className="sv-modal-surface bg-white dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl relative space-y-5 text-center">
             
             <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-rose-500/15 to-sv-warm-orange/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
               <LogOut className="w-7 h-7" />

@@ -36,7 +36,7 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
     <>
       {/* Floating Bottom Notice */}
       {showBanner && (
-        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-50 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xl shadow-slate-900/10 transition-all animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] md:left-auto md:right-6 md:max-w-md z-50 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xl shadow-slate-900/10 transition-all animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
               <Cookie className="w-5 h-5" />
@@ -78,8 +78,8 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
 
       {/* Preferences Detailed Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95">
+        <div className="sv-modal-viewport fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="sv-modal-surface bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95">
             <button
               onClick={onCloseModal}
               className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"

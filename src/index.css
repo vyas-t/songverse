@@ -93,6 +93,8 @@
   html {
     background: var(--app-bg);
     color-scheme: light;
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   html[data-theme="dark"], html.dark {
@@ -101,6 +103,8 @@
 
   body {
     min-height: 100vh;
+    min-height: 100dvh;
+    max-width: 100%;
     font-family: var(--font-sans);
     background-color: var(--app-bg);
     background-image:
@@ -108,7 +112,7 @@
       radial-gradient(circle at 88% 20%, rgba(141, 231, 242, 0.08), transparent 38%),
       radial-gradient(circle at 50% 85%, rgba(255, 138, 91, 0.05), transparent 46%);
     color: var(--app-text);
-    overflow-x: hidden;
+    overflow-x: clip;
     transition: background-color 0.28s ease, color 0.28s ease;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -477,6 +481,9 @@
 /* SONGVERSE immersive interface system */
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .sv-app-shell {
@@ -484,11 +491,46 @@
   z-index: 1;
   isolation: isolate;
   background-color: transparent !important;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 100dvh;
 }
 
 .sv-route-view {
   position: relative;
   min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* Mobile dialogs scroll inside the viewport, including when browser chrome or a
+   software keyboard reduces the usable height. This keeps action buttons in
+   their own dialog instead of below the page. */
+.sv-modal-viewport {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sv-modal-surface {
+  min-width: 0;
+  max-height: calc(100dvh - max(1.5rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 639px) {
+  .sv-modal-viewport {
+    align-items: flex-start;
+  }
+
+  .sv-modal-surface {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
 }
 
 .sv-route-view > div:first-child {

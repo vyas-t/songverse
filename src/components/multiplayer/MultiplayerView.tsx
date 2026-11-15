@@ -1934,8 +1934,8 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
 
       {/* INVITE FRIENDS MODAL */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative space-y-4">
+        <div className="sv-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-in fade-in">
+          <div className="sv-modal-surface bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-sv-burgundy pb-3">
               <div className="flex items-center gap-2.5">
                 <Users className="w-5 h-5 text-sv-red" />

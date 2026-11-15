@@ -137,8 +137,8 @@ export const RankedBlitzModal: React.FC<RankedBlitzModalProps> = ({
   const playerTier = stats.tierInfo;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-white dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
+    <div className="sv-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+      <div className="sv-modal-surface bg-white dark:bg-sv-midnight border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
         
         {/* Top Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-sv-burgundy">

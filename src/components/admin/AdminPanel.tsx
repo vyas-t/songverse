@@ -689,8 +689,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
   if (!isAdminAuthenticated) {
     return (
-      <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-6 animate-in fade-in zoom-in-95">
+      <div className="sv-modal-viewport fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="sv-modal-surface bg-white dark:bg-sv-burgundy-deep border border-slate-200 dark:border-sv-burgundy rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-6 animate-in fade-in zoom-in-95">
           <div className="flex items-start justify-between">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-sv-amber flex items-center justify-center">
               <Lock className="w-6 h-6" />
@@ -729,8 +729,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+    <div className="sv-modal-viewport fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6">
+      <div className="sv-modal-surface bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
         
         {/* Header */}
         <div className="p-5 sm:p-6 border-b border-slate-200 flex items-center justify-between">

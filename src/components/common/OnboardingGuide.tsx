@@ -168,9 +168,9 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({
   const durationMap = { 1: '1s', 2: '3s', 3: '5s', 4: '10s' };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="sv-modal-viewport fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-xl bg-white dark:bg-sv-burgundy-deep border border-black/10 dark:border-sv-burgundy/80 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="sv-modal-surface relative w-full max-w-xl bg-white dark:bg-sv-burgundy-deep border border-black/10 dark:border-sv-burgundy/80 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         role="dialog"
         aria-modal="true"
       >

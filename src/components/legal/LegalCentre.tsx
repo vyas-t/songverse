@@ -52,9 +52,9 @@ export const LegalCentre: React.FC<LegalCentreProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div className="sv-modal-viewport fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
       
-      <div className="bg-white rounded-3xl max-w-5xl w-full h-[90vh] shadow-2xl border border-slate-200 flex flex-col md:flex-row overflow-hidden animate-in fade-in zoom-in-95">
+      <div className="sv-modal-surface bg-white rounded-3xl max-w-5xl w-full h-[calc(100dvh-1.5rem)] sm:h-[90dvh] shadow-2xl border border-slate-200 flex flex-col md:flex-row overflow-hidden animate-in fade-in zoom-in-95">
         
         {/* Left Sidebar / Table of Contents */}
         <aside className="w-full md:w-72 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-4 sm:p-6 flex flex-col justify-between shrink-0 overflow-y-auto">

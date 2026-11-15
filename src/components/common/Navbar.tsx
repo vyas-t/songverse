@@ -56,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sv-navbar sticky top-0 z-40 bg-[#FAF8F5]/85 dark:bg-sv-midnight/85 backdrop-blur-xl border-b border-black/[0.06] dark:border-sv-burgundy/60 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4 min-w-0">
         
         {/* Zone 1: Brand Wordmark with glow badge */}
         <button
@@ -69,21 +69,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-tr from-sv-red to-sv-gold opacity-0 group-hover:opacity-40 blur-xs transition-opacity -z-10" />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1">
-              <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
+              <span className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
                 SongVerse
               </span>
-              <span className="w-2 h-2 rounded-full bg-sv-orange animate-pulse" />
+              <span className="hidden min-[375px]:block w-2 h-2 rounded-full bg-sv-orange animate-pulse" />
             </div>
-            <span className="text-[10px] font-bold tracking-wider uppercase text-sv-red dark:text-sv-warm-orange font-mono">
+            <span className="hidden min-[375px]:block text-[10px] font-bold tracking-wider uppercase text-sv-red dark:text-sv-warm-orange font-mono">
               Live Trivia
             </span>
           </div>
         </button>
 
         {/* Zone 2: Navigation Links with active pill highlights */}
-        <nav className="hidden md:flex items-center gap-1 p-1 bg-black/[0.03] dark:bg-sv-burgundy-deep/60 border border-black/[0.04] dark:border-sv-burgundy rounded-2xl text-sm font-semibold text-slate-600 dark:text-slate-300">
+        <nav className="hidden xl:flex items-center gap-1 p-1 bg-black/[0.03] dark:bg-sv-burgundy-deep/60 border border-black/[0.04] dark:border-sv-burgundy rounded-2xl text-sm font-semibold text-slate-600 dark:text-slate-300">
           {navLinks.map((link) => (
             <button
               key={link.id}
@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Zone 3: Actions + Theme Selector + Profile */}
-        <div className="hidden md:flex items-center gap-2.5 shrink-0">
+        <div className="hidden xl:flex items-center gap-2.5 shrink-0">
           
           {/* Theme Selector Toggle */}
           <button
@@ -169,10 +169,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Mobile controls */}
-        <div className="flex md:hidden items-center gap-2">
+        <div className="flex xl:hidden items-center gap-1.5 shrink-0">
           <button
             onClick={cycleTheme}
-            className="p-2 text-slate-600 dark:text-slate-300 rounded-xl bg-slate-100 dark:bg-sv-burgundy-deep"
+            className="hidden min-[375px]:block p-2 text-slate-600 dark:text-slate-300 rounded-xl bg-slate-100 dark:bg-sv-burgundy-deep"
             aria-label="Toggle theme"
           >
             {effectiveTheme === 'dark' ? <Moon className="w-4 h-4 text-sv-gold" /> : <Sun className="w-4 h-4 text-sv-orange" />}
@@ -186,7 +186,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {onOpenGuide && (
             <button
               onClick={onOpenGuide}
-              className="p-2 text-sv-red dark:text-sv-warm-orange rounded-xl bg-sv-red/10 border border-sv-red/20 focus:outline-none"
+              className="hidden min-[375px]:block p-2 text-sv-red dark:text-sv-warm-orange rounded-xl bg-sv-red/10 border border-sv-red/20 focus:outline-none"
               title="How to play guide"
             >
               <HelpCircle className="w-4 h-4" />
@@ -204,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-slate-200 dark:border-sv-burgundy bg-white/95 dark:bg-sv-midnight/95 backdrop-blur-xl px-4 pt-3 pb-5 space-y-1.5 shadow-lg animate-in slide-in-from-top duration-200">
+        <div className="xl:hidden border-b border-slate-200 dark:border-sv-burgundy bg-white/95 dark:bg-sv-midnight/95 backdrop-blur-xl px-4 pt-3 pb-5 space-y-1.5 shadow-lg animate-in slide-in-from-top duration-200">
           {navLinks.map((link) => (
             <button
               key={link.id}
@@ -218,7 +218,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               {link.label}
             </button>
           ))}
-          <div className="pt-2 border-t border-slate-200/80 dark:border-sv-burgundy/60 flex items-center justify-between">
+          <div className="pt-2 border-t border-slate-200/80 dark:border-sv-burgundy/60 flex flex-wrap items-center justify-between gap-1">
+            <button
+              onClick={cycleTheme}
+              className="min-[375px]:hidden text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 p-2"
+            >
+              {effectiveTheme === 'dark' ? <Moon className="w-4 h-4 text-sv-gold" /> : <Sun className="w-4 h-4 text-sv-orange" />}
+              <span>Theme</span>
+            </button>
+            {onOpenGuide && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenGuide(); }}
+                className="min-[375px]:hidden text-xs font-bold text-sv-red dark:text-sv-warm-orange p-2"
+              >
+                Guide
+              </button>
+            )}
             <button
               onClick={() => handleNav('profile')}
               className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 p-2"
