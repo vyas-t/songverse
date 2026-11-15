@@ -36,38 +36,38 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
     <>
       {/* Floating Bottom Notice */}
       {showBanner && (
-        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] md:left-auto md:right-6 md:max-w-md z-50 bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xl shadow-slate-900/10 transition-all animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] md:left-auto md:right-6 md:max-w-md z-50 bg-white dark:bg-sv-midnight border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-5 shadow-xl shadow-slate-900/10 dark:shadow-black/50 transition-all animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-sv-burgundy/50 border border-indigo-100 dark:border-sv-burgundy flex items-center justify-center text-indigo-600 dark:text-sv-warm-orange shrink-0 mt-0.5">
               <Cookie className="w-5 h-5" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Privacy & Storage Preferences
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 We use strictly necessary local storage for gameplay scores and session progress. You can optionally allow functional settings (sound, volume) and anonymous play analytics.
               </p>
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-sv-burgundy/60 flex flex-wrap items-center justify-between gap-2">
             <button
               onClick={onOpenModal}
-              className="text-xs font-medium text-slate-600 hover:text-indigo-600 underline cursor-pointer"
+              className="text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-sv-warm-orange underline cursor-pointer"
             >
               Customize
             </button>
             <div className="flex items-center gap-2">
               <button
                 onClick={onRejectOptional}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-sv-navy hover:bg-slate-200 dark:hover:bg-sv-burgundy/60 border border-slate-200/80 dark:border-sv-burgundy/80 rounded-lg transition-colors cursor-pointer"
               >
                 Reject Optional
               </button>
               <button
                 onClick={onAcceptAll}
-                className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer shadow-sm"
+                className="px-3.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-sv-red to-sv-orange hover:from-sv-crimson hover:to-sv-red rounded-lg transition-colors cursor-pointer shadow-sm"
               >
                 Accept All
               </button>
@@ -78,42 +78,42 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
 
       {/* Preferences Detailed Modal */}
       {isModalOpen && (
-        <div className="sv-modal-viewport fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="sv-modal-surface bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95">
+        <div className="sv-modal-viewport fixed inset-0 z-50 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="sv-modal-surface bg-white dark:bg-sv-midnight rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 dark:border-sv-burgundy relative animate-in fade-in zoom-in-95 text-slate-900 dark:text-slate-100">
             <button
               onClick={onCloseModal}
-              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white rounded-lg transition-colors"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-sv-burgundy/50 border border-indigo-100 dark:border-sv-burgundy flex items-center justify-center text-indigo-600 dark:text-sv-warm-orange">
                 <Shield className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   Privacy & Cookie Settings
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Manage how SongVerse stores preferences on your device.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-4 my-6 divide-y divide-slate-100 text-xs">
+            <div className="space-y-4 my-6 divide-y divide-slate-100 dark:divide-sv-burgundy/50 text-xs">
               
               {/* Category 1: Essential */}
               <div className="pt-2 flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 font-semibold text-slate-900">
+                  <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
                     <span>Strictly Necessary Storage</span>
-                    <span className="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded font-mono">
+                    <span className="text-[10px] text-indigo-700 dark:text-sv-warm-orange bg-indigo-50 dark:bg-sv-navy px-2 py-0.5 rounded font-mono border border-indigo-100/60 dark:border-sv-burgundy">
                       Always Required
                     </span>
                   </div>
-                  <p className="text-slate-500 leading-relaxed">
+                  <p className="text-slate-500 dark:text-slate-300 leading-relaxed">
                     Essential for local game state, audio buffer initialization, guest score recovery, and room matchmaking. Cannot be disabled.
                   </p>
                 </div>
@@ -127,10 +127,10 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
               {/* Category 2: Functional */}
               <div className="pt-4 flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="font-semibold text-slate-900">
+                  <div className="font-semibold text-slate-900 dark:text-white">
                     Functional Preferences
                   </div>
-                  <p className="text-slate-500 leading-relaxed">
+                  <p className="text-slate-500 dark:text-slate-300 leading-relaxed">
                     Remembers your audio synthesizer volume preference, preferred genres, and custom display name across visits.
                   </p>
                 </div>
@@ -139,7 +139,7 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
                     onClick={() => setFunctionalChecked(!functionalChecked)}
                     type="button"
                     className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
-                      functionalChecked ? 'bg-indigo-600' : 'bg-slate-200'
+                      functionalChecked ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-sv-navy'
                     }`}
                   >
                     <span
@@ -154,10 +154,10 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
               {/* Category 3: Analytics */}
               <div className="pt-4 flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <div className="font-semibold text-slate-900">
+                  <div className="font-semibold text-slate-900 dark:text-white">
                     Aggregated Gameplay Analytics
                   </div>
-                  <p className="text-slate-500 leading-relaxed">
+                  <p className="text-slate-500 dark:text-slate-300 leading-relaxed">
                     Anonymous round completion time and song difficulty metrics to balance the 4-level progression. No personal tracking or cross-site profiling.
                   </p>
                 </div>
@@ -166,7 +166,7 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
                     onClick={() => setAnalyticsChecked(!analyticsChecked)}
                     type="button"
                     className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
-                      analyticsChecked ? 'bg-indigo-600' : 'bg-slate-200'
+                      analyticsChecked ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-sv-navy'
                     }`}
                   >
                     <span
@@ -180,16 +180,16 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({
 
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-sv-burgundy/60">
               <button
                 onClick={onRejectOptional}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-sv-burgundy/50 rounded-xl transition-colors cursor-pointer"
               >
                 Reject All Optional
               </button>
               <button
                 onClick={handleSavePreferences}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer shadow-sm"
+                className="px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-sv-red to-sv-orange hover:from-sv-crimson hover:to-sv-red rounded-xl transition-colors cursor-pointer shadow-sm"
               >
                 Save Preferences
               </button>

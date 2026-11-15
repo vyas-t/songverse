@@ -121,7 +121,7 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
       case 'Gold':
         return 'text-amber-800 bg-amber-50 border-amber-200';
       case 'Silver':
-        return 'text-slate-700 bg-slate-100 border-slate-200';
+        return 'text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-sv-midnight border-slate-200 dark:border-sv-burgundy';
       case 'Bronze':
       default:
         return 'text-orange-800 bg-orange-50 border-orange-200';
@@ -369,7 +369,7 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({ userProfil
 
       {filteredAchievements.length === 0 && (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl text-slate-400">
-          <p className="text-sm font-semibold text-slate-700">No achievements in this view</p>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No achievements in this view</p>
           <p className="text-xs text-slate-400 mt-1">Try switching to the &quot;All&quot; filter tab.</p>
         </div>
       )}

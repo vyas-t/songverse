@@ -72,29 +72,31 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
   };
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+    <div className="bg-white dark:bg-sv-midnight border border-slate-200/90 dark:border-sv-burgundy rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 text-slate-900 dark:text-slate-100">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-sv-burgundy/60 pb-5">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-indigo-700 uppercase tracking-wider">
-            <Globe className="w-4 h-4 text-indigo-600" />
+          <div className="flex items-center gap-2 text-xs font-bold text-sv-red dark:text-sv-warm-orange uppercase tracking-wider font-mono">
+            <Globe className="w-4 h-4 text-sv-red dark:text-sv-warm-orange" />
             <span>Global Ingestion Architecture</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
             Expanding the World Music Vault
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             How SongVerse scales towards every song in the world through legal licensing and open provenance.
           </p>
         </div>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold shrink-0">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-sv-navy/70 border border-slate-200/60 dark:border-sv-burgundy/60 rounded-xl text-xs font-semibold shrink-0">
           <button
             onClick={() => setActiveTab('submit')}
             className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'submit' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'submit'
+                ? 'bg-white dark:bg-sv-burgundy text-sv-red dark:text-sv-gold shadow-xs font-bold'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Add Any Song
@@ -102,7 +104,9 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
           <button
             onClick={() => setActiveTab('licensing')}
             className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'licensing' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'licensing'
+                ? 'bg-white dark:bg-sv-burgundy text-sv-red dark:text-sv-gold shadow-xs font-bold'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Licensing Facts
@@ -110,7 +114,9 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
           <button
             onClick={() => setActiveTab('pipeline')}
             className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'pipeline' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'pipeline'
+                ? 'bg-white dark:bg-sv-burgundy text-sv-red dark:text-sv-gold shadow-xs font-bold'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Global Pipeline
@@ -122,25 +128,25 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
       {activeTab === 'submit' && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
           
-          <div className="md:col-span-6 space-y-4 text-xs text-slate-600 leading-relaxed">
-            <h3 className="text-sm font-bold text-slate-900">
+          <div className="md:col-span-6 space-y-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               Submit Any Song to the SongVerse Catalogue
             </h3>
             <p>
               Want your favorite track in the trivia rotation? Enter the song title and artist below. Our automated pipeline creates a playable Web Audio synthesized motif immediately, while indexing it for full master recording clearance.
             </p>
 
-            <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 space-y-2">
-              <div className="flex items-center gap-2 font-bold text-indigo-900">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
+            <div className="bg-sv-red/5 dark:bg-sv-burgundy/40 border border-sv-red/20 dark:border-sv-burgundy rounded-2xl p-4 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-sv-red dark:text-sv-warm-orange">
+                <Sparkles className="w-4 h-4 text-sv-red dark:text-sv-warm-orange" />
                 <span>Instant Ingestion & Playability</span>
               </div>
-              <p className="text-slate-600 text-[11px]">
+              <p className="text-slate-600 dark:text-slate-300 text-[11px]">
                 Upon submission, the track becomes immediately searchable at Level 4 and can appear in practice rounds with custom audio synthesis!
               </p>
             </div>
 
-            <div className="space-y-1.5 text-[11px] text-slate-500">
+            <div className="space-y-1.5 text-[11px] text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Automatic title & artist alias generation</span>
@@ -156,21 +162,21 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
             </div>
           </div>
 
-          <div className="md:col-span-6 bg-slate-50 border border-slate-200/90 rounded-2xl p-6">
+          <div className="md:col-span-6 bg-slate-50 dark:bg-sv-navy/60 border border-slate-200/90 dark:border-sv-burgundy rounded-2xl p-6">
             {submitted ? (
               <div className="text-center py-6 space-y-3">
-                <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-full flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">Catalogue Status</h4>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Catalogue Status</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     {submissionMessage || 'Your track is now active in the SongVerse catalogue and searchable during gameplay.'}
                   </p>
                 </div>
                 <button
                   onClick={() => setSubmitted(false)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs hover:bg-indigo-700"
+                  className="px-4 py-2 bg-gradient-to-r from-sv-red to-sv-orange hover:from-sv-crimson hover:to-sv-red text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
                 >
                   Add Another Song
                 </button>
@@ -178,7 +184,7 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
             ) : (
               <form onSubmit={handleSubmitWorldSong} className="space-y-3.5 text-xs">
                 <div>
-                  <label className="block font-semibold text-slate-800 mb-1">
+                  <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
                     Song Title *
                   </label>
                   <input
@@ -187,12 +193,12 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
                     value={songTitle}
                     onChange={(e) => setSongTitle(e.target.value)}
                     placeholder="e.g. Bohemian Rhapsody / Kesariya / Stay With Me"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2 bg-white dark:bg-sv-midnight border border-slate-300 dark:border-sv-burgundy rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-sv-red dark:focus:border-sv-warm-orange"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-800 mb-1">
+                  <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
                     Artist / Band *
                   </label>
                   <input
@@ -201,17 +207,17 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
                     value={artistName}
                     onChange={(e) => setArtistName(e.target.value)}
                     placeholder="e.g. Queen / Arijit Singh / Miki Matsubara"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2 bg-white dark:bg-sv-midnight border border-slate-300 dark:border-sv-burgundy rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-sv-red dark:focus:border-sv-warm-orange"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-800 mb-1">Genre</label>
+                    <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">Genre</label>
                     <select
                       value={genre}
                       onChange={(e) => setGenre(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-600"
+                      className="w-full px-3 py-2 bg-white dark:bg-sv-midnight border border-slate-300 dark:border-sv-burgundy rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-sv-red dark:focus:border-sv-warm-orange"
                     >
                       <option value="Classic Rock">Classic Rock</option>
                       <option value="Pop">Pop</option>
@@ -227,11 +233,11 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-800 mb-1">Language</label>
+                    <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">Language</label>
                     <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-600"
+                      className="w-full px-3 py-2 bg-white dark:bg-sv-midnight border border-slate-300 dark:border-sv-burgundy rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-sv-red dark:focus:border-sv-warm-orange"
                     >
                       <option value="English">English</option>
                       <option value="Hindi">Hindi</option>
@@ -246,19 +252,19 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-800 mb-1">Country / Region (Optional)</label>
+                  <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">Country / Region (Optional)</label>
                   <input
                     type="text"
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
                     placeholder="e.g. United Kingdom, India, Japan, Brazil..."
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2 bg-white dark:bg-sv-midnight border border-slate-300 dark:border-sv-burgundy rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-sv-red dark:focus:border-sv-warm-orange"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-xs"
+                  className="w-full py-3 bg-gradient-to-r from-sv-red to-sv-orange hover:from-sv-crimson hover:to-sv-red text-white rounded-xl font-bold cursor-pointer transition-colors shadow-xs"
                 >
                   Ingest Track Into Catalogue
                 </button>
@@ -271,37 +277,37 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
 
       {/* Tab 2: Licensing Facts & Legal Transparency */}
       {activeTab === 'licensing' && (
-        <div className="space-y-4 text-xs text-slate-600 leading-relaxed">
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+        <div className="space-y-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <h4 className="text-sm font-bold text-amber-900">
+              <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
                 Why No Application Can Legally Claim &quot;Every Song in the World&quot;
               </h4>
-              <p className="text-slate-700 leading-relaxed">
+              <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
                 Global music recordings are subject to individual publisher copyrights, mechanical reproduction rights, and regional distribution agreements governed by collective rights organizations (such as ASCAP, BMI, SESAC, PRS for Music, GEMA, and JASRAC).
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-              <div className="font-bold text-slate-900">1. Streaming vs Games</div>
-              <p className="text-[11px] text-slate-500">
+            <div className="p-4 bg-slate-50 dark:bg-sv-navy/60 border border-slate-200 dark:border-sv-burgundy rounded-xl space-y-2">
+              <div className="font-bold text-slate-900 dark:text-white">1. Streaming vs Games</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Spotify and Apple Music Developer Terms explicitly prohibit utilizing their playback streams inside interactive games or music guessing trivia apps.
               </p>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-              <div className="font-bold text-slate-900">2. Anti-Scraping Laws</div>
-              <p className="text-[11px] text-slate-500">
+            <div className="p-4 bg-slate-50 dark:bg-sv-navy/60 border border-slate-200 dark:border-sv-burgundy rounded-xl space-y-2">
+              <div className="font-bold text-slate-900 dark:text-white">2. Anti-Scraping Laws</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Scraping or extracting DRM-protected audio violates copyright statutes (such as the DMCA and EU Copyright Directive). SongVerse will never risk user security with illegal audio ripping.
               </p>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-              <div className="font-bold text-slate-900">3. The SongVerse Path</div>
-              <p className="text-[11px] text-slate-500">
+            <div className="p-4 bg-slate-50 dark:bg-sv-navy/60 border border-slate-200 dark:border-sv-burgundy rounded-xl space-y-2">
+              <div className="font-bold text-slate-900 dark:text-white">3. The SongVerse Path</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 We combine authorized open archive recordings, CC-BY creative commons licenses, procedural harmonic synthesis, and publisher licensing partnerships to legally expand our international catalogue.
               </p>
             </div>
@@ -311,43 +317,43 @@ export const GlobalCataloguePipeline: React.FC<GlobalCataloguePipelineProps> = (
 
       {/* Tab 3: Global Ingestion Pipeline Architecture */}
       {activeTab === 'pipeline' && (
-        <div className="space-y-4 text-xs text-slate-600 leading-relaxed">
-          <h3 className="text-sm font-bold text-slate-900">
+        <div className="space-y-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
             Automated Provider Ingestion Architecture
           </h3>
           <p>
             SongVerse employs a modular provider abstraction dividing metadata, search, rights verification, and audio playback:
           </p>
 
-          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="border border-slate-200 dark:border-sv-burgundy rounded-2xl overflow-hidden">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
+              <thead className="bg-slate-50 dark:bg-sv-navy/80 border-b border-slate-200 dark:border-sv-burgundy text-slate-700 dark:text-slate-200 font-bold">
                 <tr>
                   <th className="p-3">Layer</th>
                   <th className="p-3">Component</th>
                   <th className="p-3">Role & Functionality</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-sv-burgundy/50">
                 <tr>
-                  <td className="p-3 font-semibold text-indigo-600">Metadata Layer</td>
-                  <td className="p-3">MusicBrainz / ISRC</td>
-                  <td className="p-3">Normalizes titles, artists, release years, diacritics, and aliases.</td>
+                  <td className="p-3 font-semibold text-sv-red dark:text-sv-warm-orange">Metadata Layer</td>
+                  <td className="p-3 text-slate-700 dark:text-slate-200">MusicBrainz / ISRC</td>
+                  <td className="p-3 text-slate-600 dark:text-slate-300">Normalizes titles, artists, release years, diacritics, and aliases.</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold text-indigo-600">Rights Layer</td>
-                  <td className="p-3">Licence Registry</td>
-                  <td className="p-3">Tracks CC0, CC-BY, Public Domain, and territorial permissions.</td>
+                  <td className="p-3 font-semibold text-sv-red dark:text-sv-warm-orange">Rights Layer</td>
+                  <td className="p-3 text-slate-700 dark:text-slate-200">Licence Registry</td>
+                  <td className="p-3 text-slate-600 dark:text-slate-300">Tracks CC0, CC-BY, Public Domain, and territorial permissions.</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold text-indigo-600">Playback Layer</td>
-                  <td className="p-3">W3C Web Audio Engine</td>
-                  <td className="p-3">Delivers 1s, 3s, 5s, 10s cumulative windows with instant synthesizer fallback.</td>
+                  <td className="p-3 font-semibold text-sv-red dark:text-sv-warm-orange">Playback Layer</td>
+                  <td className="p-3 text-slate-700 dark:text-slate-200">W3C Web Audio Engine</td>
+                  <td className="p-3 text-slate-600 dark:text-slate-300">Delivers 1s, 3s, 5s, 10s cumulative windows with instant synthesizer fallback.</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold text-indigo-600">Anti-Cheat Layer</td>
-                  <td className="p-3">Server State Machine</td>
-                  <td className="p-3">Prevents client answers from leaking before resolution.</td>
+                  <td className="p-3 font-semibold text-sv-red dark:text-sv-warm-orange">Anti-Cheat Layer</td>
+                  <td className="p-3 text-slate-700 dark:text-slate-200">Server State Machine</td>
+                  <td className="p-3 text-slate-600 dark:text-slate-300">Prevents client answers from leaking before resolution.</td>
                 </tr>
               </tbody>
             </table>
