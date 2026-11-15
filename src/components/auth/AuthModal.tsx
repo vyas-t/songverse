@@ -579,7 +579,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                   className="mt-0.5 rounded border-slate-300 text-sv-red focus:ring-sv-red cursor-pointer"
                 />
                 <label htmlFor="agreeTerms" className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                  I agree to the SongVerse Terms of Service and Privacy Policy. Mandatory email verification is required.
+                  I agree to the SongVerse Terms of Service and Privacy Policy.
                 </label>
               </div>
 

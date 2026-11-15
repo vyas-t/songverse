@@ -1085,26 +1085,40 @@ class AuthService {
         throw new Error('An account with this email address already exists. Please sign in or reset your password.');
       }
 
-      const isConfirmed = Boolean(data.user?.email_confirmed_at);
-      if (!isConfirmed) {
-        this.pendingEmail = cleanEmail;
-        safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
-        this.authView = 'verification_pending';
-        this.successNotice = 'Check your email for the verification code or secure confirmation link from Supabase Auth.';
-        this.startResendCooldown(60);
-        this.notify();
-        return { requiresVerification: true, email: cleanEmail };
+      let activeSession = data.session;
+      let activeUser = data.user;
+
+      // If signUp did not return a session directly, attempt immediate sign-in
+      if (!activeSession?.access_token) {
+        try {
+          const signInRes = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password
+          });
+          if (signInRes.data.session) {
+            activeSession = signInRes.data.session;
+            activeUser = signInRes.data.user || activeUser;
+          }
+        } catch {
+          // If dashboard has email confirmation enabled, user record is created
+        }
       }
 
-      // If pre-confirmed
-      if (data.user) {
-        await this.syncProfileFromSupabaseUser(data.user);
+      if (activeSession?.access_token) {
+        this.sessionToken = activeSession.access_token;
+        safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, activeSession.access_token);
       }
 
-      if (data.session?.access_token) {
-        const issued = await this.issueRecoveryKey(data.session.access_token);
-        if (!issued && this.recoverySetupPending) this.authView = 'recovery_key';
+      if (activeUser) {
+        await this.syncProfileFromSupabaseUser(activeUser);
       }
+
+      // User account is created and stored safely in the Supabase backend.
+      // Confirmation email requirement removed for instant access.
+      this.pendingEmail = null;
+      safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
+      this.authView = 'login';
+      this.notify();
 
       return { requiresVerification: false, email: cleanEmail };
     } catch (err: any) {
@@ -1147,15 +1161,7 @@ class AuthService {
           throw new Error('Incorrect email or password. Please try again or use password reset.');
         }
         if (error.message.includes('Email not confirmed')) {
-          const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: cleanEmail });
-          if (resendError) throw resendError;
-          this.pendingEmail = cleanEmail;
-          safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
-          this.authView = 'verification_pending';
-          this.successNotice = 'Check your email for the verification code or secure confirmation link from Supabase Auth.';
-          this.startResendCooldown(60);
-          this.notify();
-          throw new Error('Please enter the 6-digit OTP code to verify and complete sign in.');
+          throw new Error('Email not confirmed in Supabase. In your Supabase Dashboard under Authentication -> Providers -> Email, please turn off "Confirm email" to enable instant login.');
         }
         throw error;
       }
@@ -1169,22 +1175,10 @@ class AuthService {
         safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, data.session.access_token);
       }
 
-      // Check if email confirmed
-      if (!data.user.email_confirmed_at) {
-        const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: cleanEmail });
-        if (resendError) throw resendError;
-        this.pendingEmail = cleanEmail;
-        safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
-        this.authView = 'verification_pending';
-        this.successNotice = 'Check your email for the verification code or secure confirmation link from Supabase Auth.';
-        this.startResendCooldown(60);
-        this.notify();
-        throw new Error('Please enter the 6-digit OTP code to verify and complete sign in.');
-      }
-
-      // Synchronize player profile
+      // Synchronize player profile directly without demanding confirmation email or OTP
       const profile = await this.syncProfileFromSupabaseUser(data.user);
-      if (data.session?.access_token) await this.issueRecoveryKey(data.session.access_token);
+      this.pendingEmail = null;
+      safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
       if (this.authView !== 'recovery_key') this.authView = 'login';
       this.notify();
       return profile;
