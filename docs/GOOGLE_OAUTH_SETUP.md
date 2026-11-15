@@ -8,7 +8,7 @@ Google OAuth always uses this application callback:
 
 - Production: `https://songverse.pages.dev/auth/callback`
 
-When sign-in is initiated from localhost or another non-production host, SONGVERSE first opens `https://songverse.pages.dev/?auth=google`; OAuth then starts on the production origin and returns to the production callback. This keeps Supabase's PKCE verifier on the same origin that redeems it and prevents a redirect back to localhost. Existing email confirmation links continue to use their production-safe callback resolver. Guest data stored on a separate local origin remains there and is not transferred by this handoff.
+When sign-in starts on `https://songverse.pages.dev`, the application explicitly passes `https://songverse.pages.dev/auth/callback` to `supabase.auth.signInWithOAuth`. It does not use Supabase's Site URL as a fallback. When it starts on a local development host, it explicitly uses that same local origin's `/auth/callback` so the PKCE verifier and callback remain together. A deployed Pages build therefore cannot redirect Google OAuth to localhost.
 
 ## Supabase Dashboard
 
@@ -16,6 +16,7 @@ When sign-in is initiated from localhost or another non-production host, SONGVER
 2. Set **Site URL** to `https://songverse.pages.dev`.
 3. Add these exact entries to **Redirect URLs**:
    - `https://songverse.pages.dev/auth/callback`
+   - `http://localhost:5173/auth/callback` only when local OAuth testing is needed
 4. Open **Authentication → Sign In / Providers → Google** and enable Google.
 5. Paste the Google **Client ID** and **Client Secret** into the Supabase Google provider fields, then save.
 6. Copy the callback URI shown on that Google provider page. It normally has this form:

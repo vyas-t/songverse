@@ -26,6 +26,11 @@ This checklist is a source-based draft. Production accounts and their current co
 - [ ] Verify password recovery links expire and single-use behavior is enabled.
 - [ ] Review and apply `20261113000000_songverse_security_hardening.sql` in staging first; inspect duplicate pending friendship pairs if its migration guard stops.
 - [ ] Set `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for the Pages account deletion function. Keep the service-role key in server-only secret bindings.
+- [ ] On staging only, test `20261115073251_account_recovery_keys.sql`, inspect how many legacy users will be enrolled for email recovery, and verify all new tables/RPCs are inaccessible to `anon` and `authenticated`.
+- [ ] Configure Email provider confirmation only after reviewing the email-ownership risk documented in `ACCOUNT_RECOVERY_KEY_SETUP.md`; the code cannot change this Dashboard setting.
+- [ ] Configure the Supabase Site URL and allowed redirect URL `https://songverse.pages.dev/auth/callback`; retain the existing Google provider configuration.
+- [ ] Add Cloudflare Pages server-only bindings `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`; do not use `VITE_` names for the service-role secret.
+- [ ] Verify key issue, acknowledgment, expiry, one-time reset, key rotation, and legacy account recovery against staging Auth and database before enabling this flow for users.
 
 ## Release verification
 
@@ -33,6 +38,9 @@ This checklist is a source-based draft. Production accounts and their current co
 - [ ] Confirm unauthorized admin requests return 401/403 and do not reveal player data.
 - [ ] Confirm email dispatch failures surface as failures and no OTP is logged.
 - [ ] Confirm successful and failed password updates are reported truthfully.
+- [ ] Verify email signup returns an authenticated session with Confirm Email disabled and that a recovery key is displayed before the new account continues.
+- [ ] Verify new-account email confirmation is intentionally disabled only after the account ownership implications are accepted; keep Google OAuth and guest-mode tests passing.
+- [ ] Confirm recovery keys and passwords are absent from audit rows, Cloudflare logs, frontend storage, source maps, and built assets.
 - [ ] Exercise a guest game, authenticated game, search/discovery, friend request, room creation/join, reconnect, and complete match using staging accounts.
 - [ ] Check Cloudflare logs, Supabase logs, rate-limit behavior, and health/readiness endpoints.
 - [ ] Verify backup and rollback plan before enabling the release.

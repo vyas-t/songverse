@@ -9,7 +9,8 @@ export type AuthView =
   | 'verification_pending'
   | 'verified_success'
   | 'forgot_password'
-  | 'reset_password';
+  | 'reset_password'
+  | 'recovery_key';
 
 export interface AuthState {
   user: UserProfile;
@@ -26,6 +27,9 @@ export interface AuthState {
   resendCooldownSeconds: number;
   successNotice: string | null;
   callbackFeedback: boolean;
+  recoveryKey: string | null;
+  recoveryAcknowledgementToken: string | null;
+  recoverySetupPending: boolean;
 }
 
 const STORAGE_KEY_AUTH_TOKEN = 'songverse_auth_session_token';
@@ -96,14 +100,27 @@ export function getAuthRedirectUri(path: string = '/auth/callback'): string {
   return `https://songverse.pages.dev${cleanPath}`;
 }
 
-/** All Google OAuth callbacks return to the canonical production SONGVERSE website. */
-export function getOAuthRedirectUri(): string {
-  return `${PRODUCTION_SITE_ORIGIN}/auth/callback`;
-}
+/**
+ * Resolve the callback supplied to Supabase when OAuth begins.
+ *
+ * This deliberately does not read Site URL-style environment fallbacks. A Pages
+ * build must tell Supabase exactly where to return the user, regardless of a
+ * stale Supabase dashboard default. Local development keeps its local callback
+ * so that the PKCE verifier and callback remain on the same origin.
+ */
+export function getOAuthRedirectUri(location?: Pick<Location, 'origin' | 'hostname'>): string {
+  const currentLocation = location || (typeof window !== 'undefined' ? window.location : undefined);
+  const hostname = currentLocation?.hostname?.toLowerCase() || '';
+  const isLocal = hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '0.0.0.0'
+    || hostname.endsWith('.local');
 
-/** Start OAuth on production so PKCE state is stored on the same origin that redeems the callback. */
-export function getGoogleOAuthHandoffUrl(currentOrigin: string): string | null {
-  return currentOrigin === PRODUCTION_SITE_ORIGIN ? null : `${PRODUCTION_SITE_ORIGIN}/?auth=google`;
+  if (isLocal && currentLocation?.origin?.startsWith('http')) {
+    return `${currentLocation.origin.replace(/\/+$/, '')}/auth/callback`;
+  }
+
+  return `${PRODUCTION_SITE_ORIGIN}/auth/callback`;
 }
 
 export type ParsedAuthCallback =
@@ -215,6 +232,10 @@ class AuthService {
   private resendCooldownSeconds = 0;
   private resendTimer: any = null;
   private successNotice: string | null = null;
+  // Deliberately memory-only. Recovery keys are never written to browser storage.
+  private recoveryKey: string | null = null;
+  private recoveryAcknowledgementToken: string | null = null;
+  private recoverySetupPending = false;
 
   private providers: {
     google: AuthProviderConfig;
@@ -252,8 +273,8 @@ class AuthService {
       configured: true,
       missingEnvVars: [],
       setupInstructions: [
-        'Email authentication uses Supabase Auth with mandatory email verification.',
-        'Configure Custom SMTP in Supabase Project Settings > Auth > SMTP Settings for production email delivery.'
+        'Email authentication uses Supabase Auth; signup email confirmation is controlled in the Supabase Email provider settings.',
+        'Configure Custom SMTP for legacy account recovery emails if recovery mail delivery is required.'
       ]
     }
   };
@@ -311,11 +332,19 @@ class AuthService {
       pendingEmail: this.pendingEmail,
       resendCooldownSeconds: this.resendCooldownSeconds,
       successNotice: this.successNotice,
-      callbackFeedback: this.callbackFeedback
+      callbackFeedback: this.callbackFeedback,
+      recoveryKey: this.recoveryKey,
+      recoveryAcknowledgementToken: this.recoveryAcknowledgementToken,
+      recoverySetupPending: this.recoverySetupPending
     };
   }
 
   public setAuthView(view: AuthView): void {
+    if (view !== 'recovery_key') {
+      this.recoveryKey = null;
+      this.recoveryAcknowledgementToken = null;
+      this.recoverySetupPending = false;
+    }
     this.authView = view;
     this.error = null;
     this.successNotice = null;
@@ -332,6 +361,163 @@ class AuthService {
   public clearSuccessNotice(): void {
     this.successNotice = null;
     this.notify();
+  }
+
+  private async issueRecoveryKey(accessToken: string, rotate = false): Promise<boolean> {
+    try {
+      const response = await fetch('/api/auth/recovery-key', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rotate })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error('recovery service unavailable');
+      if (result.issued === true && typeof result.key === 'string' && typeof result.acknowledgementToken === 'string') {
+        this.recoveryKey = result.key;
+        this.recoveryAcknowledgementToken = result.acknowledgementToken;
+        this.recoverySetupPending = false;
+        this.authView = 'recovery_key';
+        this.successNotice = 'Save this one-time recovery key somewhere secure before continuing.';
+        this.error = null;
+        this.notify();
+        return true;
+      }
+      this.recoverySetupPending = result.deliveryPending === true;
+      if (this.recoverySetupPending) {
+        this.authView = 'recovery_key';
+        this.successNotice = 'The key was created but its display did not finish. Replace it now and save the new key.';
+        this.notify();
+      }
+      return false;
+    } catch {
+      this.recoverySetupPending = true;
+      this.successNotice = 'Your account is active, but its recovery key could not be issued. Sign in again later to finish recovery setup.';
+      this.notify();
+      return false;
+    }
+  }
+
+  /** Replace a forgotten or expired key while signed in; the previous key is invalidated. */
+  public async rotateRecoveryKey(): Promise<void> {
+    if (!this.sessionToken) throw new Error('Sign in before replacing your recovery key.');
+    this.isLoading = true;
+    this.error = null;
+    this.notify();
+    try {
+      const issued = await this.issueRecoveryKey(this.sessionToken, true);
+      if (!issued) throw new Error('A replacement recovery key could not be issued.');
+    } finally {
+      this.isLoading = false;
+      this.notify();
+    }
+  }
+
+  public async retryRecoveryKeyIssue(): Promise<void> {
+    if (!this.sessionToken) throw new Error('Sign in before retrying recovery-key setup.');
+    await this.rotateRecoveryKey();
+  }
+
+  /** Request the legacy, email-verified recovery path for accounts predating recovery keys. */
+  public async requestLegacyPasswordRecovery(email: string): Promise<void> {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw new Error('Please enter a valid email address.');
+    this.isLoading = true;
+    this.error = null;
+    this.notify();
+    try {
+      const response = await fetch('/api/auth/recovery/legacy-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
+      });
+      if (!response.ok) throw new Error('Recovery is temporarily unavailable.');
+      this.pendingEmail = cleanEmail;
+      safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
+      this.authView = 'reset_password';
+      this.successNotice = 'If this older account has not yet enrolled a recovery key, recovery instructions may arrive by email.';
+      this.notify();
+    } finally {
+      this.isLoading = false;
+      this.notify();
+    }
+  }
+
+  public async resetPasswordWithRecoveryKey(params: {
+    email: string;
+    recoveryKey: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<void> {
+    const email = params.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid registered email address.');
+    if (!/^[a-f0-9]{64}$/.test(params.recoveryKey)) throw new Error('Enter the exact 64-character recovery key.');
+    if (params.newPassword.length < 8 || !/[A-Za-z]/.test(params.newPassword) || !/[0-9]/.test(params.newPassword)) {
+      throw new Error('Password must be at least 8 characters with letters and numbers.');
+    }
+    if (params.newPassword !== params.confirmPassword) throw new Error('Passwords do not match. Please re-enter.');
+
+    this.isLoading = true;
+    this.error = null;
+    this.notify();
+    try {
+      const response = await fetch('/api/auth/recovery/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, recoveryKey: params.recoveryKey, newPassword: params.newPassword })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.reset !== true || typeof result.recoveryKey !== 'string' || typeof result.acknowledgementToken !== 'string') {
+        throw new Error(result.message || 'We could not verify those details. Check the email and recovery key, then try again.');
+      }
+      this.pendingEmail = email;
+      safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, email);
+      this.recoveryKey = result.recoveryKey;
+      this.recoveryAcknowledgementToken = result.acknowledgementToken;
+      this.recoverySetupPending = false;
+      this.authView = 'recovery_key';
+      this.successNotice = 'Your password has been reset. Save your newly generated recovery key securely.';
+      this.notify();
+    } catch (err: any) {
+      this.error = err.message || 'We could not verify those details. Check the email and recovery key, then try again.';
+      this.notify();
+      throw err;
+    } finally {
+      this.isLoading = false;
+      this.notify();
+    }
+  }
+
+  public async acknowledgeRecoveryKey(): Promise<void> {
+    const acknowledgementToken = this.recoveryAcknowledgementToken;
+    if (!acknowledgementToken) throw new Error('The recovery key is no longer available. Sign in to request a new one.');
+    this.isLoading = true;
+    this.error = null;
+    this.notify();
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.sessionToken) headers.Authorization = `Bearer ${this.sessionToken}`;
+      const response = await fetch('/api/auth/recovery-key/ack', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ acknowledgementToken })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.acknowledged !== true) throw new Error('Please sign in again to create a fresh recovery key.');
+      const email = this.pendingEmail || gameEngine.getUserProfile().email || '';
+      this.recoveryKey = null;
+      this.recoveryAcknowledgementToken = null;
+      this.successNotice = 'Recovery key saved. You can sign in with your password.';
+      this.authView = 'login';
+      this.pendingEmail = email || null;
+      this.notify();
+    } catch (err: any) {
+      this.error = err.message || 'The recovery key could not be acknowledged. Keep it safe and try again.';
+      this.notify();
+      throw err;
+    } finally {
+      this.isLoading = false;
+      this.notify();
+    }
   }
 
   public async fetchProvidersStatus(): Promise<void> {
@@ -372,6 +558,9 @@ class AuthService {
           }
         } else if (event === 'SIGNED_OUT') {
           this.sessionToken = null;
+          this.recoveryKey = null;
+          this.recoveryAcknowledgementToken = null;
+          this.recoverySetupPending = false;
           safeStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
         }
       });
@@ -460,8 +649,15 @@ class AuthService {
         supabase.auth.verifyOtp({ token_hash: tokenHash, type: tokenType as any }).then(async ({ data, error }) => {
           if (!error && data.user) {
             await this.syncProfileFromSupabaseUser(data.user);
-            this.authView = 'verified_success';
-            this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+            if (data.session?.access_token) {
+              this.sessionToken = data.session.access_token;
+              safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, data.session.access_token);
+              await this.issueRecoveryKey(data.session.access_token);
+            }
+            if (this.authView !== 'recovery_key') {
+              this.authView = 'verified_success';
+              this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+            }
             this.error = null;
             this.notify();
           } else if (error) {
@@ -501,8 +697,13 @@ class AuthService {
         supabase.auth.getSession().then(async ({ data: { session }, error }) => {
           if (!error && session?.user && session.user.email_confirmed_at) {
             await this.syncProfileFromSupabaseUser(session.user);
-            this.authView = 'verified_success';
-            this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+            this.sessionToken = session.access_token;
+            safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, session.access_token);
+            await this.issueRecoveryKey(session.access_token);
+            if (this.authView !== 'recovery_key') {
+              this.authView = 'verified_success';
+              this.successNotice = 'Your email address has been successfully verified! Welcome to SongVerse.';
+            }
             this.error = null;
             this.notify();
           } else {
@@ -543,10 +744,15 @@ class AuthService {
         this.authView = 'reset_password';
         this.successNotice = null;
       } else {
-        this.authView = 'verified_success';
-        this.successNotice = data.user.app_metadata?.provider === 'google'
-          ? 'You are signed in with Google. Welcome to SongVerse.'
-          : 'Your account is ready. Welcome to SongVerse.';
+        const issued = await this.issueRecoveryKey(accessToken);
+        if (!issued && this.authView !== 'recovery_key') {
+          this.authView = 'verified_success';
+          this.successNotice = this.recoverySetupPending
+            ? 'You are signed in, but recovery-key setup could not finish. Sign in and replace the recovery key from your profile.'
+            : data.user.app_metadata?.provider === 'google'
+              ? 'You are signed in with Google. Welcome to SongVerse.'
+              : 'Your account is ready. Welcome to SongVerse.';
+        }
       }
       this.callbackFeedback = true;
     } catch (error: any) {
@@ -685,6 +891,9 @@ class AuthService {
    */
   public playAsGuest(): UserProfile {
     this.sessionToken = null;
+    this.recoveryKey = null;
+    this.recoveryAcknowledgementToken = null;
+    this.recoverySetupPending = false;
     this.pendingEmail = null;
     safeStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
     safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
@@ -722,13 +931,6 @@ class AuthService {
     }
 
     try {
-      const handoffUrl = typeof window !== 'undefined'
-        ? getGoogleOAuthHandoffUrl(window.location.origin)
-        : null;
-      if (handoffUrl && typeof window !== 'undefined') {
-        window.location.assign(handoffUrl);
-        return;
-      }
       await requestGoogleOAuth(supabase, getOAuthRedirectUri());
     } catch (err: any) {
       this.googleOAuthInFlight = false;
@@ -799,9 +1001,7 @@ class AuthService {
     }
   }
 
-  /**
-   * Email and Password Registration with Mandatory Email Verification
-   */
+  /** Email and password registration. Supabase email confirmation is a dashboard setting. */
   public async registerWithEmail(params: {
     displayName: string;
     email: string;
@@ -865,6 +1065,11 @@ class AuthService {
         throw error;
       }
 
+      if (data.session?.access_token) {
+        this.sessionToken = data.session.access_token;
+        safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, data.session.access_token);
+      }
+
       // Check if user was returned with empty identities (Supabase anti-enumeration for existing user)
       if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
         throw new Error('An account with this email address already exists. Please sign in or reset your password.');
@@ -884,6 +1089,11 @@ class AuthService {
       // If pre-confirmed
       if (data.user) {
         await this.syncProfileFromSupabaseUser(data.user);
+      }
+
+      if (data.session?.access_token) {
+        const issued = await this.issueRecoveryKey(data.session.access_token);
+        if (!issued && this.recoverySetupPending) this.authView = 'recovery_key';
       }
 
       return { requiresVerification: false, email: cleanEmail };
@@ -944,6 +1154,11 @@ class AuthService {
         throw new Error('Authentication succeeded but user record could not be loaded.');
       }
 
+      if (data.session?.access_token) {
+        this.sessionToken = data.session.access_token;
+        safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, data.session.access_token);
+      }
+
       // Check if email confirmed
       if (!data.user.email_confirmed_at) {
         const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: cleanEmail });
@@ -959,7 +1174,8 @@ class AuthService {
 
       // Synchronize player profile
       const profile = await this.syncProfileFromSupabaseUser(data.user);
-      this.authView = 'login';
+      if (data.session?.access_token) await this.issueRecoveryKey(data.session.access_token);
+      if (this.authView !== 'recovery_key') this.authView = 'login';
       this.notify();
       return profile;
     } catch (err: any) {
@@ -1041,28 +1257,26 @@ class AuthService {
     }, 1000);
   }
 
-  /** Request a Supabase-managed password recovery email. */
+  /** Request the migration-only email recovery path for accounts without a key yet. */
   public async requestPasswordReset(email: string): Promise<void> {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       throw new Error('Please enter a valid email address to reset your password.');
     }
-    if (!isSupabaseConfigured() || !supabase) {
-      throw new Error('Supabase authentication is not configured.');
-    }
-
     this.isLoading = true;
     this.error = null;
     this.notify();
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: getAuthRedirectUri('/auth/callback?type=recovery')
+      const response = await fetch('/api/auth/recovery/legacy-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
       });
-      if (error) throw error;
+      if (!response.ok) throw new Error('Recovery is temporarily unavailable.');
       this.pendingEmail = cleanEmail;
       safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
       this.authView = 'reset_password';
-      this.successNotice = 'If an account matches that address, Supabase Auth will send a password recovery email.';
+      this.successNotice = 'If this older account has not yet enrolled a recovery key, recovery instructions may arrive by email.';
       this.notify();
     } catch (err: any) {
       this.error = err.message || 'Failed to request password recovery.';
@@ -1074,7 +1288,7 @@ class AuthService {
     }
   }
 
-  /** Verify the Supabase recovery token, then persist the new password. */
+  /** Verify a legacy Supabase recovery session, then upgrade that account to a key. */
   public async resetPasswordWithOtp(params: {
     email?: string;
     otp: string;
@@ -1083,7 +1297,6 @@ class AuthService {
   }): Promise<void> {
     const token = (params.otp || '').trim();
     const email = (params.email || this.pendingEmail || '').trim().toLowerCase();
-    if (!/^\d{6}$/.test(token)) throw new Error('Enter the 6-digit code sent by Supabase Auth.');
     if (!email) throw new Error('The recovery email address is missing. Request a new recovery email.');
     if (params.newPassword.length < 8) throw new Error('Password must be at least 8 characters long.');
     if (!/[A-Za-z]/.test(params.newPassword) || !/[0-9]/.test(params.newPassword)) {
@@ -1099,15 +1312,28 @@ class AuthService {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!sessionData.session) {
+        if (!/^\d{6}$/.test(token)) throw new Error('Enter the 6-digit code sent by Supabase Auth.');
         const { error: verifyError } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' });
         if (verifyError) throw verifyError;
       }
-      const { error: updateError } = await supabase.auth.updateUser({ password: params.newPassword });
-      if (updateError) throw updateError;
-      this.pendingEmail = null;
-      safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
-      this.successNotice = 'Password updated successfully. You can now sign in with your new password.';
-      this.authView = 'login';
+      const { data: activeSession, error: activeSessionError } = await supabase.auth.getSession();
+      if (activeSessionError || !activeSession.session?.access_token) throw new Error('The recovery session is invalid or expired. Request a new email link.');
+      this.sessionToken = activeSession.session.access_token;
+      safeStorage.setItem(STORAGE_KEY_AUTH_TOKEN, activeSession.session.access_token);
+      const response = await fetch('/api/auth/recovery/legacy-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${activeSession.session.access_token}` },
+        body: JSON.stringify({ newPassword: params.newPassword })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.reset !== true || typeof result.recoveryKey !== 'string' || typeof result.acknowledgementToken !== 'string') {
+        throw new Error(result.message || 'The recovery request could not be completed.');
+      }
+      this.recoveryKey = result.recoveryKey;
+      this.recoveryAcknowledgementToken = result.acknowledgementToken;
+      this.recoverySetupPending = false;
+      this.successNotice = 'Your password is updated. Save the recovery key generated for your account.';
+      this.authView = 'recovery_key';
       this.notify();
     } catch (err: any) {
       this.error = err.message || 'Failed to update password.';

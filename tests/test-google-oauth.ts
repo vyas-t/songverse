@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   formatAuthCallbackError,
-  getGoogleOAuthHandoffUrl,
   getOAuthRedirectUri,
   mergeSupabaseUserProfile,
   parseAuthCallbackUrl,
@@ -37,15 +36,21 @@ async function run() {
     'Implicit recovery callbacks retain both tokens and recovery type for Supabase URL detection',
   );
 
-  const previousWindow = (globalThis as any).window;
-  (globalThis as any).window = {
-    location: { origin: 'http://localhost:3000', hostname: 'localhost' },
-  };
-  assert.equal(getOAuthRedirectUri(), 'https://songverse.pages.dev/auth/callback', 'OAuth callbacks always return to the production website');
-  assert.equal(getGoogleOAuthHandoffUrl('http://localhost:3000'), 'https://songverse.pages.dev/?auth=google', 'Local OAuth starts on production so PKCE state remains on the callback origin');
-  assert.equal(getGoogleOAuthHandoffUrl('https://songverse.pages.dev'), null, 'Production OAuth starts without a redirect loop');
-  if (previousWindow === undefined) delete (globalThis as any).window;
-  else (globalThis as any).window = previousWindow;
+  assert.equal(
+    getOAuthRedirectUri({ origin: 'https://songverse.pages.dev', hostname: 'songverse.pages.dev' }),
+    'https://songverse.pages.dev/auth/callback',
+    'Production OAuth explicitly returns to the SONGVERSE Pages callback',
+  );
+  assert.equal(
+    getOAuthRedirectUri({ origin: 'https://preview.songverse.pages.dev', hostname: 'preview.songverse.pages.dev' }),
+    'https://songverse.pages.dev/auth/callback',
+    'A non-local host cannot cause a production OAuth callback to use localhost',
+  );
+  assert.equal(
+    getOAuthRedirectUri({ origin: 'http://localhost:5173', hostname: 'localhost' }),
+    'http://localhost:5173/auth/callback',
+    'Local development retains its own PKCE callback origin',
+  );
 
   let oauthRequest: any = null;
   await requestGoogleOAuth({
@@ -113,6 +118,7 @@ async function run() {
   assert.ok(authSource.includes('public playAsGuest()'), 'Existing guest entry remains available');
   assert.ok(supabaseClientSource.includes('persistSession: true'), 'Supabase session persistence remains enabled');
   assert.ok(supabaseClientSource.includes('autoRefreshToken: true'), 'Supabase session refresh remains enabled');
+  assert.ok(!authSource.includes('getGoogleOAuthHandoffUrl'), 'OAuth begins directly through Supabase without a cross-origin handoff');
 
   console.log('Google OAuth callback, redirect, provider, profile merge, and guest continuity checks passed.');
 }

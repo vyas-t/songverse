@@ -401,17 +401,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onDataReset, onOpenAut
                 {/* Account Actions */}
                 {!profile.isGuest && profile.email && (
                   <button
-                    onClick={async () => {
-                      try {
-                        await authService.requestPasswordReset(profile.email!);
-                        alert(`Password reset link dispatched to ${profile.email}`);
-                      } catch (err: any) {
-                        alert(err.message || 'Failed to dispatch reset link');
-                      }
+                    onClick={() => {
+                      authService.setAuthView('forgot_password');
+                      setAuthModalOpen(true);
                     }}
                     className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded border border-slate-200 dark:border-sv-burgundy hover:bg-slate-50 dark:hover:bg-sv-navy"
                   >
-                    <span>Change Password</span>
+                    <span>Reset Password</span>
+                  </button>
+                )}
+
+                {!profile.isGuest && profile.email && authService.getState().sessionToken && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await authService.rotateRecoveryKey();
+                        setAuthModalOpen(true);
+                      } catch (err: any) {
+                        alert(err.message || 'Could not replace the recovery key.');
+                      }
+                    }}
+                    className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded border border-slate-200 dark:border-sv-burgundy hover:bg-slate-50 dark:hover:bg-sv-navy"
+                    title="The current key stops working immediately when it is replaced."
+                  >
+                    <KeyRound className="w-3 h-3" />
+                    <span>Replace Recovery Key</span>
                   </button>
                 )}
 

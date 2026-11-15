@@ -41,6 +41,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   // 6-digit OTP Form states
   const [otpInput, setOtpInput] = useState('');
   const [resetOtpInput, setResetOtpInput] = useState('');
+  const [recoveryKeyInput, setRecoveryKeyInput] = useState('');
+  const [newRecoveryPassword, setNewRecoveryPassword] = useState('');
+  const [confirmRecoveryPassword, setConfirmRecoveryPassword] = useState('');
+  const [showRecoveryHint, setShowRecoveryHint] = useState(false);
+  const [recoveryKeySaved, setRecoveryKeySaved] = useState(false);
 
   useEffect(() => {
     return authService.subscribe((state) => {
@@ -50,6 +55,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       }
     });
   }, [email]);
+
+  useEffect(() => {
+    if (authState.authView === 'recovery_key' && authState.recoveryKey) setRecoveryKeySaved(false);
+  }, [authState.authView, authState.recoveryKey]);
 
   if (!isOpen) return null;
 
@@ -91,8 +100,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
     try {
       await authService.signInWithEmail({ email, password });
-      onSuccess();
-      onClose();
+      if (authService.getState().authView !== 'recovery_key') {
+        onSuccess();
+        onClose();
+      }
     } catch (err: any) {
       setLocalError(err.message || 'Login failed.');
     }
@@ -125,7 +136,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         confirmPassword
       });
 
-      if (!result.requiresVerification) {
+      if (!result.requiresVerification && authService.getState().authView !== 'recovery_key') {
         onSuccess();
         onClose();
       }
@@ -157,15 +168,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     e.preventDefault();
     setLocalError(null);
 
-    if (!email.trim()) {
-      setLocalError('Please enter your email address to receive a 6-digit password reset code.');
+    try {
+      await authService.resetPasswordWithRecoveryKey({
+        email,
+        recoveryKey: recoveryKeyInput,
+        newPassword: newRecoveryPassword,
+        confirmPassword: confirmRecoveryPassword
+      });
+      setRecoveryKeyInput('');
+      setNewRecoveryPassword('');
+      setConfirmRecoveryPassword('');
+    } catch (err: any) {
+      setLocalError(err.message || 'We could not verify those details. Check the email and recovery key, then try again.');
+    }
+  };
+
+  const handleLegacyRecovery = async () => {
+    setLocalError(null);
+    try {
+      await authService.requestLegacyPasswordRecovery(email);
+    } catch (err: any) {
+      setLocalError(err.message || 'Recovery is temporarily unavailable.');
+    }
+  };
+
+  const handleRecoveryKeyAcknowledgement = async () => {
+    if (!authState.recoveryKey && authState.recoverySetupPending) {
+      setLocalError(null);
+      try { await authService.retryRecoveryKeyIssue(); }
+      catch (err: any) { setLocalError(err.message || 'Recovery key setup is temporarily unavailable.'); }
       return;
     }
-
+    if (!recoveryKeySaved) {
+      setLocalError('Confirm that you saved the recovery key before continuing.');
+      return;
+    }
+    setLocalError(null);
     try {
-      await authService.requestPasswordReset(email);
+      await authService.acknowledgeRecoveryKey();
+      setRecoveryKeyInput('');
+      setNewRecoveryPassword('');
+      setConfirmRecoveryPassword('');
+      if (authService.getState().sessionToken) {
+        onSuccess();
+        onClose();
+      }
     } catch (err: any) {
-      setLocalError(err.message || 'Password reset request failed.');
+      setLocalError(err.message || 'The recovery key could not be acknowledged. Keep it safe and try again.');
     }
   };
 
@@ -174,11 +223,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     setLocalError(null);
 
     const cleanOtp = resetOtpInput.trim();
-    if (!cleanOtp || cleanOtp.length !== 6) {
-      setLocalError('Mandatory 6-digit security OTP is required.');
-      return;
-    }
-
     if (!hasMinLength || !hasLetter || !hasNumber) {
       setLocalError('Password must be at least 8 characters with letters and numbers.');
       return;
@@ -227,8 +271,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       >
         {/* Close Button */}
         <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer focus:outline-none"
+          onClick={() => { if (authState.authView !== 'recovery_key') onClose(); }}
+          disabled={authState.authView === 'recovery_key'}
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label="Close authentication modal"
         >
           <X className="w-5 h-5" />
@@ -395,7 +440,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 Create Account
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                Join SongVerse with verified email registration.
+                Create a SONGVERSE account with your email and password.
               </p>
             </div>
 
@@ -690,6 +735,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         {/* =========================================================================
             VIEW 4: EMAIL CONFIRMED SUCCESS
            ========================================================================= */}
+        {authState.authView === 'recovery_key' && (
+          <div className="space-y-4 text-center">
+            <div className="space-y-1.5 pt-1">
+              <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto shadow-md">
+                <KeyRound className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white">Save Your Recovery Key</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">This key is shown once. Store it in a password manager or another secure place.</p>
+            </div>
+
+            {authState.successNotice && <p className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">{authState.successNotice}</p>}
+            {activeError && <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 rounded-xl text-xs text-rose-700 dark:text-rose-300">{activeError}</div>}
+
+            {authState.recoveryKey ? <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+              <code className="block break-all text-left font-mono text-[11px] font-bold leading-relaxed text-slate-900 dark:text-slate-100" aria-label="One-time recovery key">{authState.recoveryKey}</code>
+              <button type="button" onClick={async () => {
+                try { await navigator.clipboard.writeText(authState.recoveryKey || ''); }
+                catch { setLocalError('Clipboard access failed. Select and copy the key manually.'); }
+              }} className="mt-3 rounded-lg border border-slate-300 px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+                Copy recovery key
+              </button>
+            </div> : <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-[11px] leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              Recovery key setup did not finish. Keep this window open and retry; a fresh key will replace any key whose display was interrupted.
+            </div>}
+
+            {authState.recoveryKey && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-left text-[11px] leading-relaxed text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+              If you lose this key, SONGVERSE cannot recover it. You can get back into your account only if you still remember your password. If you forget both, the account cannot be recovered.
+            </div>}
+
+            {authState.recoveryKey && <label className="flex items-start gap-2 text-left text-[11px] font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
+              <input type="checkbox" checked={recoveryKeySaved} onChange={(e) => setRecoveryKeySaved(e.target.checked)} className="mt-0.5 accent-rose-600" />
+              <span>I saved this recovery key securely and understand SONGVERSE cannot restore a lost key.</span>
+            </label>}
+
+            <button type="button" onClick={() => { void handleRecoveryKeyAcknowledgement(); }} disabled={authState.isLoading || (Boolean(authState.recoveryKey) && !recoveryKeySaved)} className="w-full py-2.5 bg-gradient-to-r from-sv-red to-sv-red-orange hover:from-rose-600 hover:to-orange-600 text-white font-bold rounded-xl text-xs shadow-md transition-all disabled:opacity-50">
+              {authState.isLoading ? 'Saving confirmation…' : authState.recoveryKey ? 'I saved my recovery key' : 'Retry key setup'}
+            </button>
+          </div>
+        )}
+
         {authState.authView === 'verified_success' && (
           <div className="text-center space-y-4 py-2">
             <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center mx-auto shadow-md">
@@ -736,7 +821,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 Reset Password
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                Enter your registered email address and we will send you a recovery link.
+                Verify your registered email and one-time recovery key to reset your password.
               </p>
             </div>
 
@@ -769,21 +854,62 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 </div>
               </div>
 
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Recovery Key</label>
+                  <button type="button" onClick={() => setShowRecoveryHint(!showRecoveryHint)} className="text-[11px] font-bold text-sv-red dark:text-sv-gold hover:underline">
+                    {showRecoveryHint ? 'Hide hint' : 'Hint'}
+                  </button>
+                </div>
+                {showRecoveryHint && (
+                  <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    SongVerse showed this 64-character key once when your account was enrolled. Check your password manager or secure offline notes. The key is not stored in readable form, so SongVerse cannot display it.
+                  </p>
+                )}
+                <input
+                  type="text"
+                  required
+                  autoComplete="off"
+                  maxLength={64}
+                  value={recoveryKeyInput}
+                  onChange={(e) => setRecoveryKeyInput(e.target.value)}
+                  placeholder="Enter the exact 64-character key"
+                  className="w-full px-3.5 py-2.5 font-mono text-[11px] tracking-wide bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sv-red/30 focus:border-sv-red"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">New Password (min 8 chars, letter + number)</label>
+                <input type="password" required autoComplete="new-password" value={newRecoveryPassword} onChange={(e) => setNewRecoveryPassword(e.target.value)} placeholder="At least 8 characters" className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sv-red/30 focus:border-sv-red" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Confirm New Password</label>
+                <input type="password" required autoComplete="new-password" value={confirmRecoveryPassword} onChange={(e) => setConfirmRecoveryPassword(e.target.value)} placeholder="Re-enter password" className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sv-red/30 focus:border-sv-red" />
+              </div>
+
               <button
                 type="submit"
-                disabled={authState.isLoading}
+                disabled={authState.isLoading || recoveryKeyInput.length !== 64 || !newRecoveryPassword || newRecoveryPassword !== confirmRecoveryPassword}
                 className="w-full py-2.5 bg-slate-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {authState.isLoading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Sending Link...</span>
+                    <span>Verifying Key...</span>
                   </>
                 ) : (
-                  <span>Send Password Reset Link</span>
+                  <span>Verify Key & Reset Password</span>
                 )}
               </button>
             </form>
+
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-center">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">Older accounts can use email verification until they enroll a recovery key.</p>
+              <button type="button" onClick={() => { void handleLegacyRecovery(); }} disabled={authState.isLoading || !email.trim()} className="text-[11px] font-bold text-sv-red dark:text-sv-gold hover:underline disabled:opacity-50">
+                Send legacy email recovery link
+              </button>
+            </div>
 
             <div className="text-center pt-2">
               <button
@@ -811,7 +937,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 Reset Password
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                Enter your mandatory 6-digit security OTP code and choose your new password.
+                Complete the existing email verification for this account and choose a new password.
               </p>
             </div>
 
@@ -819,7 +945,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             <div className="p-3 bg-gradient-to-r from-sv-amber/10 to-sv-gold/15 border border-sv-gold/40 rounded-2xl flex items-start gap-2.5 text-left">
               <Mail className="w-4 h-4 text-amber-600 dark:text-sv-gold shrink-0 mt-0.5" />
               <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                A 6-digit recovery code was dispatched to your email. Enter the code and your new password below.
+                This email recovery path is available only to older accounts that have not enrolled a recovery key. After reset, a new key will be issued.
               </p>
             </div>
 
@@ -832,17 +958,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             <form onSubmit={handleResetPassword} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Mandatory 6-Digit Security OTP
+                  6-Digit Email Code (leave empty if you opened a recovery link)
                 </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
                     type="text"
-                    required
+                    inputMode="numeric"
                     maxLength={6}
                     value={resetOtpInput}
                     onChange={(e) => setResetOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="Enter 6-digit OTP code"
+                    placeholder="Enter code if your email included one"
                     className="w-full pl-10 pr-3.5 py-2.5 font-mono text-sm tracking-widest font-bold bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sv-red/30 focus:border-sv-red"
                   />
                 </div>
@@ -878,16 +1004,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
               <button
                 type="submit"
-                disabled={authState.isLoading || resetOtpInput.length !== 6 || !passwordsMatch || !hasMinLength}
+                disabled={authState.isLoading || !passwordsMatch || !hasMinLength}
                 className="w-full py-2.5 bg-gradient-to-r from-sv-red to-sv-red-orange hover:from-rose-600 hover:to-orange-600 text-white font-bold rounded-xl text-xs shadow-md shadow-sv-red/20 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {authState.isLoading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Verifying OTP & Resetting...</span>
+                    <span>Verifying & Resetting...</span>
                   </>
                 ) : (
-                  <span>Verify OTP & Update Password</span>
+                  <span>Verify & Update Password</span>
                 )}
               </button>
             </form>

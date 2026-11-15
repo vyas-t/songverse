@@ -10,6 +10,9 @@ import { onRequestGet as authMe } from '../functions/api/auth/me';
 import { onRequestPost as guestLink } from '../functions/api/auth/link-guest';
 import { onRequestPost as signout } from '../functions/api/auth/signout';
 import { onRequestDelete as accountDelete } from '../functions/api/auth/account';
+import { onRequestPost as recoveryKeyIssue, onRequestAck as recoveryKeyAck } from '../functions/api/auth/recovery-key';
+import { onRequestPost as recoveryReset, onRequestLegacyEmail as legacyRecoveryEmail } from '../functions/api/auth/recovery-reset';
+import { onRequestPost as legacyRecoveryReset } from '../functions/api/auth/recovery/legacy-reset';
 import { onRequestGet as musicSearch } from '../functions/api/music/search';
 import { onRequestGet as musicDiscover } from '../functions/api/music/discover';
 import { onRequestGet as musicBrainz } from '../functions/api/musicbrainz/search';
@@ -189,4 +192,206 @@ test('admin Pages handlers fail closed without verified admin credentials', asyn
   assert.equal((await adminImportStatus(context('/api/admin/catalogue/import/status'))).status, 401);
   assert.equal((await adminImportStart(context('/api/admin/catalogue/import/start', 'POST', { query: 'artist' }))).status, 401);
   assert.equal((await adminBackup(context('/api/admin/catalogue/backup', 'POST'))).status, 401);
+});
+
+test('recovery-key issuance verifies a session and returns only a one-time high-entropy key', async () => {
+  const originalFetch = globalThis.fetch;
+  let persistedKeyHash = '';
+  const testUserId = '123e4567-e89b-12d3-a456-426614174000';
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes('/auth/v1/user')) return Response.json({ id: testUserId, email: 'user@example.test', email_confirmed_at: new Date().toISOString() });
+    if (url.includes('/rest/v1/rpc/check_account_recovery_rate_limit')) return Response.json(true);
+    if (url.includes('/rest/v1/rpc/issue_account_recovery_key')) {
+      const body = JSON.parse(String(init?.body || '{}'));
+      persistedKeyHash = body.p_key_hash;
+      return Response.json(true);
+    }
+    if (url.includes('/rest/v1/rpc/record_account_recovery_event')) return Response.json(null);
+    throw new Error(`Unexpected recovery request: ${url}`);
+  };
+  try {
+    const response = await recoveryKeyIssue({
+      request: request('/api/auth/recovery-key', 'POST', { rotate: false }, { Authorization: 'Bearer signed-session-token', 'cf-connecting-ip': '192.0.2.10' }),
+      env: { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'test-anon-key-123456', SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-secret' }
+    });
+    const body = await response.json() as any;
+    assert.equal(response.status, 200);
+    assert.equal(body.issued, true);
+    assert.match(body.key, /^[a-f0-9]{64}$/);
+    assert.equal(persistedKeyHash.length, 64);
+    assert.notEqual(persistedKeyHash, body.key);
+    assert.equal(JSON.stringify(body).includes('test-service-role-secret'), false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('authenticated recovery-key replacement invalidates the prior key and marks the request as explicit', async () => {
+  const originalFetch = globalThis.fetch;
+  let forceRotation = false;
+  const testUserId = '123e4567-e89b-12d3-a456-426614174000';
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes('/auth/v1/user')) return Response.json({ id: testUserId, email: 'user@example.test' });
+    if (url.includes('/rest/v1/rpc/check_account_recovery_rate_limit')) return Response.json(true);
+    if (url.includes('/rest/v1/rpc/issue_account_recovery_key')) {
+      forceRotation = JSON.parse(String(init?.body || '{}')).p_force === true;
+      return Response.json(true);
+    }
+    if (url.includes('/rest/v1/rpc/record_account_recovery_event')) return Response.json(null);
+    throw new Error(`Unexpected recovery request: ${url}`);
+  };
+  try {
+    const response = await recoveryKeyIssue({
+      request: request('/api/auth/recovery-key', 'POST', { rotate: true }, { Authorization: 'Bearer signed-session-token', 'cf-connecting-ip': '192.0.2.14' }),
+      env: { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'test-anon-key-123456', SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-secret' }
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json() as any).issued, true);
+    assert.equal(forceRotation, true);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('recovery reset rejects wrong keys generically without attempting a password update', async () => {
+  const originalFetch = globalThis.fetch;
+  let passwordUpdateCalled = false;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes('/rest/v1/rpc/check_account_recovery_rate_limit')) return Response.json(true);
+    if (url.includes('/rest/v1/rpc/claim_account_recovery_key')) return Response.json(null);
+    if (url.includes('/rest/v1/rpc/record_account_recovery_event')) return Response.json(null);
+    if (url.includes('/auth/v1/admin/users/')) passwordUpdateCalled = true;
+    throw new Error(`Unexpected recovery request: ${url}`);
+  };
+  try {
+    const response = await recoveryReset({
+      request: request('/api/auth/recovery/reset', 'POST', { email: 'user@example.test', recoveryKey: 'a'.repeat(64), newPassword: 'Password123' }, { 'cf-connecting-ip': '192.0.2.11' }),
+      env: { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'test-anon-key-123456', SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-secret' }
+    });
+    const body = await response.json() as any;
+    assert.equal(response.status, 400);
+    assert.match(body.message, /could not verify those details/i);
+    assert.equal(passwordUpdateCalled, false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('recovery reset consumes a key, updates password on the server, and rotates the key', async () => {
+  const originalFetch = globalThis.fetch;
+  const testUserId = '123e4567-e89b-12d3-a456-426614174000';
+  let claimedHash = '';
+  let replacementHash = '';
+  let passwordUpdateCalled = false;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes('/rest/v1/rpc/check_account_recovery_rate_limit')) return Response.json(true);
+    if (url.includes('/rest/v1/rpc/claim_account_recovery_key')) {
+      claimedHash = JSON.parse(String(init?.body || '{}')).p_key_hash;
+      return Response.json(testUserId);
+    }
+    if (url.includes('/auth/v1/admin/users/' + testUserId)) {
+      passwordUpdateCalled = true;
+      return Response.json({ id: testUserId });
+    }
+    if (url.includes('/rest/v1/rpc/finish_account_recovery')) {
+      replacementHash = JSON.parse(String(init?.body || '{}')).p_new_key_hash;
+      return Response.json(true);
+    }
+    if (url.includes('/rest/v1/rpc/record_account_recovery_event')) return Response.json(null);
+    throw new Error(`Unexpected recovery request: ${url}`);
+  };
+  try {
+    const suppliedKey = 'b'.repeat(64);
+    const response = await recoveryReset({
+      request: request('/api/auth/recovery/reset', 'POST', { email: 'user@example.test', recoveryKey: suppliedKey, newPassword: 'NewPassword123' }, { 'cf-connecting-ip': '192.0.2.12' }),
+      env: { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'test-anon-key-123456', SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-secret' }
+    });
+    const body = await response.json() as any;
+    assert.equal(response.status, 200);
+    assert.equal(body.reset, true);
+    assert.match(body.recoveryKey, /^[a-f0-9]{64}$/);
+    assert.notEqual(body.recoveryKey, suppliedKey);
+    assert.equal(claimedHash.length, 64);
+    assert.notEqual(claimedHash, suppliedKey);
+    assert.equal(passwordUpdateCalled, true);
+    assert.equal(replacementHash.length, 64);
+    assert.notEqual(replacementHash, body.recoveryKey);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('recovery acknowledgement and legacy email recovery do not reveal account status', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes('/rest/v1/rpc/acknowledge_account_recovery_key_by_token')) return Response.json(true);
+    if (url.includes('/rest/v1/rpc/check_account_recovery_rate_limit')) return Response.json(true);
+    if (url.includes('/rest/v1/rpc/get_legacy_recovery_status')) return Response.json([]);
+    if (url.includes('/rest/v1/rpc/record_account_recovery_event')) return Response.json(null);
+    throw new Error(`Unexpected recovery request: ${url}`);
+  };
+  try {
+    const environment = { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'test-anon-key-123456', SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-secret' };
+    const ack = await recoveryKeyAck({ request: request('/api/auth/recovery-key/ack', 'POST', { acknowledgementToken: '123e4567-e89b-12d3-a456-426614174000' }), env: environment });
+    assert.equal((await ack.json() as any).acknowledged, true);
+    const legacy = await legacyRecoveryEmail({ request: request('/api/auth/recovery/legacy-email', 'POST', { email: 'nobody@example.test' }, { 'cf-connecting-ip': '192.0.2.13' }), env: environment });
+    assert.equal(legacy.status, 202);
+    assert.equal((await legacy.json() as any).requested, true);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('legacy recovery sends a Supabase email only when the account remains un-enrolled', async () => {
+  const originalFetch = globalThis.fetch;
+  let recoveryRedirect = '';
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes('/rest/v1/rpc/check_account_recovery_rate_limit')) return Response.json(true);
+    if (url.includes('/rest/v1/rpc/get_legacy_recovery_status')) {
+      return Response.json([{ user_id: '123e4567-e89b-12d3-a456-426614174000', eligible: true }]);
+    }
+    if (url.includes('/auth/v1/recover')) {
+      recoveryRedirect = new URL(url).searchParams.get('redirect_to') || '';
+      return Response.json({});
+    }
+    if (url.includes('/rest/v1/rpc/record_account_recovery_event')) return Response.json(null);
+    throw new Error(`Unexpected recovery request: ${url}`);
+  };
+  try {
+    const response = await legacyRecoveryEmail({
+      request: request('/api/auth/recovery/legacy-email', 'POST', { email: 'legacy@example.test' }, { 'cf-connecting-ip': '192.0.2.16' }),
+      env: { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'test-anon-key-123456', SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-secret' }
+    });
+    assert.equal(response.status, 202);
+    assert.equal(recoveryRedirect, 'https://songverse.pages.dev/auth/callback?type=recovery');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('legacy recovery requires a verified Supabase session and upgrades the account to a key', async () => {
+  const originalFetch = globalThis.fetch;
+  const testUserId = '123e4567-e89b-12d3-a456-426614174000';
+  let passwordUpdateCalled = false;
+  let replacementHash = '';
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes('/auth/v1/user')) return Response.json({ id: testUserId, email: 'legacy@example.test' });
+    if (url.includes('/rest/v1/rpc/check_account_recovery_rate_limit')) return Response.json(true);
+    if (url.includes('/rest/v1/rpc/is_legacy_recovery_user')) return Response.json(true);
+    if (url.includes('/auth/v1/admin/users/' + testUserId)) { passwordUpdateCalled = true; return Response.json({ id: testUserId }); }
+    if (url.includes('/rest/v1/rpc/issue_account_recovery_key')) {
+      const body = JSON.parse(String(init?.body || '{}'));
+      replacementHash = body.p_key_hash;
+      return Response.json(true);
+    }
+    if (url.includes('/rest/v1/rpc/record_account_recovery_event')) return Response.json(null);
+    throw new Error(`Unexpected recovery request: ${url}`);
+  };
+  try {
+    const response = await legacyRecoveryReset({
+      request: request('/api/auth/recovery/legacy-reset', 'POST', { newPassword: 'UpdatedPassword123' }, { Authorization: 'Bearer verified-recovery-session', 'cf-connecting-ip': '192.0.2.15' }),
+      env: { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_ANON_KEY: 'test-anon-key-123456', SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-secret' }
+    });
+    const body = await response.json() as any;
+    assert.equal(response.status, 200);
+    assert.equal(body.reset, true);
+    assert.match(body.recoveryKey, /^[a-f0-9]{64}$/);
+    assert.notEqual(replacementHash, body.recoveryKey);
+    assert.equal(passwordUpdateCalled, true);
+  } finally { globalThis.fetch = originalFetch; }
 });

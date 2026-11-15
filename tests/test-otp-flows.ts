@@ -1,6 +1,6 @@
 /**
- * Security regression checks for Supabase-managed verification and recovery.
- * These checks do not contact Supabase or send email.
+ * Security regression checks for Supabase-managed signup verification and the
+ * server-verified recovery-key flow. These checks do not contact Supabase.
  */
 import { readFileSync } from 'node:fs';
 import { authService } from '../src/services/authService';
@@ -27,8 +27,18 @@ async function run() {
   if (!source.includes('supabase.auth.verifyOtp') || !source.includes('supabase.auth.resend')) {
     throw new Error('Signup verification must use Supabase Auth.');
   }
-  if (!source.includes('supabase.auth.resetPasswordForEmail') || !source.includes('if (updateError) throw updateError')) {
-    throw new Error('Password recovery must use Supabase Auth and surface update failures.');
+  if (!source.includes("'/api/auth/recovery/reset'") || !source.includes("'/api/auth/recovery/legacy-reset'")) {
+    throw new Error('Password resets must be verified and applied by a server recovery handler.');
+  }
+  if (source.includes('supabase.auth.updateUser({ password: params.newPassword })')) {
+    throw new Error('Password reset must not bypass server-side recovery-key or legacy-account validation.');
+  }
+  const migration = readFileSync(new URL('../supabase/migrations/20261115073251_account_recovery_keys.sql', import.meta.url), 'utf8');
+  if (!migration.includes('key_hash TEXT') || !migration.includes('REVOKE ALL ON TABLE public.account_recovery_keys FROM PUBLIC, anon, authenticated')) {
+    throw new Error('Recovery keys must be hash-only and unavailable to browser roles.');
+  }
+  if (!migration.includes('claim_account_recovery_key') || !migration.includes('used_at = now()')) {
+    throw new Error('Recovery keys must be claimed once before a reset is applied.');
   }
   if (!emailService.includes('success: false') || !edgeOtp.includes('status: 410')) {
     throw new Error('The caller-supplied OTP mail endpoint must be disabled.');
@@ -44,11 +54,21 @@ async function run() {
 
   let missingProviderRejected = false;
   try {
-    await authService.requestPasswordReset('user@example.com');
+    await authService.requestPasswordReset('');
   } catch (error: any) {
-    missingProviderRejected = error.message.includes('Supabase authentication is not configured');
+    missingProviderRejected = error.message.includes('valid email address');
   }
-  if (!missingProviderRejected) throw new Error('Recovery must fail clearly when Auth is not configured.');
+  if (!missingProviderRejected) throw new Error('Password recovery must reject an empty email.');
+
+  let invalidKeyRejected = false;
+  try {
+    await authService.resetPasswordWithRecoveryKey({
+      email: 'user@example.com', recoveryKey: 'not-a-key', newPassword: 'Pass1234', confirmPassword: 'Pass1234'
+    });
+  } catch (error: any) {
+    invalidKeyRejected = error.message.includes('64-character recovery key');
+  }
+  if (!invalidKeyRejected) throw new Error('Malformed recovery keys must be rejected before network requests.');
 
   authService.playAsGuest();
   const deletion = await authService.deleteAccount('DELETE');
