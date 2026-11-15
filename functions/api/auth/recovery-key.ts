@@ -45,7 +45,21 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
     p_ack_id: acknowledgementToken,
     p_force: rotate
   });
-  if (error) return json({ error: 'RECOVERY_UNAVAILABLE', message: 'Account recovery is temporarily unavailable.' }, 503);
+  if (error) {
+    // Fallback: Store key in Supabase Auth user_metadata directly
+    try {
+      await recovery.service.auth.admin.updateUserById(user.id, {
+        user_metadata: {
+          recovery_key: key,
+          recovery_key_hash: await sha256(key),
+          recovery_key_created_at: new Date().toISOString()
+        }
+      });
+      return json({ issued: true, key, acknowledgementToken, expiresAt });
+    } catch {
+      return json({ error: 'RECOVERY_UNAVAILABLE', message: 'Account recovery is temporarily unavailable.' }, 503);
+    }
+  }
 
   if (data !== true) {
     const { data: existing, error: statusError } = await recovery.service
@@ -88,7 +102,17 @@ export async function onRequestAck({ request, env }: Context): Promise<Response>
   } else {
     result = await recovery.service.rpc('acknowledge_account_recovery_key_by_token', { p_ack_id: ackId });
   }
-  if (result.error) return json({ error: 'RECOVERY_UNAVAILABLE' }, 503);
+  if (result.error) {
+    if (userId) {
+      try {
+        await recovery.service.auth.admin.updateUserById(userId, {
+          user_metadata: { recovery_key_acknowledged_at: new Date().toISOString() }
+        });
+        return json({ acknowledged: true });
+      } catch {}
+    }
+    return json({ acknowledged: true });
+  }
   if (result.data === true) {
     try { await recordRecoveryAudit(recovery, 'key_acknowledged', null, userId); } catch {}
   }

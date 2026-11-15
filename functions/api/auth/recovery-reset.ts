@@ -39,37 +39,72 @@ export async function onRequestPost({ request, env }: Context): Promise<Response
   }
 
   const claimId = crypto.randomUUID();
-  const { data: userId, error: claimError } = await recovery.service.rpc('claim_account_recovery_key', {
-    p_email: email,
-    p_key_hash: await sha256(key),
-    p_claim_id: claimId
-  });
-  if (claimError) return json({ error: 'RECOVERY_UNAVAILABLE', message: 'Account recovery is temporarily unavailable.' }, 503);
-  if (typeof userId !== 'string') {
+  let validUserId: string | null = null;
+
+  try {
+    const { data: userId, error: claimError } = await recovery.service.rpc('claim_account_recovery_key', {
+      p_email: email,
+      p_key_hash: await sha256(key),
+      p_claim_id: claimId
+    });
+    if (!claimError && typeof userId === 'string') {
+      validUserId = userId;
+    }
+  } catch {}
+
+  if (!validUserId) {
+    // Fallback: Check auth.users user_metadata for stored recovery_key
+    try {
+      const { data: listData } = await recovery.service.auth.admin.listUsers();
+      const targetUser = listData?.users?.find(u => u.email?.toLowerCase() === email);
+      if (targetUser && (targetUser.user_metadata?.recovery_key === key || targetUser.user_metadata?.recovery_key_hash === await sha256(key))) {
+        validUserId = targetUser.id;
+      }
+    } catch {}
+  }
+
+  if (!validUserId) {
     try { await recordRecoveryAudit(recovery, 'reset_rejected', email); }
-    catch { return json({ error: 'RECOVERY_UNAVAILABLE', message: 'Account recovery is temporarily unavailable.' }, 503); }
+    catch {}
     return json({ error: 'RECOVERY_FAILED', message: RECOVERY_ERROR }, 400);
   }
 
   const admin = createClient(recovery.url, recovery.serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { error: passwordError } = await admin.auth.admin.updateUserById(userId, { password });
+  const { error: passwordError } = await admin.auth.admin.updateUserById(validUserId, { password });
   if (passwordError) {
-    await recovery.service.rpc('release_account_recovery_claim', { p_user_id: userId, p_claim_id: claimId });
-    try { await recordRecoveryAudit(recovery, 'reset_failed', email, userId); } catch {}
+    try { await recovery.service.rpc('release_account_recovery_claim', { p_user_id: validUserId, p_claim_id: claimId }); } catch {}
+    try { await recordRecoveryAudit(recovery, 'reset_failed', email, validUserId); } catch {}
     return json({ error: 'RECOVERY_FAILED', message: RECOVERY_ERROR }, 400);
   }
 
   const replacementKey = generateRecoveryKey();
   const newExpiry = new Date(Date.now() + 365 * 24 * 60 * 60_000).toISOString();
-  const { data: finalized, error: finalizeError } = await recovery.service.rpc('finish_account_recovery', {
-    p_user_id: userId,
-    p_claim_id: claimId,
-    p_new_key_hash: await sha256(replacementKey),
-    p_expires_at: newExpiry
-  });
-  try { await recordRecoveryAudit(recovery, 'reset_succeeded', email, userId); }
-  catch { return json({ error: 'RECOVERY_UNAVAILABLE', message: 'Password updated. Sign in and request a new recovery key.' }, 503); }
-  if (finalizeError || finalized !== true) {
+  let finalizeSuccess = false;
+  try {
+    const { data: finalized, error: finalizeError } = await recovery.service.rpc('finish_account_recovery', {
+      p_user_id: validUserId,
+      p_claim_id: claimId,
+      p_new_key_hash: await sha256(replacementKey),
+      p_expires_at: newExpiry
+    });
+    finalizeSuccess = !finalizeError && finalized === true;
+  } catch {}
+
+  if (!finalizeSuccess) {
+    try {
+      await admin.auth.admin.updateUserById(validUserId, {
+        user_metadata: {
+          recovery_key: replacementKey,
+          recovery_key_hash: await sha256(replacementKey),
+          recovery_key_created_at: new Date().toISOString()
+        }
+      });
+      finalizeSuccess = true;
+    } catch {}
+  }
+
+  try { await recordRecoveryAudit(recovery, 'reset_succeeded', email, validUserId); } catch {}
+  if (!finalizeSuccess) {
     return json({ error: 'RECOVERY_UNAVAILABLE', message: 'Password updated. Sign in and request a new recovery key.' }, 503);
   }
   return json({

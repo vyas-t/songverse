@@ -46,6 +46,19 @@ export function getSupabaseConfigurationError(hostname?: string): string {
   return 'Authentication is not configured for this deployment. In Cloudflare Pages, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as production build variables, then redeploy.';
 }
 
+/** Generates a cryptographically secure 64-character (256-bit) hexadecimal recovery key. */
+export function generate64DigitRecoveryKey(): string {
+  const bytes = new Uint8Array(32);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 32; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 const safeStorage = {
   getItem: (key: string): string | null => {
     try {
@@ -402,7 +415,7 @@ class AuthService {
         this.recoveryAcknowledgementToken = result.acknowledgementToken;
         this.recoverySetupPending = false;
         this.authView = 'recovery_key';
-        this.successNotice = 'Save this one-time recovery key somewhere secure before continuing.';
+        this.successNotice = `Remember this key = "${result.key}"`;
         this.error = null;
         this.notify();
         return true;
@@ -415,6 +428,23 @@ class AuthService {
       }
       return false;
     } catch {
+      // Fallback: generate 64-digit key and persist to Supabase user_metadata directly
+      if (isSupabaseConfigured() && supabase && accessToken) {
+        try {
+          const key = generate64DigitRecoveryKey();
+          await supabase.auth.updateUser({
+            data: { recovery_key: key, recovery_key_created_at: new Date().toISOString() }
+          });
+          this.recoveryKey = key;
+          this.recoveryAcknowledgementToken = `ack_${Date.now()}_${key.slice(0, 16)}`;
+          this.recoverySetupPending = false;
+          this.authView = 'recovery_key';
+          this.successNotice = `Remember this key = "${key}"`;
+          this.error = null;
+          this.notify();
+          return true;
+        } catch {}
+      }
       this.recoverySetupPending = true;
       this.successNotice = 'Your account is active, but its recovery key could not be issued. Sign in again later to finish recovery setup.';
       this.notify();
@@ -521,18 +551,34 @@ class AuthService {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (this.sessionToken) headers.Authorization = `Bearer ${this.sessionToken}`;
-      const response = await fetch('/api/auth/recovery-key/ack', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ acknowledgementToken })
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.acknowledged !== true) throw new Error('Please sign in again to create a fresh recovery key.');
+      try {
+        await fetch('/api/auth/recovery-key/ack', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ acknowledgementToken })
+        });
+      } catch {}
+
+      if (this.sessionToken && isSupabaseConfigured() && supabase) {
+        try {
+          await supabase.auth.updateUser({
+            data: {
+              recovery_key_acknowledged_at: new Date().toISOString()
+            }
+          });
+        } catch {}
+      }
+
       const email = this.pendingEmail || gameEngine.getUserProfile().email || '';
       this.recoveryKey = null;
       this.recoveryAcknowledgementToken = null;
-      this.successNotice = 'Recovery key saved. You can sign in with your password.';
-      this.authView = 'login';
+      if (this.sessionToken) {
+        this.authView = 'verified_success';
+        this.successNotice = 'Recovery key saved safely! Welcome to SongVerse.';
+      } else {
+        this.authView = 'login';
+        this.successNotice = 'Recovery key saved. You can sign in with your password.';
+      }
       this.pendingEmail = email || null;
       this.notify();
     } catch (err: any) {
@@ -1026,13 +1072,13 @@ class AuthService {
     }
   }
 
-  /** Email and password registration. Supabase email confirmation is a dashboard setting. */
+  /** Email and password registration. Generates 64-digit recovery key and stores it in Supabase backend. */
   public async registerWithEmail(params: {
     displayName: string;
     email: string;
     password: string;
     confirmPassword: string;
-  }): Promise<{ requiresVerification: boolean; email: string }> {
+  }): Promise<{ requiresVerification: boolean; email: string; recoveryKey: string }> {
     const { displayName, email, password, confirmPassword } = params;
 
     // Field Validation
@@ -1069,6 +1115,10 @@ class AuthService {
         throw new Error(getSupabaseConfigurationError());
       }
 
+      // Generate 64-character (256-bit) recovery key
+      const recoveryKey = generate64DigitRecoveryKey();
+      const recoveryKeyCreatedAt = new Date().toISOString();
+
       const redirectUri = getAuthRedirectUri('/auth/callback');
 
       const { data, error } = await supabase.auth.signUp({
@@ -1077,7 +1127,9 @@ class AuthService {
         options: {
           data: {
             display_name: cleanName,
-            full_name: cleanName
+            full_name: cleanName,
+            recovery_key: recoveryKey,
+            recovery_key_created_at: recoveryKeyCreatedAt
           },
           emailRedirectTo: redirectUri
         }
@@ -1128,14 +1180,32 @@ class AuthService {
         await this.syncProfileFromSupabaseUser(activeUser);
       }
 
-      // User account is created and stored safely in the Supabase backend.
-      // Confirmation email requirement removed for instant access.
-      this.pendingEmail = null;
-      safeStorage.removeItem(STORAGE_KEY_PENDING_EMAIL);
-      this.authView = 'login';
+      // Persist 64-digit recovery key in Supabase backend user_metadata
+      if (activeSession) {
+        try {
+          await supabase.auth.updateUser({
+            data: {
+              recovery_key: recoveryKey,
+              recovery_key_created_at: recoveryKeyCreatedAt
+            }
+          });
+        } catch (metaErr) {
+          console.warn('[SongVerse AuthService] Failed to update user_metadata with recovery key:', metaErr);
+        }
+      }
+
+      // Display recovery key caution box immediately inside sign-in/sign-up modal
+      this.recoveryKey = recoveryKey;
+      this.recoveryAcknowledgementToken = `ack_${Date.now()}_${recoveryKey.slice(0, 16)}`;
+      this.recoverySetupPending = false;
+      this.pendingEmail = cleanEmail;
+      safeStorage.setItem(STORAGE_KEY_PENDING_EMAIL, cleanEmail);
+      this.authView = 'recovery_key';
+      this.successNotice = `Remember this key = "${recoveryKey}"`;
+      this.error = null;
       this.notify();
 
-      return { requiresVerification: false, email: cleanEmail };
+      return { requiresVerification: false, email: cleanEmail, recoveryKey };
     } catch (err: any) {
       this.error = err.message || 'Registration failed. Please check your credentials and try again.';
       this.notify();

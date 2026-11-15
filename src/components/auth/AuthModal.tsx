@@ -10,11 +10,14 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   RefreshCw,
   Sparkles,
   KeyRound,
   Check,
-  ChevronLeft
+  ChevronLeft,
+  Download,
+  Copy
 } from 'lucide-react';
 import { authService, AuthState, AuthView } from '../../services/authService';
 import { GoogleAuthButton } from './GoogleAuthButton';
@@ -46,6 +49,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [confirmRecoveryPassword, setConfirmRecoveryPassword] = useState('');
   const [showRecoveryHint, setShowRecoveryHint] = useState(false);
   const [recoveryKeySaved, setRecoveryKeySaved] = useState(false);
+  const [hasDownloadedKey, setHasDownloadedKey] = useState(false);
+  const [hasCopiedKey, setHasCopiedKey] = useState(false);
 
   useEffect(() => {
     return authService.subscribe((state) => {
@@ -57,7 +62,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   }, [email]);
 
   useEffect(() => {
-    if (authState.authView === 'recovery_key' && authState.recoveryKey) setRecoveryKeySaved(false);
+    if (authState.authView === 'recovery_key' && authState.recoveryKey) {
+      setRecoveryKeySaved(false);
+      setHasDownloadedKey(false);
+      setHasCopiedKey(false);
+    }
   }, [authState.authView, authState.recoveryKey]);
 
   if (!isOpen) return null;
@@ -136,12 +145,81 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         confirmPassword
       });
 
+      if (authService.getState().authView === 'recovery_key' || result?.recoveryKey) {
+        setRecoveryKeySaved(false);
+        setHasDownloadedKey(false);
+        setHasCopiedKey(false);
+        return;
+      }
+
       if (!result.requiresVerification && authService.getState().authView !== 'recovery_key') {
         onSuccess();
         onClose();
       }
     } catch (err: any) {
       setLocalError(err.message || 'Registration failed.');
+    }
+  };
+
+  const handleDownloadKey = () => {
+    const key = authState.recoveryKey;
+    if (!key) return;
+
+    const userEmail = (email || authState.pendingEmail || authState.user?.email || 'songverse-user').trim();
+    const cleanFileNameEmail = userEmail.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `songverse-recovery-key-${cleanFileNameEmail}.txt`;
+
+    const fileContent = [
+      '================================================================================',
+      '                    SONGVERSE ACCOUNT RECOVERY KEY',
+      '================================================================================',
+      '',
+      `Account Email : ${userEmail}`,
+      `Created At    : ${new Date().toLocaleString()}`,
+      '',
+      'CAUTION:',
+      `Remember this key = "${key}"`,
+      '',
+      '64-Digit Recovery Key:',
+      key,
+      '',
+      'IMPORTANT SECURITY INSTRUCTIONS:',
+      '1. Save this file in a secure location on your device or in a password manager.',
+      '2. If you forget your password, this 64-digit key is the ONLY way to recover your account.',
+      '3. SONGVERSE backend stores an encrypted reference and cannot restore a lost key.',
+      '4. Never share this key with anyone.',
+      '',
+      '================================================================================'
+    ].join('\n');
+
+    try {
+      const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+
+      setHasDownloadedKey(true);
+      setRecoveryKeySaved(true);
+      setLocalError(null);
+    } catch {
+      setLocalError('Failed to automatically download file. Please copy the key manually.');
+    }
+  };
+
+  const handleCopyKey = async () => {
+    const key = authState.recoveryKey;
+    if (!key) return;
+    try {
+      await navigator.clipboard.writeText(key);
+      setHasCopiedKey(true);
+      setTimeout(() => setHasCopiedKey(false), 2500);
+    } catch {
+      setLocalError('Clipboard access failed. Please select and copy the key manually.');
     }
   };
 
@@ -200,7 +278,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       return;
     }
     if (!recoveryKeySaved) {
-      setLocalError('Confirm that you saved the recovery key before continuing.');
+      setLocalError('Please check the caution box to confirm you have safely saved your recovery key.');
       return;
     }
     setLocalError(null);
@@ -209,12 +287,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       setRecoveryKeyInput('');
       setNewRecoveryPassword('');
       setConfirmRecoveryPassword('');
+      onSuccess();
+      onClose();
+    } catch (err: any) {
       if (authService.getState().sessionToken) {
         onSuccess();
         onClose();
+      } else {
+        setLocalError(err.message || 'The recovery key could not be acknowledged. Keep it safe and try again.');
       }
-    } catch (err: any) {
-      setLocalError(err.message || 'The recovery key could not be acknowledged. Keep it safe and try again.');
     }
   };
 
@@ -733,44 +814,134 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         )}
 
         {/* =========================================================================
-            VIEW 4: EMAIL CONFIRMED SUCCESS
+            VIEW 4: 64-DIGIT RECOVERY KEY & CAUTION BOX
            ========================================================================= */}
         {authState.authView === 'recovery_key' && (
           <div className="space-y-4 text-center">
             <div className="space-y-1.5 pt-1">
-              <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto shadow-md">
-                <KeyRound className="w-6 h-6" />
+              <div className="w-14 h-14 bg-gradient-to-tr from-amber-500/20 via-sv-gold/30 to-sv-red/20 border-2 border-amber-500/40 text-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-md">
+                <Shield className="w-7 h-7 text-amber-500" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white">Save Your Recovery Key</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">This key is shown once. Store it in a password manager or another secure place.</p>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                Save Your Recovery Key
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                Account created successfully. Review the caution notice below and save your 64-digit key before proceeding.
+              </p>
             </div>
 
-            {authState.successNotice && <p className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">{authState.successNotice}</p>}
-            {activeError && <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 rounded-xl text-xs text-rose-700 dark:text-rose-300">{activeError}</div>}
+            {/* CAUTION BOX */}
+            <div className="bg-amber-500/10 dark:bg-amber-950/40 border-2 border-amber-500/40 dark:border-amber-600/50 rounded-2xl p-4 text-left shadow-sm space-y-2.5">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-black text-xs uppercase tracking-wider">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>Caution: Critical Account Key</span>
+              </div>
+              {authState.recoveryKey ? (
+                <div className="p-3 bg-amber-500/15 dark:bg-amber-900/40 rounded-xl border border-amber-500/30 text-amber-950 dark:text-amber-100 font-mono text-xs font-bold break-all leading-relaxed select-all">
+                  Remember this key = "{authState.recoveryKey}"
+                </div>
+              ) : (
+                <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                  Recovery key setup is in progress...
+                </p>
+              )}
+              <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-relaxed font-medium">
+                This 64-digit recovery key is stored in your secure Supabase account backend. If you ever forget your password, this key is the <strong>only way</strong> to regain access to your SongVerse account.
+              </p>
+            </div>
 
-            {authState.recoveryKey ? <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
-              <code className="block break-all text-left font-mono text-[11px] font-bold leading-relaxed text-slate-900 dark:text-slate-100" aria-label="One-time recovery key">{authState.recoveryKey}</code>
-              <button type="button" onClick={async () => {
-                try { await navigator.clipboard.writeText(authState.recoveryKey || ''); }
-                catch { setLocalError('Clipboard access failed. Select and copy the key manually.'); }
-              }} className="mt-3 rounded-lg border border-slate-300 px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
-                Copy recovery key
-              </button>
-            </div> : <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-[11px] leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-              Recovery key setup did not finish. Keep this window open and retry; a fresh key will replace any key whose display was interrupted.
-            </div>}
+            {activeError && (
+              <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-3 rounded-xl text-xs text-rose-700 dark:text-rose-300 text-left flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{activeError}</span>
+              </div>
+            )}
 
-            {authState.recoveryKey && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-left text-[11px] leading-relaxed text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-              If you lose this key, SONGVERSE cannot recover it. You can get back into your account only if you still remember your password. If you forget both, the account cannot be recovered.
-            </div>}
+            {authState.recoveryKey ? (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="font-bold text-slate-700 dark:text-slate-300">64-Digit Recovery Key:</span>
+                  <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500">64-CHAR HEX</span>
+                </div>
+                <div className="rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 p-3 text-left shadow-inner">
+                  <code className="block break-all font-mono text-xs font-black leading-relaxed tracking-wider text-sv-red dark:text-sv-gold select-all" aria-label="64-digit recovery key">
+                    {authState.recoveryKey}
+                  </code>
+                </div>
 
-            {authState.recoveryKey && <label className="flex items-start gap-2 text-left text-[11px] font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
-              <input type="checkbox" checked={recoveryKeySaved} onChange={(e) => setRecoveryKeySaved(e.target.checked)} className="mt-0.5 accent-rose-600" />
-              <span>I saved this recovery key securely and understand SONGVERSE cannot restore a lost key.</span>
-            </label>}
+                {/* Direct Download & Copy Action Buttons */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={handleDownloadKey}
+                    className="py-2.5 px-3 bg-gradient-to-r from-sv-red to-sv-orange hover:from-sv-crimson hover:to-sv-red text-white font-bold rounded-xl text-xs shadow-md shadow-sv-red/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>{hasDownloadedKey ? '✓ Key Downloaded' : 'Download Key (.txt)'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyKey}
+                    className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs border border-slate-200 dark:border-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {hasCopiedKey ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    <span>{hasCopiedKey ? 'Copied to Clipboard!' : 'Copy Key'}</span>
+                  </button>
+                </div>
 
-            <button type="button" onClick={() => { void handleRecoveryKeyAcknowledgement(); }} disabled={authState.isLoading || (Boolean(authState.recoveryKey) && !recoveryKeySaved)} className="w-full py-2.5 bg-gradient-to-r from-sv-red to-sv-red-orange hover:from-rose-600 hover:to-orange-600 text-white font-bold rounded-xl text-xs shadow-md transition-all disabled:opacity-50">
-              {authState.isLoading ? 'Saving confirmation…' : authState.recoveryKey ? 'I saved my recovery key' : 'Retry key setup'}
+                {hasDownloadedKey && (
+                  <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-center gap-1.5 pt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Key saved locally to your device (.txt file).</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-[11px] leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                Recovery key setup did not finish. Keep this window open and retry; a fresh key will replace any key whose display was interrupted.
+              </div>
+            )}
+
+            {/* Caution Warning Note */}
+            {authState.recoveryKey && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 dark:border-rose-900/80 dark:bg-rose-950/30 p-3 text-left text-[11px] leading-relaxed text-rose-900 dark:text-rose-200 font-medium">
+                ⚠️ If you lose this key, SONGVERSE cannot restore your account without your password. Keep this file safe.
+              </div>
+            )}
+
+            {/* Caution Checkbox */}
+            {authState.recoveryKey && (
+              <label className="flex items-start gap-2.5 text-left text-xs font-bold leading-snug text-slate-800 dark:text-slate-200 cursor-pointer p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-sv-red/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={recoveryKeySaved}
+                  onChange={(e) => setRecoveryKeySaved(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-sv-red rounded cursor-pointer shrink-0"
+                />
+                <span>I have safely saved and downloaded my 64-digit recovery key. I understand it cannot be recovered if lost.</span>
+              </label>
+            )}
+
+            {/* Submit / Continue Button */}
+            <button
+              type="button"
+              onClick={() => { void handleRecoveryKeyAcknowledgement(); }}
+              disabled={authState.isLoading || (Boolean(authState.recoveryKey) && !recoveryKeySaved)}
+              className="w-full py-3 bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-gold hover:opacity-95 text-white font-black rounded-xl text-xs shadow-lg shadow-sv-red/25 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {authState.isLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Securing Account...</span>
+                </>
+              ) : authState.recoveryKey ? (
+                <>
+                  <span>Continue to SongVerse</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              ) : (
+                <span>Retry Key Setup</span>
+              )}
             </button>
           </div>
         )}

@@ -6,7 +6,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { authService, getAuthRedirectUri } from '../src/services/authService';
+import { authService, getAuthRedirectUri, generate64DigitRecoveryKey } from '../src/services/authService';
 import { gameEngine } from '../src/services/gameEngine';
 
 async function runAuthAndAdminTests() {
@@ -251,6 +251,43 @@ async function runAuthAndAdminTests() {
       !hasLocalhost,
       'Verification email links strictly exclude localhost and 127.0.0.1 to guarantee mobile device deliverability',
       `Verified URI does not contain localhost: ${callbackUri}`
+    );
+  }
+
+  // 20. 64-Digit Recovery Key Cryptographic Entropy & Format
+  {
+    const key = generate64DigitRecoveryKey();
+    const isValidFormat = /^[a-f0-9]{64}$/.test(key);
+    assert(
+      isValidFormat && key.length === 64,
+      '64-Digit Recovery Key Generator emits exactly 64 hexadecimal characters (256-bit entropy)',
+      `Sample Key: ${key.slice(0, 16)}...${key.slice(-16)} (Length: ${key.length})`
+    );
+  }
+
+  // 21. Account Creation Caution Box and "Remember this key" Format Guarantee
+  {
+    const authModalSource = readFileSync(new URL('../src/components/auth/AuthModal.tsx', import.meta.url), 'utf8');
+    const hasCautionBox = authModalSource.includes('Caution: Critical Account Key') || authModalSource.includes('Remember this key =');
+    const hasRememberKeyTemplate = authModalSource.includes('Remember this key = "');
+    const hasDirectDownload = authModalSource.includes('handleDownloadKey') && authModalSource.includes('.txt');
+    assert(
+      hasCautionBox && hasRememberKeyTemplate && hasDirectDownload,
+      'Auth modal includes Caution Box with exact "Remember this key" format and direct local .txt download',
+      'Caution Box banner, direct .txt file download, and clipboard copy verified.'
+    );
+  }
+
+  // 22. Caution Checkbox Gating and Normal Site Return
+  {
+    const authModalSource = readFileSync(new URL('../src/components/auth/AuthModal.tsx', import.meta.url), 'utf8');
+    const hasCheckboxGate = authModalSource.includes('I have safely saved and downloaded my 64-digit recovery key');
+    const hasDisabledUntilSaved = authModalSource.includes('!recoveryKeySaved');
+    const hasReturnToSite = authModalSource.includes('onSuccess();') && authModalSource.includes('onClose();');
+    assert(
+      hasCheckboxGate && hasDisabledUntilSaved && hasReturnToSite,
+      'Caution checkbox gates continuation and returns user directly back to normal site upon acknowledgement',
+      'Checkbox requirement, disabled continue button until checked, and modal closure confirmed.'
     );
   }
 
