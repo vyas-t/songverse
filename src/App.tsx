@@ -27,8 +27,6 @@ import { privacyConsent } from './services/privacyConsent';
 import { audioEngine } from './services/audioEngine';
 import { musicCatalogue } from './services/musicCatalogue';
 import { authService } from './services/authService';
-import { SpeedrunApp } from './speedrun/SpeedrunApp';
-import { MemeCombatApp } from './memekombat/MemeCombatApp';
 
 const LazyUniverseScene = React.lazy(() =>
   import('./components/scene/UniverseScene').then((module) => ({ default: module.UniverseScene }))
@@ -81,36 +79,6 @@ export default function App() {
     });
 
     return () => unsubAuth();
-  }, []);
-
-  // Sync URL query/hash to support direct speedrun or meme combat access: ?view=speedrun, ?view=memecombat, etc.
-  useEffect(() => {
-    const checkCustomViews = () => {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const hash = window.location.hash.replace('#', '');
-        const view = params.get('view');
-        if (view === 'speedrun' || hash === 'speedrun' || window.location.pathname === '/speedrun') {
-          setCurrentView('speedrun');
-        } else if (
-          view === 'memecombat' ||
-          view === 'memebattle' ||
-          hash === 'memecombat' ||
-          hash === 'memebattle' ||
-          window.location.pathname === '/memecombat'
-        ) {
-          setCurrentView('memecombat');
-        }
-      } catch {}
-    };
-
-    checkCustomViews();
-    window.addEventListener('popstate', checkCustomViews);
-    window.addEventListener('hashchange', checkCustomViews);
-    return () => {
-      window.removeEventListener('popstate', checkCustomViews);
-      window.removeEventListener('hashchange', checkCustomViews);
-    };
   }, []);
 
   const refreshProfile = () => {
@@ -169,26 +137,6 @@ export default function App() {
     setLegalInitialTab(tab);
     setLegalModalOpen(true);
   };
-
-  // Dedicated Standalone Full-Screen View for SPEEDRUN EVERYTHING
-  if (currentView === 'speedrun') {
-    return (
-      <SpeedrunApp
-        onExitToSongverse={() => handleNavigate('landing')}
-        onOpenMemeCombat={() => handleNavigate('memecombat')}
-      />
-    );
-  }
-
-  // Dedicated Standalone Full-Screen View for MEME KOMBAT
-  if (currentView === 'memecombat' || currentView === 'memebattle') {
-    return (
-      <MemeCombatApp
-        onExitToSongverse={() => handleNavigate('landing')}
-        onOpenSpeedrun={() => handleNavigate('speedrun')}
-      />
-    );
-  }
 
   return (
     <div className="sv-app-shell min-h-screen flex flex-col bg-[var(--app-bg)] text-slate-900 dark:text-slate-100 font-sans selection:bg-sv-red/20 selection:text-sv-red transition-colors duration-200">
