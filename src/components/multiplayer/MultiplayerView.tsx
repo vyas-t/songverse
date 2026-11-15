@@ -642,10 +642,10 @@ export const MultiplayerView: React.FC<MultiplayerViewProps> = ({ onOpenAuth, on
               <button
                 type="button"
                 onClick={() => setBlitzModalOpen(true)}
-                className="w-full sm:w-auto px-7 py-3.5 bg-white text-slate-950 hover:bg-slate-100 font-black text-sm rounded-2xl shadow-xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-[#d9ff38] via-[#b8ff52] to-[#70ffaa] hover:from-[#e4ff66] hover:to-[#8affbd] text-slate-950 font-black text-sm rounded-2xl border-2 border-white/80 shadow-[0_0_25px_rgba(217,255,56,0.7)] hover:shadow-[0_0_40px_rgba(217,255,56,0.95)] transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Zap className="w-4 h-4 text-sv-red" />
-                Find 1v1 Match
+                <Zap className="w-4 h-4 fill-current text-slate-950 animate-pulse" />
+                <span>Find 1v1 Match</span>
               </button>
             </div>
           </div>
