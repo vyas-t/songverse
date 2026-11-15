@@ -248,7 +248,7 @@ export const GameView: React.FC<GameViewProps> = ({
       
       {/* Celebration Confetti Effect Banner */}
       {showCelebration && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-sv-amber via-sv-red to-sv-burgundy text-white text-xs font-black px-7 py-3 rounded-full shadow-2xl shadow-sv-red/30 flex items-center gap-2.5 animate-bounce border border-white/20">
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-gradient-to-r from-sv-amber via-sv-red to-sv-burgundy text-white text-xs font-black px-7 py-3 rounded-full shadow-2xl shadow-sv-red/30 flex items-center gap-2.5 animate-bounce border border-white/20">
           <Sparkles className="w-4 h-4 text-sv-gold animate-spin" />
           <span>Incredible Ear! 100 Points Awarded at Level 1!</span>
         </div>
@@ -422,7 +422,7 @@ export const GameView: React.FC<GameViewProps> = ({
               disabled={isSubmitting}
             />
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
               <button
                 type="button"
                 onClick={handleSkipLevel}
@@ -437,6 +437,20 @@ export const GameView: React.FC<GameViewProps> = ({
                   {currentRound.currentLevel === 3 && 'Skip Level 3 (Deduct: 40 → 20 pts)'}
                   {currentRound.currentLevel === 4 && 'Skip Level 4 (Forfeit · 0 pts)'}
                 </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSubmitGuess}
+                disabled={!selectedTrack || isSubmitting}
+                className={`w-full sm:w-auto px-7 py-3 text-xs font-extrabold text-white rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 ${
+                  selectedTrack && !isSubmitting
+                    ? 'bg-gradient-to-r from-sv-red via-sv-red-orange to-sv-amber hover:from-sv-crimson hover:to-sv-red active:scale-95 cursor-pointer shadow-sv-red/30'
+                    : 'bg-slate-300 dark:bg-sv-burgundy/50 dark:text-slate-500 cursor-not-allowed shadow-none'
+                }`}
+              >
+                <span>Submit Your Guess</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

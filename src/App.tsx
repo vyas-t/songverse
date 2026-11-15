@@ -114,7 +114,6 @@ export default function App() {
 
     setCurrentView(view);
     refreshProfile();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleStartPlay = (mode: GameMode = 'classic') => {
@@ -122,7 +121,6 @@ export default function App() {
     setGameMode(mode);
     setCurrentView('language_select');
     refreshProfile();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleStartGameWithLanguages = (languages: string[]) => {
@@ -130,7 +128,6 @@ export default function App() {
     setSelectedLanguages(languages);
     setCurrentView('game');
     refreshProfile();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenLegal = (tab: string = 'privacy') => {
@@ -179,7 +176,6 @@ export default function App() {
             selectedLanguages={selectedLanguages}
             onChangeLanguages={() => {
               setCurrentView('language_select');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onNavigateHome={() => handleNavigate('landing')}
             onNavigateLeaderboard={() => handleNavigate('leaderboard')}
