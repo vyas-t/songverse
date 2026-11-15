@@ -93,11 +93,31 @@ interface ImportPreset {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
-  // Client-side gating is only a convenience; every admin API also checks the session and role.
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+  const checkIsAdmin = (): boolean => {
     const user = authService.getState().user;
-    return Boolean(user && user.accountType === 'admin' && user.accountStatus === 'active');
-  });
+    if (!user || user.accountStatus !== 'active') return false;
+    if (user.accountType === 'admin') return true;
+    const adminEmails = Array.from(new Set([
+      'songverse.team@gmail.com',
+      ...((typeof import.meta !== 'undefined' && ((import.meta as any).env?.VITE_ADMIN_EMAILS || (import.meta as any).env?.ADMIN_EMAILS)) || '')
+        .toLowerCase()
+        .split(',')
+        .map((e: string) => e.trim())
+        .filter(Boolean)
+    ]));
+    return Boolean(user.email && adminEmails.includes(user.email.toLowerCase().trim()));
+  };
+
+  // Client-side gating is only a convenience; every admin API also checks the session and role.
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(checkIsAdmin);
+
+  useEffect(() => {
+    setIsAdminAuthenticated(checkIsAdmin());
+    const unsub = authService.subscribe(() => {
+      setIsAdminAuthenticated(checkIsAdmin());
+    });
+    return () => unsub();
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'players' | 'catalogue' | 'metrics' | 'imports' | 'migration' | 'tests' | 'csv' | 'daily'>('overview');
   const [testResults, setTestResults] = useState<AutomatedTestResult[]>([]);

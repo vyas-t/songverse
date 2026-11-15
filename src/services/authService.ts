@@ -213,6 +213,20 @@ export function mergeSupabaseUserProfile(
 ): UserProfile {
   const metadata = sbUser.user_metadata || {};
   const provider = (sbUser.app_metadata?.provider as any) || (sbUser.identities?.[0]?.provider as any) || 'email';
+  
+  const adminEmailsEnv = Array.from(new Set([
+    'songverse.team@gmail.com',
+    ...((typeof import.meta !== 'undefined' && ((import.meta as any).env?.VITE_ADMIN_EMAILS || (import.meta as any).env?.ADMIN_EMAILS)) || '')
+      .toLowerCase()
+      .split(',')
+      .map((e: string) => e.trim())
+      .filter(Boolean)
+  ]));
+
+  const userEmail = (sbUser.email || localProfile.email || '').toLowerCase().trim();
+  const isAdminByEmail = Boolean(userEmail && adminEmailsEnv.includes(userEmail));
+  const resolvedAccountType = (remoteProfileData?.account_type === 'admin' || isAdminByEmail) ? 'admin' : 'player';
+
   return {
     ...localProfile,
     id: sbUser.id,
@@ -223,7 +237,7 @@ export function mergeSupabaseUserProfile(
     avatarSeed: remoteProfileData?.avatar_seed || localProfile.avatarSeed,
     avatarUrl: remoteProfileData?.avatar_url || metadata.avatar_url || metadata.picture || localProfile.avatarUrl,
     authProvider: provider,
-    accountType: (remoteProfileData?.account_type as any) || 'player',
+    accountType: resolvedAccountType,
     accountStatus: (remoteProfileData?.account_status as any) || 'active',
     isGuest: false,
     totalScore: Math.max(localProfile.totalScore || 0, remoteProfileData?.total_score || 0),

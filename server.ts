@@ -1896,11 +1896,23 @@ async function checkAdminAuth(req: Request, res: Response, next: () => void) {
         const { data: { user }, error } = await serverSupabase.auth.getUser(token);
         if (!error && user) {
           // Inspect database profile to verify role and enforce active status
-          const { data: profile } = await serverSupabase
+          let profile: { account_type?: string; account_status?: string } | null = null;
+          const { data: initialProfile, error: pErr } = await serverSupabase
             .from('profiles')
             .select('account_type, account_status')
             .eq('id', user.id)
             .maybeSingle();
+
+          profile = initialProfile;
+
+          if (pErr) {
+            const fallback = await serverSupabase
+              .from('profiles')
+              .select('account_status')
+              .eq('id', user.id)
+              .maybeSingle();
+            profile = fallback.data;
+          }
 
           // Strict rule: Suspended accounts are immediately blocked from all admin operations
           if (profile && profile.account_status === 'suspended') {
@@ -1908,9 +1920,10 @@ async function checkAdminAuth(req: Request, res: Response, next: () => void) {
           }
 
           // Check if admin by explicitly configured server environment allowlists
-          const adminEmails = process.env.ADMIN_EMAILS
-            ? process.env.ADMIN_EMAILS.toLowerCase().split(',').map(e => e.trim()).filter(Boolean)
-            : [];
+          const adminEmails = Array.from(new Set([
+            'songverse.team@gmail.com',
+            ...(process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.toLowerCase().split(',').map(e => e.trim()).filter(Boolean) : [])
+          ]));
           const adminUserIds = process.env.ADMIN_USER_IDS
             ? process.env.ADMIN_USER_IDS.split(',').map(id => id.trim()).filter(Boolean)
             : [];
