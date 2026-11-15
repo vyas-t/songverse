@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Menu, X, Sun, Moon, Laptop, Users, Calendar, Disc3, Trophy, Flame, Sparkles, HelpCircle } from 'lucide-react';
+import { Music, Menu, X, Sun, Moon, Laptop, Users, Calendar, Disc3, Trophy, Flame, Sparkles, HelpCircle, Zap } from 'lucide-react';
 import { GameMode } from '../../types';
 import { themeManager, ThemePreference } from '../../services/themeManager';
 
@@ -52,6 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'friends', label: 'Friends', view: 'friends', isActive: currentView === 'friends' },
     { id: 'discovery', label: 'Discover', view: 'discovery', isActive: currentView === 'discovery' },
     { id: 'leaderboard', label: 'Leaderboard', view: 'leaderboard', isActive: currentView === 'leaderboard' },
+    { id: 'speedrun', label: '⚡ Speedrun Everything', view: 'speedrun', isActive: currentView === 'speedrun' },
   ];
 
   return (
@@ -102,6 +103,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Zone 3: Actions + Theme Selector + Profile */}
         <div className="hidden xl:flex items-center gap-2.5 shrink-0">
           
+          {/* SPEEDRUN EVERYTHING PROTOTYPE LAUNCHER */}
+          <button
+            onClick={() => handleNav('speedrun')}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-400 hover:to-purple-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_20px_rgba(245,158,66,0.35)] transition-all cursor-pointer transform hover:scale-105"
+            title="Play SPEEDRUN EVERYTHING prototype"
+          >
+            <Zap className="w-3.5 h-3.5 fill-current text-amber-200 animate-pulse" />
+            <span>⚡ Speedrun</span>
+          </button>
+
           {/* Theme Selector Toggle */}
           <button
             onClick={cycleTheme}

@@ -226,6 +226,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span>How It Works</span>
               </button>
             )}
+
+            <button
+              onClick={() => handleNavigateClean('speedrun')}
+              className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 border border-purple-400/40 text-white text-xs font-black uppercase tracking-wider shadow-[0_0_25px_rgba(155,92,235,0.4)] transition-all cursor-pointer transform hover:-translate-y-0.5"
+            >
+              <Zap className="w-4 h-4 fill-current text-amber-300 animate-pulse" />
+              <span>Speedrun Prototype</span>
+            </button>
           </div>
         </motion.div>
 
@@ -588,6 +596,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
             </div>
           </div>
+        </div>
+
+        {/* SPEEDRUN EVERYTHING PROTOTYPE FEATURE BANNER */}
+        <div className="max-w-5xl mx-auto w-full mb-8 p-6 rounded-3xl bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-600/20 border-2 border-amber-400/50 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-[0_0_40px_rgba(245,158,66,0.25)]">
+          <div className="flex items-center gap-4 text-center sm:text-left">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white shrink-0 shadow-lg">
+              <Zap className="w-8 h-8 fill-current animate-pulse text-amber-200" />
+            </div>
+            <div>
+              <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-amber-500/30 text-amber-300 font-bold border border-amber-400/30">
+                Brand New Interactive Prototype
+              </span>
+              <h3 className="text-xl font-black text-white font-cinzel mt-1">
+                SPEEDRUN EVERYTHING
+              </h3>
+              <p className="text-xs text-slate-300 max-w-lg">
+                Everything is a speedrun. Random challenges, typing tests, sub-200ms reaction triggers, and impossible puzzles. How fast can you do it?
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => handleNavigateClean('speedrun')}
+            className="inline-flex items-center gap-2.5 px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-400 hover:via-rose-400 hover:to-purple-500 text-white font-black text-xs uppercase tracking-wider shadow-[0_0_30px_rgba(245,158,66,0.5)] hover:shadow-[0_0_45px_rgba(245,158,66,0.7)] transition-all transform hover:scale-105 shrink-0 cursor-pointer"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            <span>PLAY SPEEDRUN NOW</span>
+          </button>
         </div>
 
         {/* Quick Footer Links & "Back to Top" */}

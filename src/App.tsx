@@ -27,6 +27,7 @@ import { privacyConsent } from './services/privacyConsent';
 import { audioEngine } from './services/audioEngine';
 import { musicCatalogue } from './services/musicCatalogue';
 import { authService } from './services/authService';
+import { SpeedrunApp } from './speedrun/SpeedrunApp';
 
 const LazyUniverseScene = React.lazy(() =>
   import('./components/scene/UniverseScene').then((module) => ({ default: module.UniverseScene }))
@@ -79,6 +80,27 @@ export default function App() {
     });
 
     return () => unsubAuth();
+  }, []);
+
+  // Sync URL query/hash to support direct speedrun access: ?view=speedrun or #speedrun
+  useEffect(() => {
+    const checkSpeedrunUrl = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const hash = window.location.hash.replace('#', '');
+        if (params.get('view') === 'speedrun' || hash === 'speedrun' || window.location.pathname === '/speedrun') {
+          setCurrentView('speedrun');
+        }
+      } catch {}
+    };
+
+    checkSpeedrunUrl();
+    window.addEventListener('popstate', checkSpeedrunUrl);
+    window.addEventListener('hashchange', checkSpeedrunUrl);
+    return () => {
+      window.removeEventListener('popstate', checkSpeedrunUrl);
+      window.removeEventListener('hashchange', checkSpeedrunUrl);
+    };
   }, []);
 
   const refreshProfile = () => {
@@ -137,6 +159,11 @@ export default function App() {
     setLegalInitialTab(tab);
     setLegalModalOpen(true);
   };
+
+  // Dedicated Standalone Full-Screen View for SPEEDRUN EVERYTHING
+  if (currentView === 'speedrun') {
+    return <SpeedrunApp onExitToSongverse={() => handleNavigate('landing')} />;
+  }
 
   return (
     <div className="sv-app-shell min-h-screen flex flex-col bg-[var(--app-bg)] text-slate-900 dark:text-slate-100 font-sans selection:bg-sv-red/20 selection:text-sv-red transition-colors duration-200">
