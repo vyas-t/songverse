@@ -763,3 +763,178 @@
     transform: none;
   }
 }
+
+/* =========================================================================
+   3D CINEMATIC PARALLAX SCROLL SYSTEM (NOTOSAN / VISITE STYLE)
+   ========================================================================= */
+
+.font-cinzel {
+  font-family: 'Cinzel', Georgia, serif;
+}
+
+.font-serif-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Wing flapping animation for migratory birds in twilight sky */
+@keyframes bird-fly-1 {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-1.5deg) scale(0.97);
+  }
+}
+
+@keyframes bird-fly-2 {
+  0%, 100% {
+    transform: translateY(0px) rotate(1deg) scale(1);
+  }
+  50% {
+    transform: translateY(-11px) rotate(-2deg) scale(0.95);
+  }
+}
+
+@keyframes bird-flap-wings {
+  0%, 100% {
+    d: path("M 0 10 Q 15 -8 30 10 Q 45 -8 60 10 Q 45 4 30 5 Q 15 4 0 10 Z");
+  }
+  50% {
+    d: path("M 0 4 Q 15 16 30 8 Q 45 16 60 4 Q 45 10 30 8 Q 15 10 0 4 Z");
+  }
+}
+
+/* Drifting atmospheric mist across ridges */
+@keyframes mist-drift-left {
+  0% {
+    transform: translateX(0%) translateY(0);
+  }
+  50% {
+    transform: translateX(-4%) translateY(-6px);
+  }
+  100% {
+    transform: translateX(0%) translateY(0);
+  }
+}
+
+@keyframes mist-drift-right {
+  0% {
+    transform: translateX(0%) translateY(0);
+  }
+  50% {
+    transform: translateX(4%) translateY(6px);
+  }
+  100% {
+    transform: translateX(0%) translateY(0);
+  }
+}
+
+/* Waterfall shimmer & flow */
+@keyframes waterfall-flow {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.98;
+  }
+  100% {
+    stroke-dashoffset: -120;
+    opacity: 0.85;
+  }
+}
+
+/* Bioluminescent fireflies & spores rising into night sky */
+@keyframes firefly-float {
+  0% {
+    transform: translateY(0px) translateX(0px) scale(0.8);
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-35px) translateX(12px) scale(1.1);
+  }
+  70% {
+    opacity: 0.85;
+    transform: translateY(-80px) translateX(-15px) scale(0.9);
+  }
+  100% {
+    transform: translateY(-130px) translateX(8px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* Water ripples concentric glow */
+@keyframes water-ripple {
+  0% {
+    r: 12;
+    opacity: 0.8;
+    stroke-width: 2.5;
+  }
+  100% {
+    r: 85;
+    opacity: 0;
+    stroke-width: 0.5;
+  }
+}
+
+/* Tall grass wind-blown sway */
+@keyframes grass-sway-left {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-3.5deg);
+  }
+}
+
+@keyframes grass-sway-right {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+/* Audio visualizer bar bounce */
+@keyframes visualizer-bounce {
+  0%, 100% {
+    height: 15%;
+  }
+  50% {
+    height: 95%;
+  }
+}
+
+.animate-bird-1 {
+  animation: bird-fly-1 6s ease-in-out infinite;
+}
+
+.animate-bird-2 {
+  animation: bird-fly-2 7.5s ease-in-out infinite;
+}
+
+.animate-mist-drift-1 {
+  animation: mist-drift-left 18s ease-in-out infinite;
+}
+
+.animate-mist-drift-2 {
+  animation: mist-drift-right 22s ease-in-out infinite;
+}
+
+.animate-waterfall {
+  stroke-dasharray: 20, 10;
+  animation: waterfall-flow 1.4s linear infinite;
+}
+
+.animate-grass-sway-1 {
+  transform-origin: bottom center;
+  animation: grass-sway-left 5.5s ease-in-out infinite;
+}
+
+.animate-grass-sway-2 {
+  transform-origin: bottom center;
+  animation: grass-sway-right 6.5s ease-in-out infinite;
+}
+
