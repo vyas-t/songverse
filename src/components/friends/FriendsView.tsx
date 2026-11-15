@@ -339,7 +339,7 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
                 <div className="space-y-3 pt-2">
                   <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-sv-gold" />
-                    <span>Quick Add Recommended Players</span>
+                    <span>Quick Add Registered Players</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {suggestedUsers.slice(0, 3).map((user) => (
@@ -688,14 +688,15 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onOpenAuth, onJoinRoom
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-sv-gold" />
-                  <span>Suggested Community Players ({suggestedUsers.length})</span>
+                  <span>Registered Players Directory ({suggestedUsers.length})</span>
                 </h3>
-                <span className="text-[11px] text-slate-500 font-medium">Click to connect instantly</span>
+                <span className="text-[11px] text-slate-500 font-medium">Genuine players only</span>
               </div>
 
               {suggestedUsers.length === 0 ? (
-                <div className="p-8 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl text-center text-xs text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto">
-                  You are already connected with all suggested community players!
+                <div className="p-8 bg-white/95 dark:bg-sv-burgundy-deep/90 border border-slate-200 dark:border-sv-burgundy rounded-3xl text-center text-xs text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto space-y-2">
+                  <p className="font-bold text-slate-700 dark:text-slate-300">Find your friends</p>
+                  <p>Type your friend's exact username above to find them and send a friend request.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

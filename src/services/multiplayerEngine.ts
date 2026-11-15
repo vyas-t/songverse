@@ -1197,17 +1197,14 @@ class MultiplayerEngineService {
         if (myPlayer) {
           const sorted = [...this.activeRoom.players].sort((a, b) => (b.score || 0) - (a.score || 0));
           const rank = sorted.findIndex(p => p.id === myId) + 1;
-          gameEngine.recordMatchHistory({
-            id: `mp_${this.activeRoom.roomCode}_${Date.now()}`,
-            roomCode: this.activeRoom.roomCode,
-            gameMode: this.activeRoom.mode === 'casual' ? 'casual' : 'competitive',
-            playedAt: new Date().toISOString(),
+          gameEngine.recordMultiplayerMatch({
             score: myPlayer.score || 0,
+            roundsWon: myPlayer.correctGuesses || 0,
             totalRounds: this.activeRoom.totalRounds || this.activeRoom.trackIds?.length || 3,
-            correctGuesses: myPlayer.correctGuesses || 0,
+            roomCode: this.activeRoom.roomCode,
+            mode: this.activeRoom.mode === 'casual' ? 'casual' : 'competitive',
             rank: rank > 0 ? rank : 1,
-            totalPlayers: this.activeRoom.players.length,
-            details: `Multiplayer ${this.activeRoom.mode === 'casual' ? 'Casual' : 'Competitive'} Match`
+            totalPlayers: this.activeRoom.players.length
           });
         }
       } catch {}

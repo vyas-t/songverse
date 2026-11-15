@@ -1064,39 +1064,96 @@ app.get('/api/leaderboard', async (req: Request, res: Response) => {
   const period = ((req.query.period as string) || 'all-time').toLowerCase();
   const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '50', 10), 1), 100);
 
-  // If Supabase is connected, query genuine game_sessions and profiles
+  // If Supabase is connected, query genuine profiles
   if (isServerSupabaseConfigured && serverSupabase) {
     try {
-      let query = serverSupabase
-        .from('leaderboard_public')
-        .select('*');
+      let data: any[] | null = null;
+      let error: any = null;
 
-      if (period === 'daily') {
-        const todayIso = new Date().toISOString().split('T')[0];
-        query = query.gte('last_played_at', `${todayIso}T00:00:00.000Z`);
-      } else if (period === 'weekly') {
-        const weekAgo = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
-        query = query.gte('last_played_at', weekAgo);
-      } else if (period === 'monthly') {
-        const monthAgo = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
-        query = query.gte('last_played_at', monthAgo);
+      // 1. Try leaderboard_public view
+      try {
+        let query = serverSupabase
+          .from('leaderboard_public')
+          .select('*');
+
+        if (period === 'daily') {
+          const todayIso = new Date().toISOString().split('T')[0];
+          query = query.gte('last_played_at', `${todayIso}T00:00:00.000Z`);
+        } else if (period === 'weekly') {
+          const weekAgo = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
+          query = query.gte('last_played_at', weekAgo);
+        } else if (period === 'monthly') {
+          const monthAgo = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
+          query = query.gte('last_played_at', monthAgo);
+        }
+
+        const res1 = await query
+          .order('total_score', { ascending: false })
+          .order('current_streak', { ascending: false })
+          .limit(limit);
+        data = res1.data;
+        error = res1.error;
+      } catch (e) {
+        error = e;
       }
 
-      const { data, error } = await query
-        .order('total_score', { ascending: false })
-        .order('current_streak', { ascending: false })
-        .limit(limit);
+      // 2. Fallback to profiles_public_directory or profiles table
+      if (error || !data || data.length === 0) {
+        try {
+          let fallbackQuery = serverSupabase
+            .from('profiles_public_directory')
+            .select('id, display_name, username, avatar_seed, avatar_url, total_score, games_played, rounds_won, current_streak, best_streak, last_played_at, last_seen_at')
+            .gt('games_played', 0);
+
+          if (period === 'daily') {
+            const todayIso = new Date().toISOString().split('T')[0];
+            fallbackQuery = fallbackQuery.gte('last_played_at', `${todayIso}T00:00:00.000Z`);
+          } else if (period === 'weekly') {
+            const weekAgo = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
+            fallbackQuery = fallbackQuery.gte('last_played_at', weekAgo);
+          } else if (period === 'monthly') {
+            const monthAgo = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
+            fallbackQuery = fallbackQuery.gte('last_played_at', monthAgo);
+          }
+
+          const res2 = await fallbackQuery
+            .order('total_score', { ascending: false })
+            .order('current_streak', { ascending: false })
+            .limit(limit);
+
+          if (!res2.error && Array.isArray(res2.data) && res2.data.length > 0) {
+            data = res2.data;
+            error = null;
+          } else {
+            const res3 = await serverSupabase
+              .from('profiles')
+              .select('id, display_name, username, avatar_seed, avatar_url, total_score, games_played, rounds_won, current_streak, best_streak, last_played_at, last_seen_at')
+              .eq('account_status', 'active')
+              .gt('games_played', 0)
+              .order('total_score', { ascending: false })
+              .order('current_streak', { ascending: false })
+              .limit(limit);
+
+            if (!res3.error && Array.isArray(res3.data)) {
+              data = res3.data;
+              error = null;
+            }
+          }
+        } catch {}
+      }
 
       if (!error && Array.isArray(data)) {
         const entries = data.map((row: any, idx: number) => ({
           rank: idx + 1,
-          userId: row.user_id,
-          displayName: row.display_name || 'GrooveExplorer',
+          userId: row.user_id || row.id,
+          displayName: row.display_name || (row.username ? `@${row.username}` : 'GrooveExplorer'),
           avatarSeed: row.avatar_seed || 'aurora',
           score: row.total_score || 0,
-          accuracy: row.accuracy_percentage || 0,
+          accuracy: row.accuracy_percentage !== undefined
+            ? Number(row.accuracy_percentage)
+            : (row.games_played > 0 ? Math.round((row.rounds_won / Math.max(row.games_played * 5, 1)) * 100) : 0),
           streak: row.current_streak || 0,
-          dateAchieved: row.last_played_at ? row.last_played_at.split('T')[0] : 'Today',
+          dateAchieved: row.last_played_at ? String(row.last_played_at).split('T')[0] : 'Today',
           gameMode: 'classic'
         }));
 

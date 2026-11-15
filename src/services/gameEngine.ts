@@ -490,6 +490,9 @@ class GameEngineService {
     this.userProfile.lastPlayedAt = Date.now();
     this.saveUserProfile(this.userProfile);
 
+    // Asynchronously synchronize verified statistics to live Supabase profile
+    void this.syncProfileStatsToSupabase(session);
+
     // Save completed game log
     try {
       const historyStr = localStorage.getItem(STORAGE_KEY_COMPLETED_GAMES) || '[]';
@@ -608,6 +611,125 @@ class GameEngineService {
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Synchronize verified local profile metrics (score, games played, streaks) directly to Supabase
+   */
+  public async syncProfileStatsToSupabase(session?: GameSession): Promise<void> {
+    if (!isSupabaseConfigured() || !supabase || this.userProfile.isGuest || !this.userProfile.id) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          total_score: this.userProfile.totalScore || 0,
+          games_played: this.userProfile.gamesPlayed || 0,
+          rounds_won: this.userProfile.roundsWon || 0,
+          current_streak: this.userProfile.currentStreak || 0,
+          best_streak: this.userProfile.bestStreak || 0,
+          last_played_at: new Date(this.userProfile.lastPlayedAt || Date.now()).toISOString(),
+          last_seen_at: new Date().toISOString()
+        })
+        .eq('id', this.userProfile.id);
+
+      if (error) {
+        console.warn('[GameEngine] Supabase profile sync error:', error.message);
+      }
+    } catch (err) {
+      console.warn('[GameEngine] Supabase profile sync exception:', err);
+    }
+
+    if (session) {
+      try {
+        const sessionId = session.sessionId || `solo_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        await supabase.from('game_sessions').insert({
+          id: sessionId,
+          user_id: this.userProfile.id,
+          mode: session.mode === 'daily' ? 'daily' : (session.mode === 'practice' ? 'practice' : 'classic'),
+          total_score: session.rounds.reduce((acc, r) => acc + (r.pointsAwarded || 0), 0),
+          status: 'completed',
+          started_at: new Date(session.startedAt || Date.now()).toISOString(),
+          completed_at: new Date(session.completedAt || Date.now()).toISOString()
+        });
+      } catch {}
+    }
+  }
+
+  /**
+   * Record a completed multiplayer match: increments player score, matches played,
+   * updates streak, saves match history, and synchronizes to live Supabase profile
+   */
+  public recordMultiplayerMatch(details: {
+    score: number;
+    roundsWon: number;
+    totalRounds: number;
+    roomCode?: string;
+    mode?: 'casual' | 'competitive';
+    rank?: number;
+    totalPlayers?: number;
+  }): void {
+    const matchScore = details.score || 0;
+    const matchWon = details.roundsWon || 0;
+
+    this.userProfile.gamesPlayed += 1;
+    this.userProfile.roundsPlayed += (details.totalRounds || 3);
+    this.userProfile.roundsWon += matchWon;
+    this.userProfile.totalScore += matchScore;
+    this.userProfile.accuracy = Math.round((this.userProfile.roundsWon / Math.max(this.userProfile.roundsPlayed, 1)) * 100);
+
+    if (matchScore > this.userProfile.bestScore) {
+      this.userProfile.bestScore = matchScore;
+    }
+
+    if (matchWon > 0) {
+      this.userProfile.currentStreak += 1;
+      if (this.userProfile.currentStreak > this.userProfile.bestStreak) {
+        this.userProfile.bestStreak = this.userProfile.currentStreak;
+      }
+    } else {
+      this.userProfile.currentStreak = 0;
+    }
+
+    this.userProfile.lastPlayedAt = Date.now();
+    this.saveUserProfile(this.userProfile);
+
+    // Save match to persistent history
+    this.recordMatchHistory({
+      id: `mp_${details.roomCode || Date.now()}_${Date.now()}`,
+      roomCode: details.roomCode,
+      gameMode: details.mode || 'competitive',
+      playedAt: new Date().toISOString(),
+      score: matchScore,
+      totalRounds: details.totalRounds || 3,
+      roundsWon: matchWon,
+      correctGuesses: matchWon,
+      rank: details.rank || 1,
+      totalPlayers: details.totalPlayers || 1,
+      details: `Multiplayer ${details.mode === 'casual' ? 'Casual' : 'Competitive'} Match`
+    });
+
+    // Synchronize directly to live Supabase profile
+    void this.syncProfileStatsToSupabase();
+
+    // Also record session into game_sessions
+    if (isSupabaseConfigured() && supabase && !this.userProfile.isGuest && this.userProfile.id) {
+      void (async () => {
+        try {
+          await supabase.from('game_sessions').insert({
+            id: `mp_session_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            user_id: this.userProfile.id,
+            mode: 'multiplayer',
+            total_score: matchScore,
+            status: 'completed',
+            started_at: new Date(Date.now() - 60000).toISOString(),
+            completed_at: new Date().toISOString()
+          });
+        } catch {}
+      })();
     }
   }
 
